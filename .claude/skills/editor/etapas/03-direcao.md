@@ -69,6 +69,9 @@ casar todas; se não, você alterou a fala — corrija o roteiro).
   concretos — é o que o subagente vai buscar), como entra, zooms (em quê), destaques, trocas. Se a fala cita duas coisas
   ("esses dois sites"), mostre as duas e diga quando troca.
 - Não invente fatos que a fala não sustenta; se a fala cita uma ferramenta, mostre a ferramenta.
+- **Lettering** (aprendizado do editor, não regra do criador): sobre o ator (Full ator com lettering) ou sobre um insert
+  real, nunca sobre um **motion** que já tem texto (os dois textos se atropelam). Uma palavra ou expressão curta — o nome
+  da ferramenta, o número —, não a frase. Enquanto o lettering está na tela, a legenda daquelas palavras some.
 - Pense já no que é **achável**: um site, um produto, um repositório, um print de anúncio oficial. Ideias abstratas
   ("o conceito de produtividade") pedem motion ou Full ator, não insert.
 

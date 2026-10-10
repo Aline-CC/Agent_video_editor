@@ -369,6 +369,12 @@ def aplicar(slug: str, arquivo: str) -> None:
     edicao = ler(slug)
     saida = saida_do(slug, edicao)
     itens, casadas, avisos = estruturar(roteiro, saida)
+    # a mídia de um print sobreposto (`banco`) é posta depois da direção: um print com o mesmo texto a mantém
+    midia_dos_prints = {(i.get('texto') or '').strip().lower(): i['banco'] for i in (edicao.get('direcao') or {}).get('itens', [])
+                        if i.get('tipo') == 'print_sobreposto' and i.get('banco')}
+    for i in itens:
+        if i['tipo'] == 'print_sobreposto' and (b := midia_dos_prints.get((i.get('texto') or '').strip().lower())):
+            i['banco'] = b
     edicao['direcao'] = {'roteiro': roteiro, 'itens': itens}
     pedidos = sincronizar(edicao, saida)
     planos = {i['id'] for i in itens if i['camada'] == 'plano'}

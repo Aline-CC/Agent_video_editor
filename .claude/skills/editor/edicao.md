@@ -49,7 +49,9 @@ projetos/<slug>/
                "palavra_ini": "w00004", "palavra_fim": "w00011", "off_ini": -0.025, "off_fim": 0,
                "texto": null, "descricao": "a marcação", "porque": "por que este plano aqui (curto)"},
               {"id": "e1", "camada": "elemento", "tipo": "lettering", "palavra_ini": "…", "palavra_fim": "…",
-               "off_ini": -0.05, "off_fim": 0.15, "texto": "GPT Astra", "descricao": ""}]
+               "off_ini": -0.05, "off_fim": 0.15, "texto": "GPT Astra", "descricao": ""},
+              {"id": "e2", "camada": "elemento", "tipo": "print_sobreposto", "…": "…", "texto": "36,5 mil estrelas",
+               "banco": "96c66b43d8"}]   // print: com `banco`, a mídia num card; sem, uma etiqueta com o texto
   },
   "inserts": {
     "pedidos": [{"id": "p5", "plano": "p5", "tipo": "insert_tela_cheia", "conteudo": null, "formato": "vertical",

@@ -45,7 +45,20 @@ registre a ideia como nota para o criador.
 
 ## Elementos
 
-Lettering, Palavra ManyChat (o CTA "comente PALAVRA"), Caixinha de perguntas e Print sobreposto ficam por cima do plano,
-presos às palavras (a direção os cria; ver `03-direcao.md`). O estilo de cada um está na página de render
-(`render/`), medido nas referências do criador. Você não faz nada aqui além de conferir no proxy se o texto está certo e
-legível; para mudar o texto, edite `direcao.itens[i].texto` do elemento.
+Ficam por cima do plano, presos às palavras (a direção os cria; ver `03-direcao.md`). O estilo de cada um, medido nas
+referências do criador, está em `render/src/elementos.ts`:
+
+| Elemento | Como aparece |
+|---|---|
+| Full ator com lettering · lettering sobre o ator | texto branco grande (SF Pro Display Bold, sombra), logo abaixo do queixo |
+| lettering sobre insert | branco Bold no meio da área do insert, com o insert desfocado e escurecido atrás |
+| palavra ManyChat | barra branca de comentário, a palavra digitada e o botão de enviar (com som de digitação) |
+| caixinha de perguntas | sticker de pergunta do Instagram (cabeçalho em degradê), acima dos olhos sobre o ator |
+| print sobreposto | com `banco` (id de uma mídia): a mídia num card no peito/costura; sem: uma etiqueta mono com o `texto` |
+
+Todos entram com um "pop" de 0,18 s e saem secos. A legenda desvia deles.
+
+O que você faz: o **print sobreposto** precisa de mídia para ficar bom (o logo da ferramenta, o recorte das estrelas do
+GitHub): peça ao subagente do insert vizinho, ou busque você (`banco.py buscar`, `captura.py`, imagem oficial), e ponha
+o id em `direcao.itens[i].banco` do elemento (direto no `edicao.json`; reaplicar a direção mantém a mídia de um print
+com o mesmo texto). Confira no proxy se os textos estão certos e legíveis; para mudar, edite `direcao.itens[i].texto`.
