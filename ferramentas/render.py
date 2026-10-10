@@ -11,7 +11,13 @@ Como a exportação do 18 (SPEC §13; a cola de backend/app/exportacao.py `_grav
 de render (`render/`, servida por `servidor.servir`) calcula no navegador o que a prévia calcula (`window.__render`) e é
 fotografada quadro a quadro por navegadores escondidos (`montagem/render_quadros.py`); o ator e o áudio saem do bruto
 pelo ffmpeg, numa passada só (`montagem/exportacao.py`).
+
+O cache (`projetos/<slug>/.cache/`): a foto de cada trecho da camada (`camadas/<chave>.mov`, pela assinatura que a
+página dá a ele) e o áudio pronto, com o −14 LUFS (`audio.json` + `audio.wav`). Numa revisão, só os trechos que mudaram
+são fotografados de novo e o áudio só é refeito se algo nele mudou.
 """
+import hashlib
+import json
 import math
 import multiprocessing
 import os
@@ -26,7 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import servidor  # noqa: E402
-from base import BIBLIOTECA, ffmpeg, gravar_json, inspecionar, ler, ler_json, pasta  # noqa: E402
+from base import BIBLIOTECA, RAIZ, ffmpeg, gravar_json, inspecionar, ler, ler_json, pasta  # noqa: E402
 from montagem import audio, exportacao, legenda, look, render_quadros, sons  # noqa: E402
 from montagem.exportacao import dur_saida  # noqa: E402
 
@@ -34,6 +40,9 @@ FPS = 24
 PROXY = (720, 1280, 'h264')
 FINAL = (2160, 3840, 'hevc')
 VELOCIDADE = (1.0, 1.5)
+# o código que desenha a camada: se muda, as fotos guardadas não valem mais
+CODIGO_CAMADA = [RAIZ / 'render' / x for x in ('index.html', 'pagina.js', 'motion.html')] + [BIBLIOTECA / 'motions' / 'runtime.js']
+GUARDA = 3  # o cache da camada guarda os clipes usados nos últimos N renders do projeto
 
 
 def pagina(slug: str, porta: int) -> str:
@@ -138,15 +147,15 @@ def ler_pagina(url: str) -> dict:
             browser.close()
 
 
-def fotografar(url: str, trechos: list[dict], w: int, h: int, tmp: Path, navegadores: int) -> list[tuple[Path, float]]:
-    """A camada dos inserts: os quadros de cada trecho em pedaços, fotografados em paralelo (cada navegador grava os seus
-    pedaços em clipes ProRes 4444 com transparência); depois, um clipe por trecho, os pedaços emendados sem recodificar.
-    Devolve os clipes com o instante de cada um."""
+def fotografar(url: str, trechos: list[dict], w: int, h: int, tmp: Path, navegadores: int) -> list[Path]:
+    """A camada dos inserts: as fotos de cada trecho (`exportacao.fotos`, na grade do próprio trecho) em pedaços,
+    fotografadas em paralelo (cada navegador grava os seus pedaços em clipes ProRes 4444 com transparência); depois, um
+    clipe por trecho, os pedaços emendados sem recodificar. Devolve os clipes, na ordem dos trechos."""
     grupos = exportacao.pedacos(trechos, FPS, navegadores)
     total = sum(len(x) for g in grupos for x in g)
     if not total:
         return []
-    tarefas = [(qs, FPS, w, h, str(tmp / f'{i:03d}_{j:03d}.mov')) for i, g in enumerate(grupos) for j, qs in enumerate(g)]
+    tarefas = [(ts, FPS, w, h, str(tmp / f'{i:03d}_{j:03d}.mov')) for i, g in enumerate(grupos) for j, ts in enumerate(g)]
     print(f'      {total} quadros em {len(tarefas)} pedaços, {min(navegadores, len(tarefas))} navegadores', flush=True)
     pool = multiprocessing.get_context('spawn').Pool(min(navegadores, len(tarefas)), initializer=render_quadros.iniciar,
                                                       initargs=(url, w, h))
@@ -167,8 +176,69 @@ def fotografar(url: str, trechos: list[dict], w: int, h: int, tmp: Path, navegad
         lista.write_text(''.join(f"file '{i:03d}_{j:03d}.mov'\n" for j in range(len(g))))
         clipe = tmp / f'{i:03d}.mov'
         ffmpeg('-f', 'concat', '-safe', '0', '-i', str(lista), '-c', 'copy', str(clipe))
-        camadas.append((clipe, g[0][0] / FPS))
+        camadas.append(clipe)
     return camadas
+
+
+def _hash(*partes: str | bytes) -> str:
+    h = hashlib.sha256()
+    for x in partes:
+        h.update(x if isinstance(x, bytes) else x.encode())
+        h.update(b'\0')
+    return h.hexdigest()[:32]
+
+
+def _hash_arquivo(arq: Path) -> str:
+    return _hash(arq.read_bytes()) if arq.is_file() else 'ausente'
+
+
+def chave_do_trecho(t: dict, w: int, h: int, codigo: str) -> str:
+    """A chave das fotos de um trecho: a assinatura da página (o que ele desenha, nos tempos relativos ao começo dele), o
+    código da camada, o HTML dos presets de motion que ele usa, o tamanho, o fps e quantas fotos. Sem a fase do 1º quadro:
+    as fotos são na grade do próprio trecho (`exportacao.fotos`), então com tudo igual servem em qualquer instante."""
+    presets = sorted({m['preset'] for m in json.loads(t['assinatura']).get('motions') or [] if m.get('preset')})
+    return _hash(t['assinatura'], codigo, *(_hash_arquivo(BIBLIOTECA / 'motions' / 'presets' / f'{x}.html') for x in presets),
+                 f'{w}x{h}', str(FPS), str(len(exportacao.fotos(t, FPS))))
+
+
+def camada(url: str, trechos: list[dict], w: int, h: int, cache: Path, tmp: Path) -> tuple[list[tuple[Path, float]], list[str] | None]:
+    """A camada dos inserts com o cache: o clipe de cada trecho fica em `cache/<chave>.mov` e só os que faltam são
+    fotografados. O `_inserts` põe o clipe no 1º quadro do trecho (`q0 / FPS`, contado agora): serve onde o trecho cair.
+    O clipe tem fotos para qualquer fase; se o trecho agora pega um quadro a menos, vai uma cópia sem a última (sem
+    recodificar), senão ela cobriria o 1º quadro do que vem depois. Uma página sem `assinatura` (a do 18, por
+    `RENDER_PAGINA`) fotografa tudo, sem guardar. Devolve os clipes com o instante de cada um e as chaves usadas (None sem
+    o cache)."""
+    itens = [(t, qs) for t in trechos if (qs := exportacao.quadros(t, FPS))]
+    com_cache = all(t.get('assinatura') for t in trechos)
+    if com_cache:
+        codigo = _hash(*(_hash_arquivo(a) for a in CODIGO_CAMADA))
+        chaves = [chave_do_trecho(t, w, h, codigo) for t, _ in itens]
+    else:
+        cache, chaves = tmp / 'camadas', [f'{k:03d}' for k in range(len(itens))]
+    cache.mkdir(parents=True, exist_ok=True)
+    faltam = {k: t for (t, _), k in zip(itens, chaves) if not (cache / f'{k}.mov').exists()}
+    print(f'      {len(itens) - len(faltam)} trechos do cache, {len(faltam)} para fotografar', flush=True)
+    for k, clipe in zip(faltam, fotografar(url, list(faltam.values()), w, h, tmp, exportacao.NAVEGADORES)):
+        clipe.replace(cache / f'{k}.mov')
+    camadas = []
+    for i, ((t, qs), k) in enumerate(zip(itens, chaves)):
+        clipe = cache / f'{k}.mov'
+        if len(qs) < len(exportacao.fotos(t, FPS)):
+            clipe, curto = tmp / f'curto_{i:03d}.mov', clipe
+            ffmpeg('-i', str(curto), '-map', '0:v', '-c', 'copy', '-frames:v', str(len(qs)), str(clipe))
+        camadas.append((clipe, qs.start / FPS))
+    return camadas, chaves if com_cache else None
+
+
+def limpar_camadas(cache: Path, chaves: list[str]) -> None:
+    """Depois de um render: guarda as chaves dele e apaga do cache os clipes que nenhum dos últimos `GUARDA` usou."""
+    registro = cache / 'usos.json'
+    usos = ([*(ler_json(registro) or []), chaves])[-GUARDA:]
+    gravar_json(registro, usos)
+    vivos = {k for u in usos for k in u}
+    for clipe in cache.glob('*.mov'):
+        if clipe.stem not in vivos:
+            clipe.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------- o áudio
@@ -194,6 +264,27 @@ def som(p: Path, edicao: dict, fonte: dict, clipes: list[dict], transcricao: lis
     return {'voz': voz, 'voz_lufs': voz_lufs, 'timbre': a['voz']['timbre'], 'niveis': a['niveis'], 'fundo': fundo,
             'laco': audio.laco(fundo) if fundo else None, 'fundo_mudo': a['fundo_mudo'],
             'falas': audio.falas(palavras_na_saida(transcricao, clipes)), 'ducking_db': audio.DUCKING_DB, 'limpeza': limpeza}
+
+
+def mistura(p: Path, a: dict, clipes: list[dict], eventos: list[dict], duracao: float) -> tuple[dict, Path]:
+    """O áudio pronto: o ganho do −14 LUFS (`audio.medir`, algumas passadas do áudio) e a mistura com ele, num WAV em
+    float (as mesmas amostras que a passada final faria: ela só codifica). Guardados em `.cache/audio.json` e
+    `.cache/audio.wav` com a chave do que entra no áudio: o próprio grafo dele (a V1, a voz, os sons, o fundo, os níveis e
+    o ducking) e o tamanho e a data de cada arquivo de entrada. Sem nada mudado no áudio, nem mede nem mistura de novo."""
+    entradas, f = audio.filtros(a, clipes, eventos, 0, 'pfim', duracao, {'ganho': 0})
+    arquivos = [Path(x) for x in entradas if x != '-i']
+    chave = _hash(*entradas, *f, f'{duracao:.4f}', *(f'{x.stat().st_size}@{x.stat().st_mtime_ns}' for x in arquivos))
+    guardada, wav = ler_json(p / '.cache' / 'audio.json') or {}, p / '.cache' / 'audio.wav'
+    if guardada.get('chave') == chave and wav.exists():
+        return guardada['medida'], wav
+    (p / '.cache' / 'audio.json').unlink(missing_ok=True)  # a chave velha nunca fica apontando para um WAV novo
+    m = audio.medir(a, clipes, eventos, duracao)
+    entradas, f = audio.filtros(a, clipes, eventos, 0, 'pfim', duracao, m)
+    parte = wav.with_suffix('.parte.wav')
+    ffmpeg(*entradas, '-filter_complex', ';'.join(f), '-map', '[pfim]', '-t', f'{duracao:.4f}', '-c:a', 'pcm_f32le', str(parte))
+    parte.replace(wav)
+    gravar_json(p / '.cache' / 'audio.json', {'chave': chave, 'medida': m})
+    return m, wav
 
 
 # ---------------------------------------------------------------- o render
@@ -261,7 +352,8 @@ def render(slug: str, final: bool = False) -> Path:
         fase('pagina')
 
         print('[3/5] Fotos da camada dos inserts', flush=True)
-        camadas = fotografar(url, trechos, w, h, tmp, exportacao.NAVEGADORES)
+        cache = p / '.cache' / 'camadas'
+        camadas, chaves = camada(url, trechos, w, h, cache, tmp)
         fase('fotos')
 
         print('[4/5] Áudio: a voz, o fundo e o −14 LUFS', flush=True)
@@ -270,7 +362,7 @@ def render(slug: str, final: bool = False) -> Path:
         fator = sons.fator_da_voz(db_voz)  # os sons na mesma relação com a voz deste vídeo que nas referências
         eventos = [{**ev, 'ganho': float(ev.get('ganho', sons.INTENSIDADES['baixo'])) * fator} for ev in r['sons'] or []]
         a = som(p, edicao, fonte, clipes, transcricao, avisos)
-        a['medida'] = audio.medir(a, clipes, eventos, duracao)
+        a['medida'], a['pronta'] = mistura(p, a, clipes, eventos, duracao)
         print(f"      voz {a['limpeza']}, fundo {(edicao.get('audio') or {}).get('fundo') or '—'}, ganho {a['medida']['ganho']:+.1f} dB → "
               f"{a['medida']['i']:.1f} LUFS, pico {a['medida']['pico']} dBFS", flush=True)
         fase('audio')
@@ -285,10 +377,11 @@ def render(slug: str, final: bool = False) -> Path:
         # no proxy, o ator sai do proxy 720p (a mesma linha do tempo do bruto): decodificar e escalar o 4K pesava mais que tudo
         video = p / fonte['arquivo']
         if not final and not horizontal and fonte.get('proxy') and (p / fonte['proxy']).exists():
-            video = p / fonte['proxy']
+            video = p / fonte['proxy']  # leve: decodificado no processador (`hwaccel` abaixo)
         cmd = exportacao.comando_final(video, clipes, horizontal, (edicao.get('enquadramento') or {}).get('x', 0.5), w, h, FPS,
                                        divisoes, camadas, codec, duracao, parte, mascara if mascara.exists() else None, eventos,
-                                       r.get('transicoes'), {'arquivo': arq_leg} if arq_leg else None, lk, vinheta, a, r.get('movimentos'))
+                                       r.get('transicoes'), {'arquivo': arq_leg} if arq_leg else None, lk, vinheta, a, r.get('movimentos'),
+                                       hwaccel=video == p / fonte['arquivo'])
         log = tmp / 'ffmpeg.log'
         with open(log, 'wb') as erros:
             ff = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=erros, text=True)
@@ -303,6 +396,8 @@ def render(slug: str, final: bool = False) -> Path:
                 raise RuntimeError(f'ffmpeg falhou: {log.read_text(errors="replace")[-600:]}')
         parte.replace(destino)
         fase('montagem')
+        if chaves is not None:
+            limpar_camadas(cache, chaves)
     except BaseException:
         if pasta_versao:
             shutil.rmtree(pasta_versao, ignore_errors=True)

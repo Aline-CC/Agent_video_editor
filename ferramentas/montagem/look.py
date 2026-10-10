@@ -57,7 +57,8 @@ def mascara_vinheta(w: int, h: int, forca: float, destino: Path) -> Path:
 def filtros(look: dict, entrada: str, saida: str, idx_mascara: int | None) -> list[str]:
     """Os filtros do ffmpeg do look, de `[entrada]` para `[saida]`, em RGB (gbrp: o LUT e a multiplicação da vinheta
     valem por canal de cor, não em YUV): o LUT (trilinear, como o WebGL), misturado com o original pela intensidade, e a
-    máscara da vinheta (a entrada `idx_mascara` do ffmpeg) multiplicada."""
+    máscara da vinheta (a entrada `idx_mascara` do ffmpeg: a imagem, decodificada e convertida uma vez só e repetida
+    pelo `loop`; o `-loop 1` na entrada a decodificava de novo a cada quadro) multiplicada."""
     f = [f'[{entrada}]format=gbrp[lk0]']
     atual = 'lk0'
     k = float(look.get('intensidade', 1))
@@ -73,7 +74,7 @@ def filtros(look: dict, entrada: str, saida: str, idx_mascara: int | None) -> li
             f.append(f'[lkc][lka]blend=all_mode=normal:all_opacity={k:.3f}[lk1]')
         atual = 'lk1'
     if idx_mascara is not None:
-        f.append(f'[{idx_mascara}:v]format=gray16le,format=gbrp[lkm]')
+        f.append(f'[{idx_mascara}:v]format=gray16le,format=gbrp,loop=loop=-1:size=1[lkm]')
         f.append(f'[{atual}][lkm]blend=all_mode=multiply:shortest=1[lk2]')
         atual = 'lk2'
     f.append(f'[{atual}]null[{saida}]')

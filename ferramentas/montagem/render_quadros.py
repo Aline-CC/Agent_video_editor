@@ -61,15 +61,16 @@ def _rgba(png: bytes, w: int, h: int) -> bytes:
     return (img if img.size == (w, h) else img.resize((w, h), Image.LANCZOS)).tobytes()
 
 
-def pedaco(args: tuple[list[int], int, int, int, str]) -> int:
-    """Fotografa os quadros `quadros` (índices no vídeo final) e grava o clipe em `saida`. Devolve quantos fez."""
-    quadros, fps, w, h, saida = args
+def pedaco(args: tuple[list[float], int, int, int, str]) -> int:
+    """Fotografa a página nos instantes `tempos` (s do vídeo final) e grava o clipe em `saida`, um quadro por foto.
+    Devolve quantos fez."""
+    tempos, fps, w, h, saida = args
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{w}x{h}',
                            '-framerate', str(fps), '-i', '-', '-c:v', 'prores_videotoolbox', '-profile:v', '4444', saida],
                           stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     anterior: tuple[str | None, bytes] = (None, b'')
-    for q in quadros:
-        chave = _ir(q / fps)
+    for t in tempos:
+        chave = _ir(t)
         if chave and chave == anterior[0]:
             cru = anterior[1]  # insert parado: o mesmo quadro de antes, sem fotografar
         else:
@@ -80,4 +81,4 @@ def pedaco(args: tuple[list[int], int, int, int, str]) -> int:
     ff.stdin.close()
     if ff.wait() != 0:
         raise RuntimeError(f'ffmpeg (camada) falhou: {ff.stderr.read().decode(errors="replace")[-300:]}')
-    return len(quadros)
+    return len(tempos)

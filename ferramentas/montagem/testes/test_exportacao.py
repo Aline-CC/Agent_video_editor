@@ -71,3 +71,15 @@ def test_cada_camada_na_sua_funcao(tmp_path):
     assert exportacao._inserts([], 1, 'base', 'topo_in') == ([], ['[base]null[topo_in]'])
     assert exportacao._pos_montagem(None, None, 'topo', 'v', 180, 320, 3) == ([], ['[topo]format=yuv420p[v]'])
     assert exportacao._audio(None, 3, 'ac', 'am', [{'inicio': 0, 'fim': 1}], 1.0) == ([], ['[ac]anull[am]'])
+
+
+def test_proxy_sem_chip_e_audio_pronto(tmp_path):
+    """O proxy decodifica no processador (`hwaccel=False` só tira o `-hwaccel`) e o áudio já misturado pelo render
+    (`pronta`, do cache) entra como está, sem refazer a mistura."""
+    biblioteca_falsa(sons.RAIZ)
+    args, kw = casos(tmp_path)['vertical_simples']
+    com, sem = exportacao.comando_final(*args, **kw), exportacao.comando_final(*args, **kw, hwaccel=False)
+    assert [x for x in com if x not in ('-hwaccel', 'videotoolbox')] == sem
+    wav = tmp_path / 'audio.wav'
+    assert exportacao._audio([], 3, 'ac', 'am', [{'inicio': 0, 'fim': 1}], 1.0, {'pronta': wav}) == (
+        ['-i', str(wav)], ['[ac]anullsink', '[3:a]anull[am]'])

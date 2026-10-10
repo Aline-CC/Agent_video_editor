@@ -43,8 +43,9 @@ uv run ferramentas/servidor.py      # se não estiver no ar (em segundo plano) �
 Diga ao criador, em poucas linhas: o link do app, a duração final, quanto tempo levou, as dúvidas que deixou como nota
 e o que não conseguiu (ex.: "o insert do p7 ficou com um print estático: o site exige login").
 
-Tempo esperado: 2,5 a 3 min de render para 1 min de vídeo com metade em insert (fotos ~70 s, montagem ~65 s; na 1ª vez
-de cada mídia do banco, +~5 s por vídeo para a cópia de exportação) + ~30 s de autorrevisão (o Gemini responde em ~16 s).
+Tempo esperado (máquina calma, 1 min de vídeo com metade em insert): ~55 s do zero; numa revisão, 15 a 26 s, porque os
+trechos de insert/motion que não mudaram vêm do cache (`.cache/camadas/` do projeto) e o áudio também, se não mudou. O
+render imprime "N trechos do cache, M para fotografar". Autorrevisão: ~30 s (o Gemini responde em ~16 s).
 
 ## Aprendizados (1º vídeo de teste, out/2026)
 

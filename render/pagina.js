@@ -1771,6 +1771,67 @@ ${b}` };
     const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]));
     const desenhaveis = [...planos.filter((p) => p.tipo === "full_ator_lettering"), ...elementos].sort((a, b) => a.inicio - b.inicio).map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }));
     trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })));
+    const versoes = /* @__PURE__ */ new Map();
+    const versao = (url) => {
+      if (!versoes.has(url))
+        versoes.set(url, fetch(url, { method: "HEAD" }).then((r) => r.ok ? `${r.headers.get("content-length")}@${r.headers.get("last-modified")}` : "ausente", () => "ausente"));
+      return versoes.get(url);
+    };
+    const midiaDe = async (id) => {
+      const i = id ? banco.get(id) ?? await itemBanco(id) : null;
+      return i ? { ...i, versao: await versao(i.url) } : null;
+    };
+    const r3 = (x) => Math.round(x * 1e3) / 1e3;
+    const assinatura = async ({ ini, fim }) => {
+      const rel = (x) => r3(x - ini);
+      const cai = (a, b) => a < fim && b > ini;
+      const daqui = await Promise.all(
+        lista2.filter((x) => cai(x.t.inicio, x.t.fim)).map(async (x) => {
+          const divisao = divisaoDe(x, banco, presets);
+          const comentario = x.tipo === "comentario_insert_ator" ? comentarioDe(x, lugarDoComentario(x, divisao, geometriaDoAtor(divisao, x.enriquecimento?.ator, null))) : null;
+          return {
+            t: [rel(x.t.inicio), rel(x.t.fim)],
+            tipo: x.tipo,
+            formato: x.formato,
+            texto: x.texto,
+            enriquecimento: x.enriquecimento ?? null,
+            midias: await Promise.all(x.midias.map((m) => midiaDe(m.banco))),
+            receita: receitaDoInsert(x, banco, presets),
+            divisao,
+            comentario
+          };
+        })
+      );
+      const mots = await Promise.all(
+        comMotion.filter((m) => cai(m.ini, m.fim)).map(async (m) => {
+          const mp = motions[m.plano];
+          const ids = mp.tipo === "video" ? [mp.banco] : Object.values(mp.valores ?? {}).filter((v) => typeof v === "string" && /^[0-9a-f]{10}$/.test(v));
+          return {
+            t: [rel(m.ini), rel(m.fim)],
+            preset: mp.tipo === "preset" ? mp.preset : null,
+            formato: mp.formato,
+            fundo: fundoDoMotion(mp) ?? null,
+            src: urlPaginaMotion(mp, m.fim - m.ini, m.fala, true),
+            midias: await Promise.all(ids.map(midiaDe))
+          };
+        })
+      );
+      const elems = await Promise.all(
+        desenhaveis.filter((e) => cai(e.inicio, e.fim)).map(async (e) => ({ t: [rel(e.inicio), rel(e.fim)], tipo: e.tipo, texto: e.texto, lugar: e.lugar, midia: await midiaDe(e.banco) }))
+      );
+      const fundo2 = daqui.length ? fundoInserts : null;
+      return JSON.stringify({
+        dur: r3(fim - ini),
+        inserts: daqui,
+        motions: mots,
+        elementos: elems,
+        fundo: fundo2,
+        // a chuva toca o loop no relógio do vídeo final: aí o trecho depende do instante
+        relogio: [fundo2, ...mots.map((m) => m.fundo)].includes("chuva") ? r3(ini) : null,
+        palavras: saida.filter((w) => w.saida_ini < fim && w.saida_fim > ini).map((w) => [w.texto, rel(w.saida_ini), rel(w.saida_fim)])
+      });
+    };
+    await Promise.all(trechos.map(async (t) => void (t.assinatura = await assinatura(t))));
     const quadro = (tempo) => {
       definirRelogio(tempo);
       const atual = lista2.find((x) => tempo >= x.t.inicio && tempo < x.t.fim);

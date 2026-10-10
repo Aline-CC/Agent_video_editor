@@ -277,9 +277,11 @@ def _audio(eventos_som: list[dict] | None, primeira_entrada: int, rotulo_voz: st
     somados — os de apoio dos presets e os das transições (os dois vêm em `__render.sons`). Com `audio` (a P3,
     `audio.da_exportacao`), a voz vem de uma entrada própria (a limpa, cortada igual) com o timbre, o compressor e os
     faders, o fundo com ducking e o −14 LUFS (`audio.filtros`); a voz do bruto é descartada. Devolve (entradas,
-    filtros), com a mistura em [`saida`]."""
+    filtros), com a mistura em [`saida`]. `audio['pronta']`: a mistura já feita (um WAV, do cache do render), só lida."""
     if audio is None:
         return sons.filtro_mistura(eventos_som or [], primeira_entrada, rotulo_voz, saida)
+    if audio.get('pronta'):
+        return ['-i', str(audio['pronta'])], [f'[{rotulo_voz}]anullsink', f'[{primeira_entrada}:a]anull[{saida}]']
     entradas, filtros = audio_mod.filtros(audio, clipes, eventos_som or [], primeira_entrada, saida, duracao, audio.get('medida'))
     return entradas, [f'[{rotulo_voz}]anullsink', *filtros]
 
@@ -288,13 +290,16 @@ def comando_final(bruto: Path, clipes: list[dict], horizontal: bool, enquadramen
                   divisoes: list[tuple[float, float, dict]], camadas: list[tuple[Path, float]], codec: str, duracao: float,
                   saida: Path, mascara: Path | None = None, eventos_som: list[dict] | None = None,
                   transicoes: list[dict] | None = None, legenda: dict | None = None, look: dict | None = None,
-                  mascara_vinheta: Path | None = None, audio: dict | None = None, movimentos: list[dict] | None = None) -> list[str]:
+                  mascara_vinheta: Path | None = None, audio: dict | None = None, movimentos: list[dict] | None = None,
+                  hwaccel: bool = True) -> list[str]:
     """Uma passada só, montada por camadas na ordem do contrato (SPEC §13; cada área mexe só na sua função): o ator e o
     áudio do bruto, decodificado pelo chip de vídeo (`_ator`); por cima, a camada dos inserts (`_inserts`); por cima
     dela, o ator na janela do "insert atrás" e a pessoa recortada (a parte de cima de `_ator`); depois, sobre o quadro
     montado, as transições e a legenda (`_pos_montagem`); o áudio (`_audio`). Codifica no chip de vídeo (HEVC ou H.264).
     Entradas do ffmpeg, nesta ordem: o bruto, a máscara (se usada), os clipes dos inserts, os sons e a máscara da
-    vinheta do look (se houver; em loop). O look (LUT + vinheta, `look.py`) vale só para o ator, logo depois da escala."""
+    vinheta do look (se houver; lida uma vez e repetida pelo filtro `loop`). O look (LUT + vinheta, `look.py`) vale só
+    para o ator, logo depois da escala. `hwaccel`: decodificar o bruto no chip de vídeo (no 4K compensa; num vídeo leve,
+    como o proxy 720p, trazer cada quadro do chip de volta custa mais que decodificar no processador)."""
     com_look = look_mod.ativo(look)
     partes, topo = _ator(clipes, horizontal, enquadramento_x, w, h, fps, divisoes, duracao, mascara is not None, com_look, movimentos)
     usa_mascara = any('[1:v]' in x for x in partes)
@@ -307,22 +312,34 @@ def comando_final(bruto: Path, clipes: list[dict], horizontal: bool, enquadramen
         idx_vinheta = None
         if mascara_vinheta is not None and look_mod.VINHETAS.get(look.get('vinheta'), 0) > 0:
             idx_vinheta = base_idx + len(camadas) + ent_som.count('-i')
-            entradas += ['-loop', '1', '-i', str(mascara_vinheta)]
+            entradas += ['-i', str(mascara_vinheta)]
         partes += look_mod.filtros(look, 'ator_cru', 'ator', idx_vinheta)
     ent_pos, f_pos = _pos_montagem(transicoes, legenda, 'topo', 'v', w, h, 1 + entradas.count('-i'), fps)
     entradas += ent_pos
     partes += f_ins + f_som + topo + f_pos
     cv = ['-c:v', 'hevc_videotoolbox', '-q:v', '65', '-tag:v', 'hvc1'] if codec == 'hevc' else ['-c:v', 'h264_videotoolbox', '-q:v', '65']
-    return ['ffmpeg', '-y', '-loglevel', 'error', '-progress', 'pipe:1', '-nostats', '-hwaccel', 'videotoolbox', '-i', str(bruto),
+    return ['ffmpeg', '-y', '-loglevel', 'error', '-progress', 'pipe:1', '-nostats', *(['-hwaccel', 'videotoolbox'] if hwaccel else []), '-i', str(bruto),
             *entradas, '-filter_complex', ';'.join(partes), '-map', '[v]', '-map', '[am]', *cv, '-pix_fmt', 'yuv420p',
             '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
             '-c:a', 'aac', '-b:a', '320k', '-ar', '48000', '-t', f'{duracao:.4f}', '-movflags', '+faststart', str(saida)]
 
 
-def pedacos(trechos: list[dict], fps: int, navegadores: int) -> list[list[list[int]]]:
-    """Os quadros de cada insert (índices no vídeo final), cortados em pedaços para dividir entre os navegadores: pedaços
+def quadros(t: dict, fps: int) -> range:
+    """Os quadros do vídeo final (índices) em que o trecho aparece: os que começam em [ini, fim)."""
+    return range(math.ceil(t['ini'] * fps - 1e-9), math.ceil(t['fim'] * fps - 1e-9))
+
+
+def fotos(t: dict, fps: int) -> list[float]:
+    """Os instantes fotografados de um trecho: a grade dele mesmo (ini + j/fps), com fotos para qualquer fase (ceil da
+    duração em quadros). O quadro q0 + j do vídeo mostra a foto j: no máximo 1 quadro atrás do instante exato, e a mesma
+    foto serve em qualquer instante do vídeo (os cortes movem o trecho; o cache do render reaproveita)."""
+    return [t['ini'] + j / fps for j in range(math.ceil(round((t['fim'] - t['ini']) * fps, 6)))]
+
+
+def pedacos(trechos: list[dict], fps: int, navegadores: int) -> list[list[list[float]]]:
+    """Os instantes fotografados de cada trecho (`fotos`), cortados em pedaços para dividir entre os navegadores: pedaços
     pequenos o bastante para todos trabalharem até o fim, grandes o bastante para não perder tempo trocando."""
-    quadros = [[q for q in range(math.ceil(t['ini'] * fps - 1e-9), math.ceil(t['fim'] * fps - 1e-9))] for t in trechos]
-    total = sum(map(len, quadros))
+    por_trecho = [fotos(t, fps) for t in trechos]
+    total = sum(map(len, por_trecho))
     tamanho = max(12, min(48, math.ceil(total / (navegadores * 3)) if total else 12))
-    return [[qs[i:i + tamanho] for i in range(0, len(qs), tamanho)] for qs in quadros if qs]
+    return [[ts[i:i + tamanho] for i in range(0, len(ts), tamanho)] for ts in por_trecho if ts]

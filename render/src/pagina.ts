@@ -2,7 +2,7 @@
  *  elementos da direção (`elementos.ts`), em fundo transparente, parada no instante que o render pede
  *  (`window.__render.ir(t)`). O ator e o áudio saem do bruto, pelo ffmpeg (SPEC §13). Do 18: frontend/src/paginas/Render.tsx (`RenderProjeto`), com as
  *  mesmas contas e o mesmo `window.__render`, mais `palavras` e `planos` (o app de revisão usa). */
-import { carregar } from './dados'
+import { carregar, itemBanco } from './dados'
 import { montarSequencia } from './sequencia'
 import { paraTempo, palavrasNaSaida } from './direcaoProjeto'
 import { geometriaDoAtor, rostoDoArquivo } from './ator'
@@ -17,13 +17,14 @@ import { comentarioDe, cardComentario } from './comentario'
 import { definirRelogio, desenhar, insertNoLugar, motionNoLugar, type V } from './desenho'
 import { desenharElementos, intervalosDeLettering, sonsDosElementos, zonasDosElementos, type Elemento, type Lugar } from './elementos'
 
-/** `divisao`: como a tela se divide no trecho (o ator: onde fica, e se a pessoa recortada sai por cima do insert). */
-type Trecho = { ini: number; fim: number; dividida: boolean; divisao: (Divisao & { ator: unknown }) | null }
+/** `divisao`: como a tela se divide no trecho (o ator: onde fica, e se a pessoa recortada sai por cima do insert).
+ *  `assinatura`: tudo o que o trecho desenha (o render.py guarda a foto dele por ela). */
+type Trecho = { ini: number; fim: number; dividida: boolean; divisao: (Divisao & { ator: unknown }) | null; assinatura?: string }
 declare global {
   interface Window {
     /** O contrato com o render (o mesmo do 18, lido como em `backend/app/exportacao._trechos`):
      *  - `duracao` (s) do vídeo final; `trechos`: onde há camada para fotografar (inserts com mídia, motions e os pedaços
-     *    dos elementos e dos planos Full ator com lettering que não caem em nenhum deles);
+     *    dos elementos e dos planos Full ator com lettering que não caem em nenhum deles), cada um com a `assinatura`;
      *  - `ir(t)`: leva a página ao instante t e responde, depois de tudo pintado, com a chave do quadro quando ele fica
      *    igual aos seguintes (insert parado: o render reaproveita a foto) ou null;
      *  - `sons()`: os sons de apoio (presets, motions, elementos e transições) no tempo do vídeo final, **sem** o fator de som do
@@ -143,6 +144,53 @@ async function iniciar() {
     .map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }))
   // os pedaços deles fora dos inserts e motions entram para o render fotografar (os de dentro já saem na foto do trecho)
   trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })))
+
+  // a assinatura de cada trecho: tudo o que ele desenha, com os tempos relativos ao começo dele (a foto guardada serve
+  // num instante diferente do vídeo: os cortes podem mover o trecho). As mídias vão com o tamanho e a data do arquivo que
+  // a página toca (HEAD), para a assinatura mudar quando a mídia muda
+  const versoes = new Map<string, Promise<string>>()
+  const versao = (url: string) => {
+    if (!versoes.has(url))
+      versoes.set(url, fetch(url, { method: 'HEAD' }).then((r) => (r.ok ? `${r.headers.get('content-length')}@${r.headers.get('last-modified')}` : 'ausente'), () => 'ausente'))
+    return versoes.get(url)!
+  }
+  const midiaDe = async (id: string | null | undefined) => {
+    const i = id ? banco.get(id) ?? (await itemBanco(id)) : null
+    return i ? { ...i, versao: await versao(i.url) } : null
+  }
+  const r3 = (x: number) => Math.round(x * 1000) / 1000
+  const assinatura = async ({ ini, fim }: { ini: number; fim: number }) => {
+    const rel = (x: number) => r3(x - ini)
+    const cai = (a: number, b: number) => a < fim && b > ini
+    const daqui = await Promise.all(
+      lista.filter((x) => cai(x.t.inicio, x.t.fim)).map(async (x) => {
+        const divisao = divisaoDe(x, banco, presets)
+        const comentario = x.tipo === 'comentario_insert_ator' ? comentarioDe(x, lugarDoComentario(x, divisao, geometriaDoAtor(divisao, x.enriquecimento?.ator, null))) : null
+        return { t: [rel(x.t.inicio), rel(x.t.fim)], tipo: x.tipo, formato: x.formato, texto: x.texto, enriquecimento: x.enriquecimento ?? null,
+                 midias: await Promise.all(x.midias.map((m) => midiaDe(m.banco))), receita: receitaDoInsert(x, banco, presets), divisao, comentario }
+      }),
+    )
+    const mots = await Promise.all(
+      comMotion.filter((m) => cai(m.ini, m.fim)).map(async (m) => {
+        const mp = motions[m.plano]
+        // as mídias do motion: o vídeo do banco, ou os campos de imagem do preset (um id do banco nos valores)
+        const ids = mp.tipo === 'video' ? [mp.banco] : Object.values(mp.valores ?? {}).filter((v) => typeof v === 'string' && /^[0-9a-f]{10}$/.test(v))
+        return { t: [rel(m.ini), rel(m.fim)], preset: mp.tipo === 'preset' ? mp.preset : null, formato: mp.formato, fundo: fundoDoMotion(mp) ?? null,
+                 src: urlPaginaMotion(mp, m.fim - m.ini, m.fala, true), midias: await Promise.all(ids.map(midiaDe)) }
+      }),
+    )
+    const elems = await Promise.all(
+      desenhaveis.filter((e) => cai(e.inicio, e.fim)).map(async (e) => ({ t: [rel(e.inicio), rel(e.fim)], tipo: e.tipo, texto: e.texto, lugar: e.lugar, midia: await midiaDe(e.banco) })),
+    )
+    const fundo = daqui.length ? fundoInserts : null
+    return JSON.stringify({
+      dur: r3(fim - ini), inserts: daqui, motions: mots, elementos: elems, fundo,
+      // a chuva toca o loop no relógio do vídeo final: aí o trecho depende do instante
+      relogio: [fundo, ...mots.map((m) => m.fundo)].includes('chuva') ? r3(ini) : null,
+      palavras: saida.filter((w) => w.saida_ini < fim && w.saida_fim > ini).map((w) => [w.texto, rel(w.saida_ini), rel(w.saida_fim)]),
+    })
+  }
+  await Promise.all(trechos.map(async (t) => void (t.assinatura = await assinatura(t))))
 
   // a camada no instante `tempo` e a chave do quadro (parado: sem vídeo na tela, checado depois de pintar, e sem entrada
   // nem saída andando, nem um elemento mexendo; motion nunca é parado)
