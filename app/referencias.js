@@ -1,6 +1,7 @@
-// As páginas que leem as referências da calibragem: a galeria de Referências (todos os planos, para ver como cada tipo
-// foi usado e favoritar os melhores) e a Heurística da direção (as regras e os roteiros de exemplo que o Claude lê).
-import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, enviar, esc, janela, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
+// As páginas do que o Claude lê para editar: a galeria de Referências (todos os planos, para ver como cada tipo foi usado
+// e favoritar os melhores), a Heurística da direção (as regras e os roteiros de exemplo) e os Aprendizados (um .md por
+// área, com as correções do criador vídeo a vídeo).
+import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, enviar, esc, janela, markdown, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
 import { jsons } from './biblioteca.js'
 
 const GRUPOS = [
@@ -284,45 +285,6 @@ function falaComLettering(fala) {
   return `“${html + esc(fala.slice(pos))}”`
 }
 
-/** Um Markdown pequeno (títulos, listas, parágrafos, negrito, itálico e código), o bastante para as regras. */
-function markdown(texto) {
-  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
-  let html = ''
-  let lista = false
-  let paragrafo = []
-  const fecharParagrafo = () => {
-    if (paragrafo.length) html += `<p>${inline(paragrafo.join(' '))}</p>`
-    paragrafo = []
-  }
-  const fecharLista = () => {
-    if (lista) html += '</ul>'
-    lista = false
-  }
-  for (const linha of texto.split('\n')) {
-    const t = linha.trim()
-    const titulo = t.match(/^(#{1,4})\s+(.*)$/)
-    if (titulo) {
-      fecharParagrafo()
-      fecharLista()
-      html += `<h${titulo[1].length + 1}>${inline(titulo[2])}</h${titulo[1].length + 1}>`
-    } else if (/^[-*]\s+/.test(t)) {
-      fecharParagrafo()
-      if (!lista) html += '<ul>'
-      lista = true
-      html += `<li>${inline(t.replace(/^[-*]\s+/, ''))}</li>`
-    } else if (!t) {
-      fecharParagrafo()
-      fecharLista()
-    } else {
-      fecharLista()
-      paragrafo.push(t)
-    }
-  }
-  fecharParagrafo()
-  fecharLista()
-  return html
-}
-
 export async function abrirHeuristica(tela) {
   tela.className = 'pagina pagina-heuristica'
   let h
@@ -397,6 +359,76 @@ export async function abrirHeuristica(tela) {
       h.regras = texto.trimEnd() + '\n'
       salvo('Salvo')
     } catch (x) {
+      salvo(esc(x.message), true)
+    }
+  })
+  desenhar()
+}
+
+// ---------- Aprendizados ----------
+
+let modoAprendizado = 'ler' // Ler/Editar fica entre as áreas
+const imagemAprendizado = (src) => {
+  const m = src.match(/^imagens\/([\w.-]+)$/)
+  return m ? `/api/aprendizados/imagens/${encodeURIComponent(m[1])}` : null
+}
+
+export async function abrirAprendizados(tela, area) {
+  tela.className = 'pagina pagina-aprendizados'
+  let areas, a
+  try {
+    areas = await enviar('GET', '/api/aprendizados')
+    a = await enviar('GET', `/api/aprendizados/${encodeURIComponent(area || areas[0].area)}`)
+  } catch (e) {
+    tela.innerHTML = `<p class="vazio">${esc(e.message)}</p>`
+    return null
+  }
+  const desenhar = () => {
+    const lado = `<aside class="lado-pares"><span class="eyebrow" title="Quantos aprendizados vieram das suas correções">Áreas · do criador</span>
+      ${areas.map((x) => `<a class="par-link${x.area === a.area ? ' ativo' : ''}" href="#/aprendizados/${x.area}"><span>${esc(x.nome)}</span><span class="conta">${x.criador}</span></a>`).join('')}</aside>`
+    const corpo = modoAprendizado === 'ler'
+      ? `<div class="markdown">${markdown(a.texto, { imagem: imagemAprendizado })}</div>`
+      : `<textarea class="editor-regras" spellcheck="false">${esc(a.texto)}</textarea>`
+    tela.innerHTML = `<div class="com-lado">${lado}<div class="lado-conteudo bloco-heuristica">
+      <div class="cabeca-secao"><span class="eyebrow">Aprendizados · ${esc(a.nome)}</span>${ajuda('O que o Claude aprendeu nesta área, vídeo a vídeo: o que você corrigiu (Do criador) e os erros técnicos dele (Técnicos). Ele lê o arquivo antes de trabalhar na área. Os aprendizados entram quando um vídeo é aprovado; você também pode editá-los aqui.')}
+        <div class="alternar">${['ler', 'editar'].map((m) => `<button class="pilula pequena${modoAprendizado === m ? ' ativa' : ''}" data-modo="${m}">${m === 'ler' ? 'Ler' : 'Editar'}</button>`).join('')}</div>
+        ${modoAprendizado === 'editar' ? '<span class="dica">Grava ao sair da caixa.</span>' : ''}<span class="salvo" id="salvo-a"></span>
+        <a class="link link-regras" href="#/heuristica" title="Os aprendizados de direção (que plano, quando, abertura, ritmo) ficam nas Regras do criador, na Heurística">Direção → Regras do criador</a></div>
+      ${corpo}</div></div>`
+  }
+  const salvo = (texto, erro = false) => {
+    const el = $('#salvo-a', tela)
+    if (!el) return
+    el.className = `salvo${erro ? ' salvo-erro' : ''}`
+    el.innerHTML = texto
+    if (!erro) setTimeout(() => el.textContent === 'Salvo' && (el.innerHTML = ''), 1800)
+  }
+  tela.addEventListener('click', (e) => {
+    const m = e.target.closest('[data-modo]')
+    if (m) {
+      modoAprendizado = m.dataset.modo
+      desenhar()
+      if (modoAprendizado === 'editar') $('.editor-regras', tela).focus()
+      return
+    }
+    const img = e.target.closest('[data-ampliar]')
+    if (img) janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button><img class="anexo-grande" src="${img.dataset.ampliar}" alt="">`, { classe: 'janela-anexo' })
+  })
+  tela.addEventListener('focusout', async (e) => {
+    if (!e.target.matches('.editor-regras')) return
+    const texto = e.target.value
+    const antes = a.texto
+    if (texto.trim() === antes.trim()) return
+    a.texto = texto.trimEnd() + '\n' // já vale para o Ler, se o clique que tirou o foco foi nele
+    salvo('Salvando…')
+    try {
+      const r = await enviar('PUT', `/api/aprendizados/${a.area}`, { texto })
+      areas.find((x) => x.area === a.area).criador = r.criador
+      for (const c of $$('.par-link.ativo .conta', tela)) c.textContent = r.criador
+      salvo('Salvo')
+    } catch (x) {
+      a.texto = antes
+      if (modoAprendizado === 'ler') desenhar()
       salvo(esc(x.message), true)
     }
   })

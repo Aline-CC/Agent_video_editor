@@ -20,8 +20,9 @@ uv run ferramentas/revisao.py ler <slug> [vN]     # cada comentário com id, ân
 
 ## Aplicar
 
-0. **Abra os prints**: cada comentário com `↳ print: projetos/<slug>/revisoes/anexos/…` (também no `revisao.py ler`)
-   tem imagens do criador; abra cada uma com a ferramenta Read (ela mostra a imagem) antes de aplicar.
+0. **Abra os anexos**: cada comentário com `↳ print:` / `↳ anexo: projetos/<slug>/revisoes/anexos/…` (também no
+   `revisao.py ler`) tem imagens ou vídeos do criador; abra cada imagem com a ferramenta Read (ela mostra a imagem) e,
+   num vídeo, tire alguns quadros com o ffmpeg e leia-os, antes de aplicar.
 1. **Classifique** cada comentário pela etapa que ele toca e leia o `.md` dessa etapa:
    - fala (corta/volta palavra, repetição) → `02-cortes.md` (edite a `selecao.json` e `cortes.py aplicar`);
    - plano, tipo, o que aparece, lettering, elementos → `03-direcao.md` (edite o `roteiro.md` e `direcao.py aplicar`:

@@ -214,6 +214,67 @@ export function preferencia(chave, padrao, valor) {
   }
 }
 
+/** Um Markdown pequeno (títulos, listas — com as linhas recuadas continuando o item —, parágrafos, negrito, itálico,
+ *  código, links e imagens), o bastante para as regras e os aprendizados. `imagem(src)` dá o endereço de uma imagem
+ *  (null: fica o texto); clicar numa imagem (`data-ampliar`) é com quem chama. */
+export function markdown(texto, { imagem = () => null } = {}) {
+  const inline = (s) =>
+    esc(s)
+      .replace(/(?:\s*·)?((?:\s*!\[[^\]]*\]\([^)\s]+\))+)/g, (m, grupo) => { // as imagens seguidas, numa linha abaixo
+        const imgs = [...grupo.matchAll(/!\[([^\]]*)\]\(([^)\s]+)\)/g)].map(([x, alt, src]) => [imagem(src), alt, x])
+        if (!imgs.some(([url]) => url)) return m
+        return `<span class="md-imagens">${imgs.map(([url, alt, x]) => (url ? `<button class="md-imagem" data-ampliar="${url}" title="Ampliar"><img src="${url}" alt="${alt}" loading="lazy"></button>` : x)).join('')}</span>`
+      })
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+|#\/[^)\s]*)\)/g, '<a class="link" href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
+      .replace(/(^|[\s(])_([^_\s][^_]*?)_(?=[\s).,;:·<]|$)/g, '$1<i>$2</i>')
+  let html = ''
+  let item = null // o item da lista em aberto (as linhas recuadas seguintes continuam nele)
+  let lista = false
+  let paragrafo = []
+  const fecharParagrafo = () => {
+    if (paragrafo.length) html += `<p>${inline(paragrafo.join(' '))}</p>`
+    paragrafo = []
+  }
+  const fecharItem = () => {
+    if (item) html += `<li>${inline(item.join(' '))}</li>`
+    item = null
+  }
+  const fecharLista = () => {
+    fecharItem()
+    if (lista) html += '</ul>'
+    lista = false
+  }
+  for (const linha of texto.split('\n')) {
+    const t = linha.trim()
+    const titulo = t.match(/^(#{1,4})\s+(.*)$/)
+    if (titulo) {
+      fecharParagrafo()
+      fecharLista()
+      html += `<h${titulo[1].length + 1}>${inline(titulo[2])}</h${titulo[1].length + 1}>`
+    } else if (/^[-*]\s+/.test(t)) {
+      fecharParagrafo()
+      fecharItem()
+      if (!lista) html += '<ul>'
+      lista = true
+      item = [t.replace(/^[-*]\s+/, '')]
+    } else if (!t) {
+      fecharParagrafo()
+      fecharLista()
+    } else if (item && /^\s/.test(linha)) {
+      item.push(t)
+    } else {
+      fecharLista()
+      paragrafo.push(t)
+    }
+  }
+  fecharParagrafo()
+  fecharLista()
+  return html
+}
+
 /** Um "?" discreto com a explicação da página na dica (no lugar da frase no cabeçalho). */
 export const ajuda = (texto) => `<span class="ajuda" tabindex="0" title="${esc(texto)}" aria-label="${esc(texto)}">?</span>`
 

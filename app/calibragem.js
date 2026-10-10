@@ -14,6 +14,10 @@ const PASSOS = { proxy: 'Preparando o vídeo', transcricao: 'Transcrevendo', cen
 const VIDEO = /\.(mp4|mov|m4v|webm)$/i
 const emAndamento = (r) => r.status === 'na_fila' || r.status === 'analisando'
 const abrivel = (r) => r.status === 'a_revisar' || r.status === 'revisado'
+/** "do projeto <slug> · vN" numa referência que veio de um projeto aprovado (calibragem.py de-projeto). */
+const seloOrigem = (o, classe) => (o?.projeto
+  ? `<span class="${classe} selo-origem" title="Veio da v${o.versao} ${o.aprovado_em ? `aprovada em ${dataHora(o.aprovado_em)}` : '(não aprovada no app)'} do projeto ${esc(o.projeto)}">do projeto ${esc(o.projeto)} · v${o.versao}</span>`
+  : '')
 
 // ---------- a grade ----------
 
@@ -30,7 +34,7 @@ export async function abrirCalibragem(tela) {
     const [rotulo, cor] = STATUS[r.status] || [r.status, 'selo-coral']
     const passo = r.passo ? `${PASSOS[r.passo] || r.passo_rotulo || r.passo}${r.passo === 'analise' && r.passos?.analise?.total ? ` ${r.passos.analise.feitos || 0}/${r.passos.analise.total}` : r.progresso != null ? ` ${Math.round(r.progresso * 100)}%` : ''}` : ''
     const mini = `<div class="mini mini-916">${r.miniatura ? `<img src="${r.miniatura}" alt="" loading="lazy">` : ''}
-        <span class="selo ${cor}">${rotulo}</span>${r.duracao ? `<span class="duracao">${mmss(r.duracao)}</span>` : ''}
+        <span class="selo ${cor}">${rotulo}</span>${r.duracao ? `<span class="duracao">${mmss(r.duracao)}</span>` : ''}${seloOrigem(r.origem, 'selo selo-azul')}
         ${r.status === 'analisando' || r.status === 'na_fila' ? `<span class="progresso"><i style="width:${Math.round((r.progresso ?? 0) * 100)}%"></i></span>` : ''}
         <span class="acoes-card"><button class="botao-icone pequeno" data-renomear title="Renomear">${ICONE.lapis}</button>
           <button class="botao-icone pequeno" data-apagar title="Apagar">${ICONE.lixo}</button></span></div>`
@@ -243,9 +247,18 @@ class RevisaoReferencia {
   item = (id) => this.itens.find((i) => i.id === id)
   nomeTipo = (i) => (i.camada === 'plano' ? nomePlano(i.tipo) : ELEMENTOS[i.tipo] || i.tipo)
 
+  /** Os comentários das revisões do projeto de origem (referencia.json `revisoes`), num painel recolhível. */
+  htmlCorrecoes() {
+    const cs = this.ref.revisoes || []
+    if (!this.ref.origem?.projeto || !cs.length) return ''
+    return `<details class="sanfona correcoes"><summary>${ICONE.seta_baixo}<b>O que o criador corrigiu</b><span class="conta">${cs.length}</span></summary>
+      <div class="lista-correcoes">${cs.map((c) => `<div class="correcao"><span class="dica">v${c.versao}${c.tempo != null ? ` · ${tempo(c.tempo)}` : ' · geral'}</span>
+        <p>${esc(c.texto)}</p>${c.resposta ? `<p class="resposta-correcao">↳ ${esc(c.resposta)}</p>` : ''}</div>`).join('')}</div></details>`
+  }
+
   abrir() {
     $('#barra-extra').innerHTML = `<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
-        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}<span class="dica">referência · ${mmss(this.dur)}</span></div>
+        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}${seloOrigem(this.ref.origem, 'selo-linha selo-azul')}<span class="dica">referência · ${mmss(this.dur)}</span></div>
       <span class="salvo" id="salvo"></span>
       <button class="botao" data-acao="reanalisar" title="A IA refaz a análise deste vídeo do zero (o proxy e a transcrição ficam)">${ICONE.refazer} Reanalisar</button>
       <button class="botao" data-acao="revisada" id="b-revisada"></button>`
@@ -258,7 +271,7 @@ class RevisaoReferencia {
         </div>
         <div class="video-caixa"><video id="video" src="${urlRef(this.id, 'proxy.mp4')}" preload="auto" playsinline></video>
           <button class="video-tocar" aria-label="Tocar">${ICONE.tocar}</button></div>
-        <div class="lado lado-dir">
+        <div class="lado lado-dir">${this.htmlCorrecoes()}
           <div class="bloco"><span class="eyebrow">Atalhos</span>
             <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar / pausar</dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>0,1 s (<kbd>Shift</kbd> 1 s)</dd>
             <dt><kbd>S</kbd></dt><dd>dividir o plano no cursor</dd><dt><kbd>E</kbd></dt><dd>novo elemento no cursor</dd>

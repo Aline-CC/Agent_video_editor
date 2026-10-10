@@ -1,11 +1,11 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
-// revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica e as da biblioteca (#/presets, #/transicoes
-// [/<de>><para>], #/banco, #/motions, #/trilhas).
+// revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica, #/aprendizados[/<área>] e as da biblioteca
+// (#/presets, #/transicoes[/<de>><para>], #/banco, #/motions, #/trilhas).
 import { $, $$, ICONE, aviso, chipCodigo, codigos, copiar, esc, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
 import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
-import { abrirHeuristica, abrirReferencias } from './referencias.js'
+import { abrirAprendizados, abrirHeuristica, abrirReferencias } from './referencias.js'
 
 const ESTADOS = {
   em_revisao: ['Em revisão', 'selo-coral'],
@@ -62,6 +62,7 @@ async function rotear() {
   else if (partes[0] === 'calibragem') s = await (partes[1] ? abrirRevisaoReferencia(tela, partes[1]) : abrirCalibragem(tela))
   else if (partes[0] === 'referencias') s = await abrirReferencias(tela)
   else if (partes[0] === 'heuristica') s = await abrirHeuristica(tela)
+  else if (partes[0] === 'aprendizados') s = await abrirAprendizados(tela, partes[1])
   else if (PAGINAS_BIBLIOTECA.includes(partes[0])) s = await abrirBiblioteca(tela, partes[0], partes.slice(1))
   else s = await inicio(tela)
   if (minha !== vez) s?.() // já mudou de tela enquanto carregava

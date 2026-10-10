@@ -13,6 +13,8 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
   PUT …/<id>/status {revisado} · PUT …/<id>/nome {nome} · PUT …/<id>/favorito {inicio, fim, favorito} · POST
   …/<id>/reanalisar · POST …/<id>/tentar · DELETE /api/referencias/<id>.
 - GET|PUT /api/heuristica: as regras da direção (exemplos/regras.md) e os roteiros de exemplo, com os tempos dos planos.
+- GET /api/aprendizados (as áreas, com os bullets "Do criador") · GET|PUT /api/aprendizados/<área> {texto} (o
+  aprendizados/<área>.md) · GET /api/aprendizados/imagens/<nome> (as imagens que os .md mostram).
 - GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
   · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
   · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> · PUT /api/motions/<id>/aprovar.
@@ -45,6 +47,10 @@ PORTA = 8719
 PUBLICOS = ('app', 'render', 'projetos', 'biblioteca')
 FONTES_DO_MAC = {'pro': 'SFNS.ttf', 'rounded': 'SFNSRounded.ttf', 'mono': 'SFNSMono.ttf'}  # não vão para o git
 EXEMPLOS = RAIZ / '.claude' / 'skills' / 'editor' / 'exemplos'
+APRENDIZADOS = RAIZ / '.claude' / 'skills' / 'editor' / 'aprendizados'
+AREAS = {'cortes': 'Cortes', 'inserts': 'Inserts', 'enriquecimento': 'Enriquecimento', 'motions': 'Motions', 'elementos': 'Elementos',
+         'transicoes': 'Transições', 'audio': 'Áudio', 'legenda': 'Legenda', 'render': 'Render'}
+IMAGEM = re.compile(r'^[\w.-]+\.(png|jpe?g|webp|gif)$', re.I)
 REFERENCIAS = BIBLIOTECA / 'referencias'
 ID = r'([\w.-]+)'
 CHAVE_PRESET = re.compile(r'^(dividida|vertical|atras):(1:(pe|deitada)|2|2\+)$')
@@ -349,6 +355,53 @@ def _salvar_heuristica(h, q):
         raise Erro('As regras passaram de 20.000 caracteres.', 422)
     (EXEMPLOS / 'regras.md').write_text(regras.rstrip() + '\n', encoding='utf-8')
     return {'ok': True}
+
+
+# ---- aprendizados: um .md por área (etapas/14-concluir.md)
+
+def do_criador(texto: str) -> int:
+    """Os bullets da seção "## Do criador" de um arquivo de aprendizados."""
+    secao = re.search(r'^## Do criador\s*$(.*?)(?=^## |\Z)', texto, re.M | re.S)
+    return len(re.findall(r'^[-*]\s', secao.group(1), re.M)) if secao else 0
+
+
+def arquivo_aprendizado(area: str) -> Path:
+    if area not in AREAS:
+        raise Erro(f'Área desconhecida: {area}', 404)
+    return APRENDIZADOS / f'{area}.md'
+
+
+def imagem_aprendizado(nome: str) -> Path | None:
+    """Uma imagem de aprendizados/imagens/ (só o nome, sem subpastas)."""
+    arq = APRENDIZADOS / 'imagens' / nome
+    return arq if IMAGEM.match(nome) and arq.is_file() else None
+
+
+@rota('GET', '/api/aprendizados')
+def _aprendizados(h, q):
+    out = []
+    for area, nome in AREAS.items():
+        arq = APRENDIZADOS / f'{area}.md'
+        out.append({'area': area, 'nome': nome, 'criador': do_criador(arq.read_text(encoding='utf-8')) if arq.is_file() else 0})
+    return out
+
+
+@rota('GET', r'/api/aprendizados/([a-z]+)')
+def _aprendizado(h, q, area):
+    arq = arquivo_aprendizado(area)
+    return {'area': area, 'nome': AREAS[area], 'texto': arq.read_text(encoding='utf-8') if arq.is_file() else ''}
+
+
+@rota('PUT', r'/api/aprendizados/([a-z]+)')
+def _salvar_aprendizado(h, q, area):
+    arq = arquivo_aprendizado(area)
+    texto = h.corpo().get('texto')
+    if not isinstance(texto, str) or not texto.strip():
+        raise Erro('O arquivo não pode ficar vazio.', 422)
+    if len(texto) > 20000:
+        raise Erro('O arquivo passou de 20.000 caracteres.', 422)
+    arq.write_text(texto.rstrip() + '\n', encoding='utf-8')
+    return {'ok': True, 'criador': do_criador(texto)}
 
 
 # ---- presets, transições, banco e motions
@@ -729,13 +782,13 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header('Content-Length', str(len(corpo)))
             self.end_headers()
             return self.wfile.write(corpo)
-        if url.path == '/api/presets/ator.jpg':
-            arq = poster_do_ator()
+        if url.path == '/api/presets/ator.jpg' or url.path.startswith('/api/aprendizados/imagens/'):
+            arq = poster_do_ator() if url.path == '/api/presets/ator.jpg' else imagem_aprendizado(unquote(url.path[26:]))
             if not arq:
                 return self.send_error(404)
             corpo = arq.read_bytes()
             self.send_response(200)
-            self.send_header('Content-Type', 'image/jpeg')
+            self.send_header('Content-Type', self.guess_type(str(arq)))
             self.send_header('Content-Length', str(len(corpo)))
             self.end_headers()
             return self.wfile.write(corpo)
