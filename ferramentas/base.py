@@ -1,0 +1,87 @@
+"""O comum dos scripts: caminhos, o edicao.json de cada projeto, ffmpeg/ffprobe e as chaves do .env.
+
+Importado pelos outros scripts de ferramentas/ (rodados com `uv run ferramentas/<script>.py`). Só biblioteca padrão.
+"""
+import json
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parents[1]
+BIBLIOTECA = RAIZ / 'biblioteca'
+PROJETOS = RAIZ / 'projetos'
+
+
+def pasta(slug: str) -> Path:
+    """A pasta de um projeto (`projetos/<slug>/`)."""
+    p = PROJETOS / slug
+    if not p.is_dir():
+        raise SystemExit(f'Projeto não encontrado: {slug} (em {PROJETOS})')
+    return p
+
+
+def ler_json(caminho: Path, padrao=None):
+    caminho = Path(caminho)
+    if not caminho.exists():
+        return padrao
+    return json.loads(caminho.read_text(encoding='utf-8'))
+
+
+def gravar_json(caminho: Path, dados) -> None:
+    """Grava de uma vez (arquivo temporário + rename): quem lê nunca vê um JSON pela metade."""
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', dir=caminho.parent, suffix='.tmp', delete=False) as f:
+        json.dump(dados, f, ensure_ascii=False, indent=1)
+    os.replace(f.name, caminho)
+
+
+def ler(slug: str) -> dict:
+    """O edicao.json do projeto (o estado da edição; contrato em .claude/skills/editor/edicao.md)."""
+    edicao = ler_json(pasta(slug) / 'edicao.json')
+    if edicao is None:
+        raise SystemExit(f'O projeto {slug} ainda não tem edicao.json (rode preparar.py).')
+    return edicao
+
+
+def gravar(slug: str, edicao: dict) -> None:
+    gravar_json(pasta(slug) / 'edicao.json', edicao)
+
+
+def ffmpeg(*args: str) -> None:
+    """Roda o ffmpeg sem perguntar; se falhar, o erro traz o fim da mensagem dele."""
+    r = subprocess.run(['ffmpeg', '-v', 'error', '-y', *args], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(f'ffmpeg (código {r.returncode}): {r.stderr.strip()[-600:] or "sem mensagem"}')
+
+
+def inspecionar(arquivo: Path) -> dict:
+    """Duração e medidas como o espectador vê (aplica a rotação do metadado: celular em pé diz 3840×2160 cru)."""
+    r = subprocess.run(['ffprobe', '-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', str(arquivo)],
+                       capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(f'Não consegui ler {arquivo} (formato não suportado ou arquivo corrompido).')
+    dados = json.loads(r.stdout)
+    video = next((s for s in dados['streams'] if s['codec_type'] == 'video'), None)
+    info = {'duracao': round(float(dados['format'].get('duration', 0)), 3),
+            'tem_audio': any(s['codec_type'] == 'audio' for s in dados['streams'])}
+    if video:
+        w, h = video['width'], video['height']
+        rotacao = next((int(d.get('rotation', 0)) for d in video.get('side_data_list', []) if 'rotation' in d), 0)
+        if abs(rotacao) % 180 == 90:
+            w, h = h, w
+        info |= {'largura': w, 'altura': h, 'fps': video.get('avg_frame_rate')}
+    return info
+
+
+def env(nome: str) -> str:
+    """Uma chave do .env da raiz (nunca imprima o valor)."""
+    if nome not in os.environ and (RAIZ / '.env').exists():
+        for linha in (RAIZ / '.env').read_text().splitlines():
+            if '=' in linha and not linha.lstrip().startswith('#'):
+                k, v = linha.split('=', 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"\''))
+    if not os.environ.get(nome):
+        raise SystemExit(f'Falta {nome} no .env da raiz do projeto.')
+    return os.environ[nome]

@@ -1,0 +1,8 @@
+.DS_Store
+.env
+__pycache__/
+.venv/
+node_modules/
+# os dados (vídeos, mídia licenciada): fora do git
+/biblioteca/
+/projetos/
