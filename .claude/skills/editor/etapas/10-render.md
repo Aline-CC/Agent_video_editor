@@ -26,8 +26,14 @@ tela dividida), a camada, as transições, a legenda (ASS) e o áudio (voz limpa
    legenda sobre texto importante ou ilegível; som alto demais, estalo ou música cobrindo a voz; repetição de fala.
    Se estiver tudo bem num item, não comente. Máximo 10 itens.
    ```
-3. Corrija o que for real (pode ser um corte, um insert, um ajuste de legenda) e renderize de novo **uma vez** —
-   apague a versão descartada (`versoes/vN/`) para a entregue ser a v1. Não faça uma segunda rodada.
+3. Separe o que é **grave** do que é **ajuste**:
+   - **grave** (o criador não deveria ver): fala cortada no meio de uma palavra, tela preta ou vazia, mídia errada ou
+     quebrada, um texto na tela errado (nome de ferramenta, número). Corrija e renderize de novo **uma vez**, apagando a
+     versão descartada (`versoes/vN/`) para a entregue ser a v1;
+   - **ajuste** (gosto, ou uma limitação conhecida, como a legenda sobre o conteúdo de um insert em tela cheia): não
+     renderize de novo; vire uma nota em `edicao.notas` ("vi isso, posso trocar por…") e acrescente direto em
+     `versoes/vN/notas.json` (mesmo formato, com `ini`/`fim` no tempo do vídeo final), para aparecer no app.
+   Sem nada grave, entregue a v1 como saiu do primeiro render.
 
 ## Entregar
 
