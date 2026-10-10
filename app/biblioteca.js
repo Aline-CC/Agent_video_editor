@@ -75,9 +75,7 @@ async function banco(el) {
         <span class="selo ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
         ${video && it.duracao ? `<span class="duracao">${seg(it.duracao)}</span>` : ''}
         ${ts.length ? `<span class="selo selo-coral selo-dir">${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}</span>` : ''}</div>
-      <div class="card-titulo"><h3>${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
-      ${it.descricao ? `<p class="desc">${esc(it.descricao)}</p>` : '<p class="desc apagado">sem descrição</p>'}
-      <p class="origem">${origemDe(it.origem)}</p>
+      <div class="card-titulo"><h3 title="${esc([it.descricao, it.fonte].filter(Boolean).join('\n'))}">${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
       ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)}</span></li>`).join('')}</ul>` : ''}
     </article>`
   })
@@ -673,8 +671,6 @@ function recomendados(ps, ordem, mudou) {
 
 const GRUPOS = [['ator', 'Full ator'], ['dividida', 'Tela dividida'], ['cheia', 'Tela cheia']]
 const NOME_GRUPO = Object.fromEntries(GRUPOS)
-const EFEITOS = { seco: 'Corte seco', luz: 'Luz colorida', brilho: 'Brilho', zoom: 'Zoom com desfoque' }
-const INTENSIDADE = { baixo: 'baixo', medio: 'médio', alto: 'alto' }
 const N_FAVORITAS = 2
 /** O grupo de um plano para as transições (§8.8 do 18): Full ator · Tela dividida (com o comentário) · Tela cheia. */
 const grupoDe = (tipo) => (tipo.startsWith('full_ator') ? 'ator' : tipo.startsWith('tela_dividida') || tipo === 'comentario_insert_ator' ? 'dividida' : 'cheia')
@@ -711,12 +707,6 @@ async function transicoes(el, resto) {
     const o = ordemDo(g)
     return o.favoritas ? porId[o.ids[0]].nome : 'Corte seco'
   }
-  const efeito = (e) => {
-    if (!e || e.tipo === 'seco') return 'Corte seco'
-    return `${EFEITOS[e.tipo] || e.tipo} <span class="apagado">· ${num(e.antes, 2)} s antes / ${num(e.depois, 2)} s depois</span>`
-  }
-  const som = (s) => (s?.som ? `${ICONE.som}${esc(sons[s.som] || s.som)} <span class="apagado">· ${esc(INTENSIDADE[s.intensidade] || s.intensidade || '')}${s.atraso ? ` · ${num(s.atraso, 2)} s` : ''}</span>` : '<span class="apagado">sem som</span>')
-
   const card = (t, { k = -1, nFav = 0 } = {}) => {
     const fav = k >= 0 && k < nFav
     return `<article class="card-transicao" id="tr-${t.id}" data-id="${t.id}">
@@ -725,13 +715,11 @@ async function transicoes(el, resto) {
         ${par && k === 0 && fav ? '<span class="selo selo-amarelo selo-dir">Padrão do par</span>' : ''}
         <button class="video-tocar" data-tocar="${t.id}" aria-label="Tocar com som">${ICONE.tocar}</button>
         <span class="sem-clipe">sem clipe de referência</span></div>
-      <div class="card-titulo"><h3>${esc(t.nome)}</h3>
+      <div class="card-titulo"><h3 title="${esc(t.descricao || '')}">${esc(t.nome)}</h3>
         ${par ? `<button class="estrela${fav ? ' ligada' : ''}" data-estrela title="${fav ? 'Tirar das favoritas do par' : 'Favorita deste par'}">${fav ? ESTRELA_CHEIA : ICONE.estrela}</button>` : ''}
         ${botaoAprovar(t.aprovado)}</div>
       <div class="card-pe">${chipCodigo(cods.transicao?.[t.id], t.nome)}</div>
       ${par && k === 1 && fav ? '<button class="link" data-padrao>Tornar o padrão do par</button>' : ''}
-      <p class="desc">${esc(t.descricao || '')}</p>
-      <dl class="dados"><dt>Efeito</dt><dd>${efeito(t.efeito)}</dd><dt>Som</dt><dd>${som(t.som)}</dd></dl>
     </article>`
   }
 
@@ -858,20 +846,16 @@ async function motions(el) {
   const nRevisar = ms.filter((m) => m.a_revisar).length
   const cards = ms.map((m) => {
     const campos = Object.values(m.campos).map((c) => c.rotulo).filter(Boolean)
-    const sonsM = Object.values(m.sons || {}).map((s) => esc(sons[s.som] || s.som))
+    const sonsM = Object.values(m.sons || {}).map((s) => sons[s.som] || s.som)
+    const dica = [m.descricao, campos.length && `Campos: ${campos.join(' · ')}`, sonsM.length && `Sons: ${sonsM.join(' · ')}`].filter(Boolean).join('\n')
     const previa = temRender
       ? `<iframe src="/render/motion.html?preset=${encodeURIComponent(m.id)}&formato=vertical&tocar=1" loading="lazy" tabindex="-1" title="${esc(m.nome)}"></iframe>`
       : `<div class="sem-previa"><b>${esc(m.nome || m.id)}</b><span>a prévia vem da página de render</span></div>`
     return `<article class="card-motion" data-id="${esc(m.id)}">
       <div class="mini mini-916 fundo-${esc(m.fundo || 'escuro')}">${previa}${m.a_revisar ? '<span class="selo selo-coral">A revisar</span>' : ''}</div>
-      <div class="card-titulo"><h3>${esc(m.nome || m.id)}</h3></div>
+      <div class="card-titulo"><h3 title="${esc(dica)}">${esc(m.nome || m.id)}</h3>${m.duracao ? `<span class="apagado">${seg(m.duracao)}</span>` : ''}</div>
       <div class="card-pe">${chipCodigo(cods.motion?.[m.id], m.nome || m.id)}${m.a_revisar ? `<span class="acoes-pe"><button class="botao pequeno" data-aprovar title="Tira a marca “a revisar”">${ICONE.check} Aprovar</button>
         <button class="botao pequeno botao-perigo-contorno" data-recusar title="Recusa a sugestão (vai para motions/presets/_recusados/)">${ICONE.fechar} Recusar</button></span>` : ''}</div>
-      <p class="desc">${esc(m.descricao || '')}</p>
-      <dl class="dados"><dt>Campos</dt><dd>${campos.length ? campos.map(esc).join(' · ') : '<span class="apagado">nenhum</span>'}</dd>
-        <dt>Duração</dt><dd>${m.duracao ? seg(m.duracao) : '—'}</dd>
-        ${sonsM.length ? `<dt>Sons</dt><dd>${sonsM.join(' · ')}</dd>` : ''}
-        <dt>Id</dt><dd class="apagado">${esc(m.id)}</dd></dl>
     </article>`
   })
   el.innerHTML = cabeca(`Motions · ${dois(ms.length)}${nRevisar ? ` · ${nRevisar} a revisar` : ''}`, temRender ? 'As animações de tela cheia e dividida, tocando em loop no formato vertical. Os novos chegam “a revisar”: aprove os que ficaram bons.' : 'As animações de tela cheia e dividida. A prévia tocando aparece quando a página de render (render/motion.html) existir.') +
