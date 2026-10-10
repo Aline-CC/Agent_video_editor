@@ -48,7 +48,8 @@ O criador vê a biblioteca no app (aba Biblioteca) e organiza com você pelo cha
 (`biblioteca/`): `banco/` (mídias dos inserts; `banco.py`), `presets/` (receitas de enriquecimento + `ordem.json` com as
 favoritas por situação; `presets.py listar`), `transicoes/` (+ `ordem.json`, favoritas por par; `transicoes.py listar`),
 `motions/presets/*.html`, `trilhas/catalogo.json`, `sons/catalogo.json`, `luts/`. Mudar um preset ou uma transição vale
-para os próximos renders de todos os vídeos que os usam. Nada é aprovado sem o criador dizer.
+para os próximos renders de todos os vídeos que os usam. Nada é aprovado sem o criador dizer. Preset novo a partir de
+um trecho de referência: `etapas/13-presets-novos.md`.
 
 ## Sempre
 
