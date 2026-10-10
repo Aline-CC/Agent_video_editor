@@ -3,6 +3,10 @@
 
     uv run ferramentas/servidor.py [porta]      → http://localhost:8719/app/
 Também importado pelo render (`servir(0)` sobe numa porta livre, numa thread).
+
+Rotas: GET /api/lista?pasta=… (nomes numa pasta pública) · GET /api/projetos (os projetos com versões, para o início do
+app) · GET /api/motions/fonte/<pro|rounded|mono> (as SF da Apple, lidas do Mac: o biblioteca/motions/fonts.css as pede)
+· PUT /api/revisao/<slug>/v<N> (o app grava a revisão inteira; as respostas do Claude no arquivo são mantidas).
 """
 import json
 import os
@@ -15,11 +19,47 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).parent))
-from base import PROJETOS, RAIZ, gravar_json  # noqa: E402
+from base import PROJETOS, RAIZ, gravar_json, ler_json  # noqa: E402
 
 PORTA = 8719
 PUBLICOS = ('app', 'render', 'projetos', 'biblioteca')
 REVISAO = re.compile(r'^/api/revisao/([\w-]+)/v(\d+)$')
+FONTES_DO_MAC = {'pro': 'SFNS.ttf', 'rounded': 'SFNSRounded.ttf', 'mono': 'SFNSMono.ttf'}  # não vão para o git
+
+
+def versoes(projeto: Path) -> list[int]:
+    """As versões entregues (as que já têm o proxy.mp4), em ordem."""
+    return sorted(int(v.name[1:]) for v in projeto.glob('versoes/v*') if v.name[1:].isdigit() and (v / 'proxy.mp4').is_file())
+
+
+def projetos() -> list[dict]:
+    """Os projetos com ao menos uma versão, do mais recente para o mais antigo, com o estado da revisão da última."""
+    lista = []
+    for p in PROJETOS.iterdir() if PROJETOS.is_dir() else []:
+        vs = versoes(p)
+        if not vs:
+            continue
+        ultima = vs[-1]
+        rev = ler_json(p / 'revisoes' / f'v{ultima}.json', {}) or {}
+        info = ler_json(p / 'versoes' / f'v{ultima}' / 'info.json', {}) or {}
+        estado = 'aprovado' if rev.get('aprovado') else 'enviada' if rev.get('enviado_em') else 'em_revisao'
+        lista.append({'slug': p.name, 'nome': (ler_json(p / 'edicao.json', {}) or {}).get('nome') or p.name,
+                      'versoes': vs, 'ultima': ultima, 'duracao': info.get('duracao'), 'estado': estado,
+                      'comentarios': len(rev.get('comentarios', [])),
+                      'atualizado': (p / 'versoes' / f'v{ultima}' / 'proxy.mp4').stat().st_mtime})
+    return sorted(lista, key=lambda x: -x['atualizado'])
+
+
+def juntar_respostas(nova: dict, atual: dict) -> dict:
+    """O app grava a revisão inteira; o que o Claude respondeu no arquivo (status, resposta) nunca é apagado por ela."""
+    respondidos = {c.get('id'): c for c in atual.get('comentarios', []) if c.get('resposta') or c.get('status', 'pendente') != 'pendente'}
+    for c in nova.get('comentarios', []):
+        r = respondidos.get(c.get('id'))
+        if r and c.get('status', 'pendente') == 'pendente' and not c.get('resposta'):
+            c['status'], c['resposta'] = r.get('status'), r.get('resposta')
+    if atual.get('resposta_geral') and not nova.get('resposta_geral'):
+        nova['resposta_geral'] = atual['resposta_geral']
+    return nova
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -54,6 +94,18 @@ class Handler(SimpleHTTPRequestHandler):
             if not alvo.is_dir() or not str(alvo).startswith(str(RAIZ)) or alvo.relative_to(RAIZ).parts[:1] not in [(p,) for p in PUBLICOS]:
                 return self._json({'erro': 'pasta inválida'}, 400)
             return self._json(sorted(p.name + ('/' if p.is_dir() else '') for p in alvo.iterdir() if not p.name.startswith('.')))
+        if url.path == '/api/projetos':
+            return self._json(projetos())
+        if url.path.startswith('/api/motions/fonte/'):
+            fonte = Path('/System/Library/Fonts') / FONTES_DO_MAC.get(url.path.rsplit('/', 1)[1], '-')
+            if not fonte.is_file():
+                return self.send_error(404)
+            corpo = fonte.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'font/ttf')
+            self.send_header('Content-Length', str(len(corpo)))
+            self.end_headers()
+            return self.wfile.write(corpo)
         partes = Path(url.path).parts
         if len(partes) < 2 or partes[1] not in PUBLICOS:
             return self.send_error(404)
@@ -99,7 +151,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not m or not (PROJETOS / m.group(1)).is_dir():
             return self._json({'erro': 'rota inválida'}, 404)
         dados = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))) or b'{}')
-        gravar_json(PROJETOS / m.group(1) / 'revisoes' / f'v{m.group(2)}.json', dados)
+        destino = PROJETOS / m.group(1) / 'revisoes' / f'v{m.group(2)}.json'
+        gravar_json(destino, juntar_respostas(dados, ler_json(destino, {}) or {}))
         self._json({'ok': True})
 
 
