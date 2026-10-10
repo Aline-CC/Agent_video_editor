@@ -5,9 +5,16 @@ criador dirige. Não mexe em mídia: só a "partitura visual". Inserts, motions,
 
 ## Antes de escrever: aprenda o estilo
 
-1. Leia `exemplos/regras.md` inteiro. As **Regras do criador** são obrigatórias; as sugeridas são guia.
-2. Leia **todos** os roteiros de `exemplos/roteiros/` como um editor novo lê os roteiros anotados do chefe: entenda, pela
-   fala, por que cada coisa aparece onde aparece. O que está sendo dito manda.
+1. Leia `exemplos/criador.md` (quem grava e do que o canal fala) e `exemplos/regras.md` inteiro. As **Regras do
+   criador** são obrigatórias; as sugeridas são guia.
+2. Leia `exemplos/favoritos.md`: os planos que o criador marcou com ★ na galeria de Referências do app. São os melhores
+   exemplos dele: quando um momento do vídeo novo se parece com um deles, siga aquele padrão.
+3. Leia **todos** os roteiros de `exemplos/roteiros/` como um editor novo lê os roteiros anotados do chefe: entenda, pela
+   fala, por que cada coisa aparece onde aparece. O que está sendo dito manda. Os marcados "(revisado)" foram corrigidos
+   pelo criador e valem mais que os outros.
+
+Esses arquivos são gerados pela Calibragem do app (`calibragem.py roteiros`): quando o criador revisa uma referência,
+favorita um plano ou sobe um Reel novo, eles mudam. Não os edite à mão (as regras, sim: `regras.md`).
 
 ## Rodar
 

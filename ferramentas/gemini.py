@@ -61,9 +61,11 @@ def bloco(arq: Path, tmp: Path, preparado: bool = False) -> dict:
     return {'type': 'video_url', 'video_url': {'url': _data_url(leve, 'video/mp4')}}
 
 
-def chamar(mensagens: list[dict], esquema: dict | None = None, max_tokens: int = 4000):
+def chamar(mensagens: list[dict], esquema: dict | None = None, max_tokens: int = 4000, timeout: float = TIMEOUT,
+           uso: dict | None = None):
     """Uma chamada ao OpenRouter (modelo do .env, raciocínio baixo, temperatura 0, como o 18). Com `esquema` (JSON Schema),
-    a resposta vem estruturada e é devolvida já lida (dict); senão, texto. Uma nova tentativa em falha de rede ou 5xx."""
+    a resposta vem estruturada e é devolvida já lida (dict); senão, texto. Uma nova tentativa em falha de rede ou 5xx.
+    `uso` (um dict), se vier, recebe o `usage` da resposta (tokens)."""
     corpo = {'model': env('OPENROUTER_MODEL'), 'messages': mensagens, 'temperature': 0, 'max_tokens': max_tokens,
              'reasoning': {'effort': 'low'}}
     try:
@@ -76,7 +78,7 @@ def chamar(mensagens: list[dict], esquema: dict | None = None, max_tokens: int =
         'Authorization': f'Bearer {env("OPENROUTER_API_KEY")}', 'Content-Type': 'application/json'})
     for tentativa in (1, 2):
         try:
-            with urllib.request.urlopen(pedido, timeout=TIMEOUT) as r:
+            with urllib.request.urlopen(pedido, timeout=timeout) as r:
                 dados = json.loads(r.read())
             break
         except urllib.error.HTTPError as e:
@@ -97,6 +99,8 @@ def chamar(mensagens: list[dict], esquema: dict | None = None, max_tokens: int =
         if 'credit' in msg.lower() or '402' in msg:
             raise SystemExit('Sem crédito no OpenRouter. Adicione créditos e tente de novo.')
         raise SystemExit(f'O modelo devolveu um erro: {msg}')
+    if uso is not None:
+        uso.update(dados.get('usage') or {})
     conteudo = (dados.get('choices') or [{}])[0].get('message', {}).get('content') or ''
     if isinstance(conteudo, list):
         conteudo = ''.join(c.get('text', '') for c in conteudo if isinstance(c, dict))
