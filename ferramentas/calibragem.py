@@ -9,6 +9,7 @@ já editados do criador viram os roteiros dirigidos de exemplo que a direção l
     uv run ferramentas/calibragem.py analisar <vídeo> [--nome N]   # enfileira e roda já, mostrando o andamento
     uv run ferramentas/calibragem.py analisar --id <id>            # o trabalho de fundo (o app dispara)
     uv run ferramentas/calibragem.py roteiros                      # reescreve exemplos/roteiros/*.md e favoritos.md
+    uv run ferramentas/calibragem.py de-projeto <slug> [vN]        # a versão aprovada de um projeto vira referência
 
 Uma pasta por referência em `biblioteca/referencias/<id>/` (o mesmo formato do 18): referencia.json (a fonte de verdade,
 com o andamento em `analise.passos`), video.<ext>, proxy.mp4, palavras.json, silencios.json, cenas.json, trechos/NNN.json
@@ -16,6 +17,8 @@ com o andamento em `analise.passos`), video.<ext>, proxy.mp4, palavras.json, sil
 A análise: proxy → transcrição (ElevenLabs) → cortes de cena (PySceneDetect adaptativo) → uma chamada ao Gemini por trecho
 (vídeo com áudio, saída estruturada nas categorias fixas) → montagem → cada plano com insert assistido de novo, inteiro →
 "a revisar". Uma referência por vez (a trava `_fila`); os trechos de cada uma vão 2 em paralelo.
+Um projeto aprovado também vira referência (`de_projeto`, id `prj-<slug>-vN`), sem análise: a direção já é conhecida.
+Ela leva `origem` e `revisoes` (os comentários do criador) no referencia.json e só ensina a direção depois de revisada.
 
 Importado pelo servidor do app, que roda sem dependências: no topo, só biblioteca padrão (scenedetect e httpx só dentro
 das funções que os usam). Erros para o app: FileNotFoundError (referência que não existe) e ValueError (o resto), com a
@@ -42,7 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import gemini  # noqa: E402
-from base import BIBLIOTECA, RAIZ, env, ffmpeg, gravar_json, inspecionar, ler_json  # noqa: E402
+from base import BIBLIOTECA, PROJETOS, RAIZ, env, ffmpeg, gravar_json, inspecionar, ler_json  # noqa: E402
 
 REFS = BIBLIOTECA / 'referencias'
 LIXEIRA = REFS / '_lixeira'
@@ -178,7 +181,7 @@ def listar_referencias() -> list[dict]:
             'id': r['id'], 'nome': r['nome'], 'status': r['status'], 'erro': r.get('erro'),
             'duracao': v.get('duracao'), 'largura': v.get('largura'), 'altura': v.get('altura'), 'criado_em': r.get('criado_em'),
             'passo': atual, 'passo_rotulo': ROTULOS.get(atual), 'progresso': passos.get(atual, {}).get('progresso') if atual else None,
-            'passos': passos,
+            'passos': passos, 'origem': r.get('origem'),
             'miniatura': f'{URL}/{r["id"]}/miniatura.jpg' if (base / 'miniatura.jpg').exists() else None,
             'video': f'{URL}/{r["id"]}/proxy.mp4' if (base / 'proxy.mp4').exists() else None,
         })
@@ -200,7 +203,7 @@ def revisao(id: str) -> dict:
     dados = ler_json(base / 'direcao.json')
     if dados is None:
         raise ValueError('A análise ainda não terminou')
-    return {'referencia': r, 'base': f'{URL}/{id}/', 'video': f'{URL}/{id}/proxy.mp4',
+    return {'referencia': r, 'origem': r.get('origem'), 'base': f'{URL}/{id}/', 'video': f'{URL}/{id}/proxy.mp4',
             'palavras': ler_json(base / 'palavras.json')['palavras'],
             'itens': dados['itens'], 'itens_ia': dados.get('itens_ia', []), 'cortes': dados.get('cortes', []),
             'categorias': {'planos': PLANOS, 'elementos': ELEMENTOS}}
@@ -242,7 +245,8 @@ def validar_edicao(itens: list[dict], duracao: float) -> list[dict]:
         ids.add(id)
         limpo = {'id': id, 'camada': camada, 'tipo': i['tipo'], 'conteudo': None, 'inicio': round(ini, 3), 'fim': round(fim, 3),
                  'descricao': str(i.get('descricao') or '').strip(), 'texto': (str(i['texto']).strip() or None) if i.get('texto') else None,
-                 'miniatura': i.get('miniatura'), 'miniatura_t': i.get('miniatura_t')}
+                 'miniatura': i.get('miniatura'), 'miniatura_t': i.get('miniatura_t'),
+                 **({'porque': str(i['porque']).strip()} if i.get('porque') else {})}  # o porquê das referências de projeto
         (planos if camada == 'plano' else elementos).append(limpo)
     planos.sort(key=lambda p: p['inicio'])
     if not planos:
@@ -505,18 +509,35 @@ def _escrever(arq: Path, texto: str) -> bool:
     return True
 
 
+def ensina(r: dict) -> bool:
+    """Se a referência entra nos exemplos: a de um projeto (`origem`) só depois de revisada pelo criador."""
+    return r['status'] == 'revisado' or not (r.get('origem') or {}).get('projeto')
+
+
+def _correcoes(r: dict) -> str:
+    """O bloco do fim do roteiro de uma referência de projeto: os comentários do criador que o Claude aplicou."""
+    linhas = [f"- v{c['versao']}, {_minuto(c['tempo']) if c.get('tempo') is not None else 'geral'}"
+              + (f" (“{c['fala']}”)" if c.get('fala') else '') + f": {' / '.join(x.strip() for x in c['texto'].splitlines() if x.strip())}"
+              + (f" → {c['resposta']}" if c.get('resposta') else '')
+              for c in r.get('revisoes') or [] if c.get('status') == 'aplicado']
+    return '\n## O que o criador corrigiu nas revisões\n\n' + '\n'.join(linhas) + '\n' if linhas else ''
+
+
 def regenerar_exemplos() -> dict:
     """Reescreve `exemplos/roteiros/<id>.md` (um por referência analisada; com o mesmo nome, só uma: a revisada, ou a mais
-    nova), apaga os das que não estão mais lá e escreve `exemplos/favoritos.md`. Devolve o que mudou."""
+    nova; as de projeto só revisadas), apaga os das que não estão mais lá e escreve `exemplos/favoritos.md`. Devolve o que
+    mudou."""
     escolhidas: dict[str, tuple] = {}
     for r, itens, palavras in _analisadas():  # das mais novas para as mais antigas: fica a primeira, salvo uma revisada depois
+        if not ensina(r):
+            continue
         atual = escolhidas.get(r['nome'])
         if atual is None or (r['status'] == 'revisado' and atual[0]['status'] != 'revisado'):
             escolhidas[r['nome']] = (r, itens, palavras)
     mudou, apagados, ids = [], [], set()
     for r, itens, palavras in escolhidas.values():
         ids.add(r['id'])
-        texto = f"# {r['nome']}{' (revisado)' if r['status'] == 'revisado' else ''}\n\n" + '\n\n'.join(_bloco(x) for x in roteiro(itens, palavras)) + '\n'
+        texto = f"# {r['nome']}{' (revisado)' if r['status'] == 'revisado' else ''}\n\n" + '\n\n'.join(_bloco(x) for x in roteiro(itens, palavras)) + '\n' + _correcoes(r)
         if _escrever(ROTEIROS / f"{r['id']}.md", texto):
             mudou.append(r['id'])
     for arq in ROTEIROS.glob('*.md'):
@@ -535,7 +556,7 @@ def _favoritos_md() -> int:
         base = REFS / f['ref']
         r = ler_json(base / 'referencia.json')
         palavras = (ler_json(base / 'palavras.json') or {}).get('palavras')
-        if r is None or palavras is None:
+        if r is None or palavras is None or not ensina(r):
             continue
         itens = (ler_json(base / 'direcao.json') or {}).get('itens', []) if r['status'] in ANALISADAS else []
         linha = next((x for x in roteiro(itens, palavras) if abs(x['inicio'] - f['inicio']) < 0.05 and abs(x['fim'] - f['fim']) < 0.05), None)
@@ -558,6 +579,117 @@ def _favoritos_md() -> int:
         partes.append('(Nenhum plano marcado ainda.)')
     _escrever(EXEMPLOS / 'favoritos.md', '\n\n'.join(partes) + '\n')
     return total
+
+
+# ---------------------------------------------------------------- de um projeto aprovado
+
+def no_tempo_da_saida(itens: list[dict], saida: list[dict], duracao: float) -> list[dict]:
+    """Os itens da direção de um projeto (presos a palavras + off) no tempo do vídeo final, pelas palavras que tocam nele
+    (`versoes/vN/palavras.json`): a conta da página de render (render/src/direcaoProjeto.ts, `paraTempo`), sem a trava
+    nas emendas. A âncora cortada vira a primeira (ou a última) palavra que sobrou no intervalo; sem nenhuma, o item sai."""
+    tempo = {w['id']: w for w in saida}
+    vistos = []
+    for i in itens:
+        a = i.get('palavra_ini')
+        b = i.get('palavra_fim') or a
+        dentro = [w for w in saida if a and a <= w['id'] <= b]  # os ids da transcrição (w00000…) vão em ordem
+        if not dentro:
+            continue
+        w0, w1 = tempo.get(a), tempo.get(b)
+        vistos.append({**i, 'inicio': w0['ini'] + (i.get('off_ini') or 0) if w0 else dentro[0]['ini'],
+                       'fim': w1['fim'] + (i.get('off_fim') or 0) if w1 else dentro[-1]['fim']})
+    planos = sorted((x for x in vistos if x['camada'] == 'plano'), key=lambda x: x['inicio'])
+    for k, q in enumerate(planos):  # contíguos: cada um vai até o começo do seguinte
+        q['inicio'] = 0.0 if k == 0 else max(q['inicio'], planos[k - 1]['inicio'] + 0.05)
+    for k, q in enumerate(planos):
+        q['fim'] = planos[k + 1]['inicio'] if k + 1 < len(planos) else duracao
+    elementos = sorted((x for x in vistos if x['camada'] == 'elemento'), key=lambda x: x['inicio'])
+    for e in elementos:
+        e['inicio'] = max(0.0, e['inicio'])
+        e['fim'] = min(duracao, max(e['fim'], e['inicio'] + 0.05))
+    return [{'id': x['id'], 'camada': x['camada'], 'tipo': tipo_atual(x['tipo'], x.get('conteudo')), 'conteudo': None,
+             'inicio': round(x['inicio'], 3), 'fim': round(x['fim'], 3), 'descricao': x.get('descricao') or '',
+             'texto': x.get('texto') or None, **({'porque': x['porque']} if x.get('porque') else {})} for x in planos + elementos]
+
+
+def _revisoes(p: Path) -> dict[int, tuple[dict, Path]]:
+    revs = {}
+    for arq in (p / 'revisoes').glob('v*.json'):
+        if arq.stem[1:].isdigit():
+            revs[int(arq.stem[1:])] = (ler_json(arq) or {}, arq)
+    return revs
+
+
+def de_projeto(slug: str, versao: int | str | None = None) -> str:
+    """A versão aprovada de um projeto (a última aprovada, senão a última; ou a dada) vira a referência `prj-<slug>-vN`,
+    sem o Gemini: o proxy da versão, as palavras e a direção no tempo do vídeo final (`itens`), a da v1 para comparar
+    (`itens_ia`) e os comentários das revisões. Fica "a revisar": só ensina a direção depois que o criador revisa.
+    Refazer substitui. Devolve o id."""
+    p = PROJETOS / str(slug)
+    feitas = sorted(int(x.name[1:]) for x in p.glob('versoes/v*') if re.fullmatch(r'v\d+', x.name) and (x / 'proxy.mp4').exists())
+    if not feitas:
+        raise FileNotFoundError(f'O projeto {slug} não tem versão renderizada')
+    revs = _revisoes(p)
+    if versao is None:
+        n = ([v for v in feitas if revs.get(v, ({},))[0].get('aprovado')] or feitas)[-1]
+    else:
+        n = int(str(versao).lstrip('vV'))
+        if n not in feitas:
+            raise ValueError(f'O projeto {slug} não tem a v{n} (tem {", ".join(f"v{v}" for v in feitas)})')
+    vdir = p / 'versoes' / f'v{n}'
+    edicao, saida = ler_json(vdir / 'edicao.json') or {}, ler_json(vdir / 'palavras.json') or []
+    info = inspecionar(vdir / 'proxy.mp4')
+    dur = info['duracao']
+    palavras = [{'id': w['id'], 'texto': w['texto'], 'inicio': round(w['ini'], 3), 'fim': round(w['fim'], 3)} for w in saida]
+    itens = no_tempo_da_saida((edicao.get('direcao') or {}).get('itens') or [], saida, dur)
+    tocados = {q['id']: q for q in ler_json(vdir / 'planos.json') or []}  # os planos como a página os pôs no vídeo
+    for i in itens:
+        if i['camada'] == 'plano' and i['id'] in tocados:
+            i['inicio'], i['fim'] = round(tocados[i['id']]['ini'], 3), round(tocados[i['id']]['fim'], 3)
+    itens = [ancorar(i, palavras) for i in validar_edicao(itens, dur)]
+    v1 = ler_json(p / 'versoes' / 'v1' / 'edicao.json') or {}
+    itens_ia = [ancorar(i, palavras) for i in no_tempo_da_saida((v1.get('direcao') or {}).get('itens') or [], saida, dur)]
+    revisoes = []
+    for v in sorted(revs):
+        rev = revs[v][0]
+        for c in sorted(rev.get('comentarios') or [], key=lambda c: c.get('t') or 0):
+            if (c.get('texto') or '').strip():
+                revisoes.append({'versao': v, 'tempo': c.get('t'), 'fala': c.get('fala'), 'texto': c['texto'].strip(),
+                                 'status': c.get('status') or 'pendente', 'resposta': c.get('resposta')})
+        if (rev.get('geral') or '').strip():
+            g = rev.get('resposta_geral') or {}
+            revisoes.append({'versao': v, 'tempo': None, 'fala': None, 'texto': rev['geral'].strip(),
+                             'status': g.get('status') or 'pendente', 'resposta': g.get('resposta')})
+    rev_n, arq_n = revs.get(n, ({}, None))
+    aprovado_em = rev_n.get('aprovado_em') or (datetime.fromtimestamp(arq_n.stat().st_mtime).isoformat(timespec='seconds')
+                                               if rev_n.get('aprovado') else None)
+
+    id = f'prj-{slug}-v{n}'
+    base = REFS / id
+    with _trava():
+        shutil.rmtree(base, ignore_errors=True)
+        base.mkdir(parents=True)
+    try:
+        if subprocess.run(['cp', '-c', str(vdir / 'proxy.mp4'), str(base / 'proxy.mp4')], capture_output=True).returncode:
+            shutil.copy2(vdir / 'proxy.mp4', base / 'proxy.mp4')
+        ffmpeg('-ss', str(min(1.0, dur / 2)), '-i', str(base / 'proxy.mp4'), '-frames:v', '1', '-vf', 'scale=360:-2', '-q:v', '4',
+               str(base / 'miniatura.jpg'))
+        gravar_json(base / 'palavras.json', {'motor': (ler_json(p / 'transcricao.json') or {}).get('motor'), 'palavras': palavras})
+        cortes = [q['inicio'] for q in itens if q['camada'] == 'plano'][1:]
+        gravar_json(base / 'cenas.json', {'cortes': cortes})
+        gravar_json(base / 'referencia.json', {
+            'id': id, 'nome': f"{edicao.get('nome') or slug} (aprovado)", 'criado_em': datetime.now().isoformat(timespec='seconds'),
+            'formato': 'vertical', 'video': {'arquivo': 'proxy.mp4', 'nome_original': f'projetos/{slug}/versoes/v{n}/proxy.mp4', **info},
+            'status': 'a_revisar', 'erro': None, 'analise': {'passos': {x: {'status': 'pronto'} for x in PASSOS}},
+            'origem': {'projeto': slug, 'versao': n, 'aprovado_em': aprovado_em}, 'revisoes': revisoes})
+        for i in itens:
+            _miniatura(base, i)
+        gravar_json(base / 'direcao.json', {'itens': itens, 'itens_ia': itens_ia, 'cortes': cortes})
+    except BaseException:
+        shutil.rmtree(base, ignore_errors=True)
+        raise
+    regenerar_exemplos()
+    return id
 
 
 # ---------------------------------------------------------------- a fila
@@ -1135,6 +1267,9 @@ def main() -> None:
     an.add_argument('--nome')
     an.add_argument('--id')
     sub.add_parser('roteiros', help='reescreve exemplos/roteiros/*.md e exemplos/favoritos.md')
+    pj = sub.add_parser('de-projeto', help='a versão aprovada de um projeto vira uma referência a revisar')
+    pj.add_argument('slug')
+    pj.add_argument('versao', nargs='?', help='vN (sem: a última aprovada, senão a última)')
     a = ap.parse_args()
 
     if a.comando == 'listar':
@@ -1147,6 +1282,17 @@ def main() -> None:
         r = regenerar_exemplos()
         print(f"{len(r['roteiros'])} roteiros em {ROTEIROS.relative_to(RAIZ)}/ ({len(r['mudaram'])} reescritos"
               + (f", apagados: {', '.join(r['apagados'])}" if r['apagados'] else '') + f"); {r['favoritos']} favoritos em favoritos.md")
+    elif a.comando == 'de-projeto':
+        try:
+            id = de_projeto(a.slug, a.versao)
+        except (FileNotFoundError, ValueError) as e:
+            raise SystemExit(str(e)) from None
+        r, d = ler(id), ler_json(REFS / id / 'direcao.json')
+        aplicados = sum(c['status'] == 'aplicado' for c in r['revisoes'])
+        print(f"\"{r['nome']}\" em biblioteca/referencias/{id}/: {sum(i['camada'] == 'plano' for i in d['itens'])} planos, "
+              f"{sum(i['camada'] == 'elemento' for i in d['itens'])} elementos, {len(r['revisoes'])} comentários ({aplicados} aplicados).\n"
+              'A revisar na Calibragem: só ensina a direção depois de marcada como revisada.'
+              + ('' if r['origem']['aprovado_em'] else f"\nAviso: a v{r['origem']['versao']} não está aprovada no app."))
     elif a.id:
         _mostrar[0] = sys.stdout.isatty()
         sys.exit(0 if analisar(a.id) else 1)

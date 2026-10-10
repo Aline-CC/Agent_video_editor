@@ -10,5 +10,13 @@ uv run ferramentas/render.py <slug> --final
   antes: o aprovado é a vN.
 - Sai em `projetos/<slug>/final/<nome> · <data>.mp4`: 2160×3840 (4K), HEVC, 24 fps, AAC 320 kbps, −14 LUFS.
 - Entregue com o caminho e `open -R "<arquivo>"` (abre o Finder no arquivo).
+- Depois, a vN aprovada vira referência da Calibragem (sem Gemini; refazer substitui):
+
+  ```bash
+  uv run ferramentas/calibragem.py de-projeto <slug> vN
+  ```
+
+  Diga ao criador que o vídeo está na Calibragem do app como "a revisar" (com os comentários das revisões guardados):
+  ele confere a direção e marca como revisado. Só aí ela entra nos roteiros de exemplo e ensina a direção.
 
 Tempo esperado: ~1 min por minuto de vídeo.
