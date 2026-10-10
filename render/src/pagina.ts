@@ -1,0 +1,222 @@
+/** `/render/?projeto=<slug>`: só a camada dos inserts e motions (layout, entrada, fundo, card de comentário e, na fase
+ *  seguinte, os elementos), em fundo transparente, parada no instante que o render pede (`window.__render.ir(t)`). O ator
+ *  e o áudio saem do bruto, pelo ffmpeg (SPEC §13). Do 18: frontend/src/paginas/Render.tsx (`RenderProjeto`), com as
+ *  mesmas contas e o mesmo `window.__render`, mais `palavras` e `planos` (o app de revisão usa). */
+import { carregar } from './dados'
+import { montarSequencia } from './sequencia'
+import { paraTempo, palavrasNaSaida } from './direcaoProjeto'
+import { geometriaDoAtor, rostoDoArquivo } from './ator'
+import { centroDoMovimento, ehFullAtor } from './movimento'
+import { divisaoDe, lugarDoComentario, type Divisao } from './divisao'
+import { chaveParada, pedidosNoTempo, receitaDoInsert } from './inserts'
+import { blocosDaLegenda, paraExportar, zonasDaLegenda } from './legenda'
+import { cortesDoVideo, sonsDasTransicoes } from './transicoes'
+import { eventosDaReceita, type EventoSom } from './sons'
+import { escolhasDeSom, eventosDoMotion, falaDoPlano, fundoDoMotion, marcasDaPagina, urlPaginaMotion } from './motions'
+import { comentarioDe, cardComentario } from './comentario'
+import { definirRelogio, desenhar, insertNoLugar, motionNoLugar, type V } from './desenho'
+
+/** `divisao`: como a tela se divide no trecho (o ator: onde fica, e se a pessoa recortada sai por cima do insert). */
+type Trecho = { ini: number; fim: number; dividida: boolean; divisao: (Divisao & { ator: unknown }) | null }
+declare global {
+  interface Window {
+    /** O contrato com o render (o mesmo do 18, lido como em `backend/app/exportacao._trechos`):
+     *  - `duracao` (s) do vídeo final; `trechos`: onde há camada para fotografar (inserts com mídia, motions e, para a
+     *    fase seguinte, os pedaços dos elementos que não caem em nenhum deles);
+     *  - `ir(t)`: leva a página ao instante t e responde, depois de tudo pintado, com a chave do quadro quando ele fica
+     *    igual aos seguintes (insert parado: o render reaproveita a foto) ou null;
+     *  - `sons()`: os sons de apoio (presets, motions e transições) no tempo do vídeo final, **sem** o fator de som do
+     *    projeto (como no 18: o render multiplica o `ganho` por `fator_da_voz(nivel_voz.db)`, backend/app/sons.py);
+     *  - `transicoes()`: as transições com efeito ({t, tipo, antes, depois, forca}); `legenda()`: {blocos} ou null;
+     *  - `movimentos`: o zoom no ator nos planos de Full ator;
+     *  - `palavras`: as palavras que tocam no vídeo final ({id, texto, ini, fim}, s da saída);
+     *  - `planos`: os planos da direção no tempo da saída ({id, tipo, ini, fim, descricao, texto}). */
+    __render?: {
+      duracao: number
+      trechos: Trecho[]
+      ir: (t: number) => Promise<string | null>
+      sons: () => Promise<EventoSom[]>
+      transicoes: () => Promise<unknown[]>
+      legenda: () => Promise<unknown>
+      movimentos: { ini: number; fim: number; tipo: string; cx: number; cy: number }[]
+      palavras: { id: string; texto: string; ini: number; fim: number }[]
+      planos: { id: string; tipo: string; ini: number; fim: number; descricao: string; texto: string | null }[]
+    }
+  }
+}
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const doisQuadros = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+/** Espera tudo o que está na tela mostrar o instante novo: fontes, imagens e cada vídeo já no quadro pedido. */
+async function pronto() {
+  await document.fonts.ready
+  const limite = Date.now() + 15_000
+  const ok = () => [...document.querySelectorAll('video')].every((v) => v.error || (v.readyState >= 2 && !v.seeking))
+  while (!ok() && Date.now() < limite) await esperar(5)
+  await Promise.all([...document.images].map((i) => (i.complete ? null : i.decode().catch(() => {}))))
+  // motions: o iframe carregado e a cena já no instante pedido
+  const motions = () => !document.querySelector('iframe[data-pronto="0"], iframe[data-pintando]')
+  await doisQuadros()
+  while (!motions() && Date.now() < limite) await esperar(10)
+  await doisQuadros()
+}
+
+/** A camada dos elementos (lettering, palavra ManyChat, caixinha de perguntas, print sobreposto): acima dos inserts e
+ *  motions, abaixo da legenda (que o render desenha por cima, no ASS). Fase seguinte: por enquanto não desenha nada. */
+function desenharElementos(_t: number, _elementos: { id: string; tipo: string; inicio: number; fim: number; texto: string | null }[]): V[] {
+  return []
+}
+
+/** Os pedaços de [ini, fim) que não caem em nenhum dos intervalos `ocupados` (os elementos por cima de um insert ou
+ *  motion já saem na foto dele; dois trechos no mesmo quadro sobreporiam a camada duas vezes). */
+function semSobrepor(intervalos: { ini: number; fim: number }[], ocupados: { ini: number; fim: number }[]) {
+  const juntos: { ini: number; fim: number }[] = []
+  for (const x of [...intervalos].sort((a, b) => a.ini - b.ini)) {
+    const u = juntos[juntos.length - 1]
+    if (u && x.ini <= u.fim) u.fim = Math.max(u.fim, x.fim)
+    else juntos.push({ ...x })
+  }
+  const occ = [...ocupados].sort((a, b) => a.ini - b.ini)
+  return juntos.flatMap((x) => {
+    const out: { ini: number; fim: number }[] = []
+    let ini = x.ini
+    for (const o of occ) {
+      if (o.fim <= ini || o.ini >= x.fim) continue
+      if (o.ini > ini) out.push({ ini, fim: o.ini })
+      ini = Math.max(ini, o.fim)
+    }
+    if (ini < x.fim) out.push({ ini, fim: x.fim })
+    return out.filter((p) => p.fim - p.ini > 1e-3)
+  })
+}
+
+async function iniciar() {
+  const slug = new URLSearchParams(location.search).get('projeto') ?? ''
+  // a tela tem o tamanho do vídeo final e o conteúdo é desenhado como numa prévia de 540 px de largura, ampliado pelo
+  // zoom (não pela densidade de pixels: com ela, o Chrome desenhava os vídeos com perspectiva 3D em baixa resolução)
+  document.documentElement.style.zoom = String(window.innerWidth / 540)
+  const raiz = document.getElementById('camada')!
+  const d = await carregar(slug)
+  const { edicao, banco, presets } = d
+  const ins = edicao.inserts ?? {}
+  const motions = edicao.motions ?? {}
+
+  const seq = montarSequencia(edicao.timeline ?? { V1: [] }, d.palavras, edicao.velocidade ?? 1)
+  // o rosto do ator (P5): a geometria do ator em cada trecho dividido vai junto da divisão, para o ffmpeg aplicar
+  const rostoEm = rostoDoArquivo(d.rosto, seq, edicao.enquadramento?.x ?? 0.5)
+  const saida = palavrasNaSaida(d.palavras, seq)
+  const visiveis = paraTempo(edicao.direcao?.itens ?? [], d.palavras, saida, seq.duracao).visiveis
+  const planos = visiveis.filter((i) => i.camada === 'plano')
+  const elementos = visiveis.filter((i) => i.camada === 'elemento')
+  // os motions: os planos de motion que já têm um motion escolhido
+  const comMotion = planos
+    .filter((pl) => motions[pl.id])
+    .map((pl) => ({ plano: pl.id, ini: pl.inicio, fim: pl.fim, dividida: pl.tipo === 'tela_dividida_motion', fala: falaDoPlano(saida, pl.inicio, pl.fim) }))
+  const lista = pedidosNoTempo(ins.pedidos ?? [], planos).filter((x) => x.midias.length)
+  const fundoInserts = ins.fundo ?? 'gradiente'
+  const cortes = cortesDoVideo(planos, d.transicoes, d.escolhas)
+
+  const trechos: Trecho[] = [
+    ...lista.map((x) => {
+      const divisao = divisaoDe(x, banco, presets)
+      const ator = geometriaDoAtor(divisao, x.enriquecimento?.ator, rostoEm?.(x.t.inicio, x.t.fim) ?? null)
+      return { ini: x.t.inicio, fim: x.t.fim, dividida: x.formato === 'dividida', divisao: divisao && { ...divisao, ator } }
+    }),
+    ...comMotion.map((m) => {
+      const divisao: Divisao | null = m.dividida ? { modo: 'metade', tipo: 'area', f: 0.5 } : null
+      return { ini: m.ini, fim: m.fim, dividida: m.dividida, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } }
+    }),
+  ]
+  // os elementos da direção (a camada vem na fase seguinte): os pedaços fora dos inserts e motions já entram para o render
+  // fotografar
+  trechos.push(...semSobrepor(elementos.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })))
+
+  // a camada no instante `tempo` e a chave do quadro (parado: sem vídeo na tela, checado depois de pintar, e sem entrada
+  // nem saída andando; motion nunca é parado)
+  const quadro = (tempo: number): string | null => {
+    definirRelogio(tempo)
+    const atual = lista.find((x) => tempo >= x.t.inicio && tempo < x.t.fim)
+    const motion = comMotion.find((m) => tempo >= m.ini && tempo < m.fim)
+    const elems = desenharElementos(tempo, elementos)
+    if (motion && motions[motion.plano]) {
+      const mp = motions[motion.plano]
+      const src = urlPaginaMotion(mp, motion.fim - motion.ini, motion.fala, true)
+      // o palco escalado para a largura da área (a tela toda ou a metade de cima: as duas na largura do vídeo)
+      const escala = raiz.clientWidth / 1080
+      desenhar(raiz, [motionNoLugar({ src, formato: mp.formato, fundo: fundoDoMotion(mp), rel: tempo - motion.ini, escala }), ...elems])
+      return null
+    }
+    if (!atual) {
+      desenhar(raiz, elems)
+      return null
+    }
+    const divisao = divisaoDe(atual, banco, presets)
+    const receita = receitaDoInsert(atual, banco, presets)
+    const camada = (caixa: [number, number] | null): V[] => {
+      const out = insertNoLugar({ pedido: atual, banco, tempo, fundo: fundoInserts, receita, divisao, caixa })
+      if (atual.tipo === 'comentario_insert_ator') {
+        // o card desvia do ator pela geometria dele (o rosto só muda o x: a altura é a mesma da prévia)
+        const c = comentarioDe(atual, lugarDoComentario(atual, divisao, geometriaDoAtor(divisao, atual.enriquecimento?.ator, null)))
+        out.push(cardComentario(c, c.texto ?? atual.texto ?? ''))
+      }
+      return [...out, ...elems]
+    }
+    desenhar(raiz, camada(null))
+    // os cards guiados pelos cantos (`quadros`) precisam do tamanho da área em px para a matrix3d
+    if (receita?.cards.some((c) => c.quadros?.length)) {
+      const cena = raiz.querySelector<HTMLElement>('[data-k="cena"]')
+      if (cena) desenhar(raiz, camada([cena.clientWidth, cena.clientHeight]))
+    }
+    return chaveParada(atual, tempo - atual.t.inicio, presets)
+  }
+
+  window.__render = {
+    duracao: seq.duracao,
+    trechos,
+    movimentos: planos.flatMap((pl) => {
+      const tipo = ehFullAtor(pl.tipo) ? ins.ator_planos?.[pl.id] : undefined
+      if (!tipo) return []
+      const c = centroDoMovimento(rostoEm?.(pl.inicio, pl.fim))
+      return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y }]
+    }),
+    sons: async () => {
+      const cat = d.catalogo
+      const dosInserts = lista.flatMap((x) => {
+        const r = receitaDoInsert(x, banco, presets)
+        return r ? eventosDaReceita(r, x.t.fim - x.t.inicio, cat).map((e) => ({ ...e, t: e.t + x.t.inicio })) : []
+      })
+      // os motions: as marcas de cada página (aberta escondida) com o som escolhido de cada momento
+      const dosMotions = await Promise.all(
+        comMotion.map(async (m) => {
+          const mp = motions[m.plano]
+          if (mp.tipo !== 'preset') return []
+          const marcas = await marcasDaPagina(urlPaginaMotion(mp, m.fim - m.ini, m.fala, true), mp.formato)
+          return eventosDoMotion(marcas, escolhasDeSom(d.sonsMotion[mp.preset], mp), cat)
+            .filter((e) => e.t < m.fim - m.ini)
+            .map((e) => ({ ...e, t: e.t + m.ini }))
+        }),
+      )
+      return [...dosInserts, ...dosMotions.flat(), ...sonsDasTransicoes(cortes, cat)]
+    },
+    // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página), para o ASS
+    legenda: async () => {
+      const zonas = zonasDaLegenda(lista, banco, presets)
+      return d.legenda.ligada ? { blocos: paraExportar(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas)) } : null
+    },
+    // as transições com efeito (o som delas vai em `sons`), para o ffmpeg desenhar depois da montagem (SPEC §8.8)
+    transicoes: async () => cortes.filter((c) => c.transicao && c.transicao.efeito.tipo !== 'seco').map((c) => ({ t: c.t, ...c.transicao!.efeito })),
+    palavras: saida.map((w) => ({ id: w.id, texto: w.texto, ini: w.saida_ini, fim: w.saida_fim })),
+    planos: planos.map((p) => ({ id: p.id, tipo: p.tipo, ini: p.inicio, fim: p.fim, descricao: p.descricao, texto: p.texto })),
+    ir: async (t) => {
+      const chave = quadro(t)
+      await pronto()
+      return document.querySelector('video') ? null : chave
+    },
+  }
+}
+
+void iniciar().catch((e) => {
+  console.error(e)
+  document.title = `erro: ${(e as Error).message}`
+})

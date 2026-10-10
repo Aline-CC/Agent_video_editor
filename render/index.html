@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+  A página de render (/render/?projeto=<slug>): a camada dos inserts e motions em fundo transparente, para o render
+  fotografar quadro a quadro (window.__render; ver src/pagina.ts). Do 18: frontend/src/paginas/Render.tsx.
+  pagina.js é gerado (versionado, para rodar sem build). Depois de mudar src/*.ts:
+    cd render && npx -y esbuild@0.25.10 src/pagina.ts --bundle --format=iife --target=chrome120 --outfile=pagina.js
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Render</title>
+<link rel="icon" href="data:,">
+<style>
+  /* o preflight do Tailwind v4 que o 18 usa (só o que a camada precisa) */
+  *, ::after, ::before { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }
+  html { line-height: 1.5; -webkit-text-size-adjust: 100%; font-family: 'Manrope Variable', Manrope, Arial, sans-serif; background: transparent; }
+  body { font-size: 15px; -webkit-font-smoothing: antialiased; color: #182d2a; background: transparent; }
+  img, video, iframe { display: block; vertical-align: middle; }
+  img, video { max-width: 100%; height: auto; }
+
+  /* as classes do Tailwind que a camada usa (do 18: CenaPreset, InsertNoLugar, Fundo, ComentarioIG, MotionNoLugar) */
+  .fixed { position: fixed; }
+  .absolute { position: absolute; }
+  .inset-0 { inset: 0; }
+  .inset-x-0 { left: 0; right: 0; }
+  .inset-8p { inset: 8%; }
+  .top-0 { top: 0; }
+  .left-0 { left: 0; }
+  .h-1-2 { height: 50%; }
+  .size-full { width: 100%; height: 100%; }
+  .z-10 { z-index: 10; }
+  .isolate { isolation: isolate; }
+  .overflow-hidden { overflow: hidden; }
+  .pointer-events-none { pointer-events: none; }
+  .select-none { user-select: none; -webkit-user-select: none; }
+  .origin-top-left { transform-origin: 0 0; }
+  .border-0 { border-width: 0; }
+  .object-cover { object-fit: cover; }
+  .object-top { object-position: top; }
+  .rounded-full { border-radius: 9999px; }
+  .rounded-18 { border-radius: 18px; }
+  .bg-black { background-color: #000; }
+  .bg-white { background-color: #fff; }
+  .text-black { color: #000; }
+  .cor-000 { color: #000; }
+  .cor-262626 { color: #262626; }
+  .cor-737373 { color: #737373; }
+  .font-semibold { font-weight: 600; }
+  .quebra-qualquer { overflow-wrap: anywhere; }
+  .flex { display: flex; }
+  .flex-1 { flex: 1; }
+  .shrink-0 { flex-shrink: 0; }
+  .min-w-0 { min-width: 0; }
+  .items-start { align-items: flex-start; }
+  .items-baseline { align-items: baseline; }
+  .centrado { translate: -50% -50%; }
+  .sombra-card { box-shadow: 0 30px 70px -12px rgba(0, 0, 0, 0.45), 0 12px 24px -8px rgba(0, 0, 0, 0.3); }
+  .sombra-comentario { box-shadow: 0 6px 24px #0005; }
+</style>
+</head>
+<body>
+<div id="camada" class="fixed inset-0 overflow-hidden"></div>
+<script src="pagina.js"></script>
+</body>
+</html>

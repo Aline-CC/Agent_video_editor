@@ -1,0 +1,150 @@
+<!doctype html>
+<!--
+  A página de um motion (SPEC §8.5): o preset de biblioteca/motions/presets/<id>.html num palco do tamanho do formato,
+  com as fontes, o GSAP, os dados (MOTION) e o runtime. É o documento que o 18 montava no backend
+  (backend/app/motions.py: documento, pagina_do_preset, _fragmento_video), aqui montado no navegador.
+    ?preset=<id>&formato=vertical|dividida&duracao=<s>&valores=<json>&fala=<json>[&exportacao=1]
+    ?video=<id do banco>&formato=…&duracao=…[&exportacao=1]    um vídeo do banco ocupando o palco
+    &tocar=1[&fundo=<id>]   toca sozinho em loop, cabendo na janela, com o fundo (o do preset) atrás: a galeria
+  Quem manda no tempo é quem abre: window.__ir(t) e window.__sons() do runtime (biblioteca/motions/runtime.js).
+  As fontes da Apple (SF Pro, Rounded, Mono) o Chrome não acha pelo nome (local()): vêm do próprio Mac, por links que
+  não vão para o git, como no 18:
+    ln -s /System/Library/Fonts/SFNS{,Rounded,Mono}.ttf biblioteca/motions/fonts/
+-->
+<html><head><meta charset="utf-8">
+<script>
+(function () {
+  var q = new URLSearchParams(location.search)
+  var FORMATOS = { vertical: [1080, 1920], dividida: [1080, 960] } // tela cheia 9:16; tela dividida: a metade de cima
+  var HERDADOS = ['tipo', 'formato', 'largura', 'altura', 'arquivo', 'proxy', 'cortes'] // o que um trecho herda (banco.py)
+  // do 18: inserts/Fundo.tsx (FUNDOS), para a galeria
+  var FUNDOS = {
+    verde_claro: 'linear-gradient(180deg,#dfe8e1 0%,#a9c6b3 55%,#6f9c84 100%)',
+    papel: 'radial-gradient(120% 90% at 50% 40%,#f1ecdd 0%,#e4dcc7 70%,#d6ccb3 100%)',
+    nevoa: 'linear-gradient(180deg,#d9d6e2 0%,#a9b2c7 45%,#8a97ad 75%,#c8ccd8 100%)',
+    chuva: '#050505',
+    gradiente: 'radial-gradient(85% 70% at 50% 45%,#24423b 0%,#13201d 60%,#0b1412 100%)',
+  }
+
+  // o documento é escrito durante a leitura da página (o `load` só chega com a cena montada): os arquivos são lidos na hora
+  function ler(url, metodo) {
+    var x = new XMLHttpRequest()
+    x.open(metodo || 'GET', url, false)
+    x.send()
+    return x.status < 400 ? x.responseText : null
+  }
+  function jsonDoScript(fragmento, id) {
+    var m = fragmento.match(new RegExp('<script[^>]*id=["\']' + id + '["\'][^>]*>([\\s\\S]*?)</' + 'script>'))
+    try {
+      var d = m ? JSON.parse(m[1]) : {}
+      return d && typeof d === 'object' && !Array.isArray(d) ? d : {}
+    } catch (e) {
+      return {}
+    }
+  }
+  // um item do banco pelo id (10 caracteres hex); um trecho com o que herda do original
+  function item(bid) {
+    if (typeof bid !== 'string' || !/^[0-9a-f]{10}$/.test(bid)) return null
+    var t = ler('/biblioteca/banco/' + bid + '/item.json')
+    if (!t) return null
+    var i = JSON.parse(t)
+    if (i.pai) {
+      var p = JSON.parse(ler('/biblioteca/banco/' + i.pai + '/item.json') || '{}')
+      HERDADOS.forEach(function (k) { if (!(k in i) || i[k] == null) i[k] = p[k] })
+    }
+    return i
+  }
+  // o arquivo: na exportação, o vídeo com quadro-chave a cada 6 quadros (exportacao.mp4) se houver; senão o leve (proxy)
+  function urlBanco(i, exportacao) {
+    var base = '/biblioteca/banco/' + (i.pai || i.id) + '/'
+    if (i.tipo === 'imagem') return base + i.arquivo
+    if (exportacao) return ler(base + 'exportacao.mp4', 'HEAD') !== null ? base + 'exportacao.mp4' : base + i.arquivo
+    return base + (i.proxy || i.arquivo)
+  }
+  function lerJson(texto, padrao) {
+    try { return JSON.parse(texto || '') } catch (e) { return padrao }
+  }
+
+  var formato = FORMATOS[q.get('formato')] ? q.get('formato') : 'vertical'
+  var w = FORMATOS[formato][0], h = FORMATOS[formato][1]
+  var exportacao = q.get('exportacao') === '1' || q.get('exportacao') === 'true'
+  var duracao = parseFloat(q.get('duracao') || '') || 0
+  var fragmento = '', campos = {}, info = {}
+  if (q.get('video')) {
+    var iv = item(q.get('video'))
+    fragmento = '<video data-inicio="0" data-desde="' + ((iv && iv.inicio) || 0) + '" muted playsinline preload="auto" src="' + (iv ? urlBanco(iv, exportacao) : '') + '"\n' +
+      ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>\n' +
+      '<script>const tl = gsap.timeline({ paused: true }); tl.to({}, { duration: MOTION.duracao }); motion.pronto(tl)</' + 'script>'
+    duracao = duracao || 3
+  } else {
+    var pid = q.get('preset') || ''
+    fragmento = (/^[a-z0-9-]{1,40}$/.test(pid) && ler('/biblioteca/motions/presets/' + pid + '.html')) || ''
+    info = jsonDoScript(fragmento, 'preset')
+    duracao = duracao || parseFloat(info.duracao) || 3
+    // os valores de cada campo do preset (o padrão onde não mexeram); um campo de imagem vira o endereço do banco
+    var valores = lerJson(q.get('valores'), {})
+    if (!valores || typeof valores !== 'object' || Array.isArray(valores)) valores = {}
+    var declarados = jsonDoScript(fragmento, 'campos')
+    Object.keys(declarados).forEach(function (k) {
+      var c = declarados[k]
+      if (!c || typeof c !== 'object') return
+      var v = k in valores ? valores[k] : (c.padrao !== undefined ? c.padrao : '')
+      if (c.tipo === 'imagem') {
+        var ii = item(v)
+        v = ii ? urlBanco(ii, exportacao) : ''
+      }
+      campos[k] = v
+    })
+  }
+  // a fala do plano: [{texto, ini, fim}], em s desde o começo dele
+  var fala = lerJson(q.get('fala'), [])
+  fala = (Array.isArray(fala) ? fala : []).slice(0, 200).filter(function (x) { return x && 'texto' in x && 'ini' in x && 'fim' in x })
+    .map(function (x) { return { texto: String(x.texto).slice(0, 80), ini: parseFloat(x.ini), fim: parseFloat(x.fim) } })
+
+  var dados = JSON.stringify({ duracao: duracao, largura: w, altura: h, campos: campos, fala: fala }).replace(/<\//g, '<\\/')
+  var tocar = q.get('tocar') === '1'
+  var fundo = FUNDOS[q.get('fundo')] ? q.get('fundo') : FUNDOS[info.fundo] ? info.fundo : 'gradiente'
+  document.write(
+    '<link rel="icon" href="data:,"><link rel="stylesheet" href="/biblioteca/motions/fonts.css">' +
+    // as da Apple, do Mac (o fonts.css do 18 as pedia à API dele)
+    '<style>' +
+    '@font-face { font-family: "SF Pro"; font-weight: 100 900; font-display: block; src: url("/biblioteca/motions/fonts/SFNS.ttf") format("truetype"); }' +
+    '@font-face { font-family: "SF Pro Rounded"; font-weight: 100 900; font-display: block; src: url("/biblioteca/motions/fonts/SFNSRounded.ttf") format("truetype"); }' +
+    '@font-face { font-family: "SF Mono"; font-weight: 100 900; font-display: block; src: url("/biblioteca/motions/fonts/SFNSMono.ttf") format("truetype"); }' +
+    'html,body{margin:0;padding:0;background:transparent;overflow:hidden}#palco{position:relative;width:' + w + 'px;height:' + h + 'px;overflow:hidden;font-family:Inter,sans-serif}' +
+    (tocar ? 'html,body{width:100%;height:100%;background:' + FUNDOS[fundo] + '}#palco{transform-origin:0 0}#fundo{position:fixed;inset:0;overflow:hidden}' : '') +
+    '</style>' +
+    '<script>window.MOTION=' + dados + '</' + 'script>' +
+    '<script src="/biblioteca/motions/gsap.min.js"></' + 'script>' +
+    '<script src="/biblioteca/motions/runtime.js"></' + 'script>' +
+    '</head><body>' +
+    (tocar && q.get('video') == null ? fundoDaGaleria(fundo) : '') +
+    '<div id="palco">\n' + fragmento + '\n</div>' +
+    (tocar ? '<script>(' + tocarEmLoop.toString() + ')(' + w + ',' + h + ')</' + 'script>' : '')
+  )
+
+  // a chuva toca o loop gravado; a névoa tem as manchas desfocadas (como em Fundo.tsx)
+  function fundoDaGaleria(id) {
+    if (id === 'chuva') return '<div id="fundo"><video src="/biblioteca/fundos/aura/chuva.mp4" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover"></video></div>'
+    if (id === 'nevoa') return '<div id="fundo"><div style="position:absolute;top:-10%;left:-20%;height:55%;width:90%;border-radius:9999px;background:#eae6f0;opacity:.7;filter:blur(64px)"></div>' +
+      '<div style="position:absolute;top:40%;right:-25%;height:45%;width:80%;border-radius:9999px;background:#6f7f99;opacity:.5;filter:blur(64px)"></div></div>'
+    return ''
+  }
+  // a galeria: o palco cabendo na janela e a cena andando sozinha (a duração + 0,6 s parado no fim, como a miniatura do 18)
+  function tocarEmLoop(W, H) {
+    var palco = document.getElementById('palco')
+    var caber = function () { palco.style.transform = 'scale(' + Math.min(innerWidth / W, innerHeight / H) + ')' }
+    addEventListener('resize', caber)
+    caber()
+    var ini = performance.now(), ocupado = false
+    var passo = function (agora) {
+      if (!ocupado && window.__ir) {
+        ocupado = true
+        window.__ir(((agora - ini) / 1000) % (MOTION.duracao + 0.6)).then(function () { ocupado = false })
+      }
+      requestAnimationFrame(passo)
+    }
+    requestAnimationFrame(passo)
+  }
+})()
+</script>
