@@ -20,6 +20,8 @@ export type ItemDirecaoProjeto = {
   off_fim: number
   texto: string | null
   descricao: string
+  /** No print sobreposto: a mídia do banco (imagem ou vídeo) que vai no card (`elementos.ts`). */
+  banco?: string | null
 }
 export type ItemRef = {
   id: string

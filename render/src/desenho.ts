@@ -147,7 +147,8 @@ function videoNoTempo(m: MidiaLigada, item: ItemBanco, rel: number, topo?: boole
   }
 }
 
-function midia(m: MidiaLigada | undefined, banco: Map<string, ItemBanco>, rel: number, topo?: boolean): V | null {
+/** Uma mídia do banco no instante (vídeo parado no quadro, ou imagem); também a do print sobreposto (`elementos.ts`). */
+export function midia(m: MidiaLigada | undefined, banco: Map<string, ItemBanco>, rel: number, topo?: boolean): V | null {
   if (!m) return null
   const item = banco.get(m.banco)
   if (item?.tipo === 'video') return videoNoTempo(m, item, rel, topo)

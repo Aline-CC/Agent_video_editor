@@ -394,7 +394,10 @@
       })),
       json("/biblioteca/sons/catalogo.json").then((sons) => ({ sons, intensidades: INTENSIDADES }))
     ]);
-    const ids = [...new Set((edicao.inserts?.pedidos ?? []).flatMap((x) => x.midias.map((m) => m.banco)))];
+    const ids = [.../* @__PURE__ */ new Set([
+      ...(edicao.inserts?.pedidos ?? []).flatMap((x) => x.midias.map((m) => m.banco)),
+      ...(edicao.direcao?.itens ?? []).flatMap((i) => i.camada === "elemento" && i.banco ? [i.banco] : [])
+    ])];
     const banco = /* @__PURE__ */ new Map();
     for (const [id, item] of await Promise.all(ids.map(async (id2) => [id2, await itemBanco(id2)]))) if (item) banco.set(id, item);
     const presetsMotion = [...new Set(Object.values(edicao.motions ?? {}).flatMap((m) => m.tipo === "preset" ? [m.preset] : []))];
@@ -513,9 +516,9 @@
     if (!r || r.h <= 0) return { s: 1, tx: 0, ty: f / 2 };
     const area = 1 - f;
     const s = limite2(REGRA.rosto * area / r.h, 1, REGRA.zoomMax);
-    const olhos = r.cy - 0.15 * r.h;
+    const olhos2 = r.cy - 0.15 * r.h;
     const tx = limite2(0.5 - s * r.cx, 1 - s, 0);
-    let ty = f + REGRA.olhos * area - s * olhos;
+    let ty = f + REGRA.olhos * area - s * olhos2;
     ty = Math.max(ty, f + REGRA.folga * area - s * (r.cy - 0.6 * r.h));
     return { s, tx, ty: limite2(ty, 1 - s, f) };
   }
@@ -1112,6 +1115,27 @@
       return { ...b, fim, y };
     });
   }
+  function semOsLetterings(bs, saida, letterings) {
+    if (!letterings.length) return bs;
+    const ls = [...letterings].sort((x, y) => x.ini - y.ini);
+    const meio = new Map(saida.map((w) => [w.id, (w.saida_ini + w.saida_fim) / 2]));
+    const dentro = (t) => t != null && ls.some((l) => l.ini <= t && t < l.fim);
+    const ficam = bs.flatMap((b, i) => b.palavras.every((id) => dentro(meio.get(id))) ? [] : [{ b, i, ini: b.ini }]);
+    ficam.forEach((x, k) => {
+      for (const l of ls) if (x.ini >= l.ini && x.ini < l.fim) x.ini = l.fim;
+      const ant = ficam[k - 1];
+      if (ant && (x.ini !== x.b.ini || ant.ini !== ant.b.ini)) x.ini = Math.max(x.ini, ant.ini + MINIMO);
+    });
+    return ficam.flatMap((x, k) => {
+      const { b, ini } = x;
+      const prox = ficam[k + 1];
+      const colado = bs[x.i + 1] && b.fim >= bs[x.i + 1].ini - 1e-6;
+      let fim = colado && prox ? prox.ini : ini !== b.ini ? Math.max(b.fim, ini + MINIMO) : b.fim;
+      if (prox) fim = Math.min(fim, prox.ini);
+      for (const l of ls) if (ini < l.ini && fim > l.ini) fim = l.ini;
+      return fim - ini >= 0.05 ? [{ ...b, ini, fim }] : [];
+    });
+  }
   var paraExportar = (bs) => bs.filter((b) => !b.oculto).map((b) => ({ ini: b.ini, fim: b.fim, texto: b.texto, y: b.y }));
 
   // src/transicoes.ts
@@ -1416,6 +1440,259 @@
     };
   }
 
+  // src/elementos.ts
+  var queixo = (l) => l.rosto ? l.rosto.cy + l.rosto.h / 2 : 0.45;
+  var olhos = (l) => l.rosto ? l.rosto.cy - 0.15 * l.rosto.h : 0.29;
+  var FONTE = "'SF Pro Display', system-ui, sans-serif";
+  var MONO = "ui-monospace, 'SF Mono', Menlo, monospace";
+  var W_H2 = 9 / 16;
+  var POP = { dur: 0.18, escala: 0.92, curva: bezier(0.16, 1, 0.3, 1) };
+  var MAIUSCULA = 0.7046;
+  var TAM = { grande: 5.75 / MAIUSCULA, insert: 4.5 / MAIUSCULA, manychat: 2.35 / MAIUSCULA };
+  var SOMBRA_TEXTO = "0 0.03em 0.16em rgba(0,0,0,0.55), 0 0 0.04em rgba(0,0,0,0.25)";
+  var DESFOQUE = { raio: 0.9, escurece: 0.22 };
+  var BARRA = { w: 0.94, h: 0.076, y: 0.64, texto: 0.075 };
+  var DIGITAR = { atraso: 0.1, letra: 0.07, max: 1, toque: 0.22 };
+  var SONS = { digitacao: ["typing-ios-01", "Digita\xE7\xE3o"], pop: ["ui-pop-02", "Pop"] };
+  var AVIAO = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round" d="M3 11 22 2 13 21 11 13Z"/></svg>')}`;
+  var ctx = null;
+  function emEm(texto, peso, familia2 = FONTE) {
+    ctx ??= document.createElement("canvas").getContext("2d");
+    ctx.font = `${peso} 100px ${familia2}`;
+    return ctx.measureText(texto).width / 100;
+  }
+  var caberEm = (texto, base, max, peso = 700) => Math.min(base, max * 100 * W_H2 / Math.max(emEm(texto, peso), 0.01));
+  function lettering(texto, base) {
+    const um = caberEm(texto, base, 0.86);
+    const ps = texto.trim().split(/\s+/);
+    let melhor = { tam: um, texto };
+    if (um >= 0.75 * base || ps.length < 2) return melhor;
+    for (let k = 1; k < ps.length; k++) {
+      const a = ps.slice(0, k).join(" "), b = ps.slice(k).join(" ");
+      const tam = Math.min(caberEm(a, base, 0.86), caberEm(b, base, 0.86));
+      if (tam > melhor.tam) melhor = { tam, texto: `${a}
+${b}` };
+    }
+    return melhor;
+  }
+  function quebrar(texto, tam, largura, peso) {
+    const cabe = (s) => emEm(s, peso) * tam <= largura * 100 * W_H2;
+    const linhas = [];
+    for (const p of texto.trim().split(/\s+/)) {
+      const u = linhas[linhas.length - 1];
+      if (u != null && cabe(`${u} ${p}`)) linhas[linhas.length - 1] = `${u} ${p}`;
+      else linhas.push(p);
+    }
+    return linhas;
+  }
+  var CAIXINHA = { w: 0.8, cabecalho: 1.9, pergunta: 2.9, pad: 2.2, padCab: 1.4, y: 0.32 };
+  function medidasCaixinha(e) {
+    const linhas = quebrar(e.texto ?? "", CAIXINHA.pergunta, CAIXINHA.w - 0.1, 600);
+    const h = (2 * CAIXINHA.padCab + CAIXINHA.cabecalho * 1.2 + 2 * CAIXINHA.pad + linhas.length * CAIXINHA.pergunta * 1.25) / 100;
+    const l = e.lugar;
+    const y = l.modo === "metade" ? Math.max(l.f / 2, h / 2 + 0.03) : l.modo === "ator" ? Math.min(CAIXINHA.y, Math.max(olhos(l) - 0.03 - h / 2, h / 2 + 0.05)) : CAIXINHA.y;
+    return { linhas, h, y };
+  }
+  function medidasPrint(e, item) {
+    let w = 0.5, h = 0;
+    if (item) {
+      const a = item.largura && item.altura ? item.largura / item.altura : 16 / 9;
+      h = w * W_H2 / a;
+      if (h > 0.3) {
+        h = 0.3;
+        w = h * a / W_H2;
+      }
+    } else h = 0.055;
+    const { modo, f } = e.lugar;
+    const meio = modo === "metade" ? f : modo === "atras" ? Math.min(f, 0.72) - h / 2 - 0.02 : modo === "ator" ? queixo(e.lugar) + 0.04 + h / 2 : 0.66;
+    return { w, h, y: Math.min(Math.max(meio, h / 2 + 0.03), 0.97 - h / 2) };
+  }
+  var yBarra = (l) => l.modo === "metade" ? l.f : BARRA.y;
+  function digitacao(e) {
+    const n = [...e.texto ?? ""].length;
+    return { ini: DIGITAR.atraso, dur: Math.max(Math.min(n * DIGITAR.letra, DIGITAR.max, (e.fim - e.inicio) / 2 - DIGITAR.atraso), 0.05), n };
+  }
+  var pop = (rel) => {
+    const p = POP.curva(limite01(rel / POP.dur));
+    return { escala: POP.escala + (1 - POP.escala) * p, opacidade: p };
+  };
+  var centrado = (y, rel) => {
+    const p = pop(rel);
+    return { left: "50%", top: `${y * 100}%`, transform: `translate(-50%, -50%) scale(${p.escala})`, opacity: p.opacidade };
+  };
+  function letteringNoAtor(e, rel) {
+    const { tam, texto } = lettering(e.texto ?? "", TAM.grande);
+    const y = Math.min(Math.max(queixo(e.lugar) + 0.08, 0.5), 0.6);
+    return { chave: e.id, classe: "absolute", estilo: { ...centrado(y, rel), ...estiloLettering(tam) }, texto };
+  }
+  function letteringNoInsert(e, rel) {
+    const { modo, f } = e.lugar;
+    const y = modo === "metade" ? f / 2 : modo === "atras" ? Math.min(f, 0.72) / 2 : 0.3;
+    const { tam, texto } = lettering(e.texto ?? "", TAM.insert);
+    const p = pop(rel).opacidade;
+    return {
+      chave: e.id,
+      classe: "absolute inset-0",
+      filhos: [
+        {
+          chave: "desfoque",
+          classe: "absolute",
+          estilo: { ...modo === "metade" ? { left: 0, right: 0, top: 0, height: `${f * 100}%` } : { inset: 0 }, backdropFilter: `blur(${(DESFOQUE.raio * p).toFixed(3)}cqw) brightness(${1 - DESFOQUE.escurece * p})` }
+        },
+        { chave: "texto", classe: "absolute", estilo: { ...centrado(y, rel), ...estiloLettering(tam) }, texto }
+      ]
+    };
+  }
+  var estiloLettering = (tam) => ({
+    fontFamily: FONTE,
+    fontWeight: 700,
+    fontSize: `${tam.toFixed(3)}cqh`,
+    lineHeight: 1.08,
+    color: "#fff",
+    textAlign: "center",
+    whiteSpace: "pre",
+    textShadow: SOMBRA_TEXTO
+  });
+  function manychat(e, rel) {
+    const d = digitacao(e);
+    const letras = [...e.texto ?? ""];
+    const n = rel < d.ini ? 0 : Math.min(letras.length, Math.floor((rel - d.ini) / d.dur * letras.length) + 1);
+    const digitando = rel < d.ini + d.dur;
+    const toque = rel - d.ini - d.dur;
+    const escala = toque < 0 ? 1 : 0.9 + 0.1 * POP.curva(limite01(toque / DIGITAR.toque));
+    const botao = BARRA.h * 0.9 * 100;
+    return {
+      chave: e.id,
+      classe: "absolute",
+      estilo: {
+        ...centrado(yBarra(e.lugar), rel),
+        width: `${BARRA.w * 100}cqw`,
+        height: `${BARRA.h * 100}cqh`,
+        borderRadius: "9999px",
+        background: "linear-gradient(180deg, #fbfbfb 0%, #f3f3f3 55%, #e8e8e8 100%)",
+        boxShadow: "0 0.5cqh 1.6cqh rgba(0,0,0,0.28), 0 0.1cqh 0.3cqh rgba(0,0,0,0.2), inset 0 -0.15cqh 0.3cqh rgba(0,0,0,0.06)"
+      },
+      filhos: [
+        {
+          chave: "palavra",
+          classe: "absolute flex",
+          estilo: { left: `${(BARRA.texto - (1 - BARRA.w) / 2) * 100}cqw`, top: 0, bottom: 0, alignItems: "center", fontFamily: FONTE, fontWeight: 400, fontSize: `${TAM.manychat.toFixed(3)}cqh`, color: "#2a2a2a", whiteSpace: "pre" },
+          filhos: [
+            { chave: "texto", tag: "span", texto: letras.slice(0, n).join("") },
+            digitando && { chave: "cursor", tag: "span", estilo: { width: "0.3cqw", height: "1.15em", marginLeft: "0.2cqw", background: "#2a2a2a", borderRadius: "0.2cqw" } }
+          ]
+        },
+        {
+          chave: "botao",
+          classe: "absolute rounded-full flex",
+          estilo: {
+            right: `${(BARRA.h * 100 - botao) / 2}cqh`,
+            top: "50%",
+            width: `${botao}cqh`,
+            height: `${botao}cqh`,
+            transform: `translateY(-50%) scale(${escala})`,
+            background: "#151515",
+            alignItems: "center",
+            justifyContent: "center"
+          },
+          filhos: [{ chave: "aviao", tag: "img", atributos: { src: AVIAO, alt: "" }, estilo: { width: "48%", height: "48%", transform: "translate(-6%, 6%)" } }]
+        }
+      ]
+    };
+  }
+  function caixinha(e, rel) {
+    const m = medidasCaixinha(e);
+    return {
+      chave: e.id,
+      classe: "absolute overflow-hidden bg-white",
+      estilo: { ...centrado(m.y, rel), width: `${CAIXINHA.w * 100}cqw`, borderRadius: "3.4cqw", boxShadow: "0 1cqh 3cqh rgba(0,0,0,0.3), 0 0.2cqh 0.6cqh rgba(0,0,0,0.18)", fontFamily: FONTE, textAlign: "center" },
+      filhos: [
+        {
+          chave: "cabecalho",
+          estilo: { padding: `${CAIXINHA.padCab}cqh 4cqw`, background: "linear-gradient(90deg, #f58529 0%, #dd2a7b 45%, #8134af 78%, #515bd4 100%)", color: "#fff", fontWeight: 500, fontSize: `${CAIXINHA.cabecalho}cqh`, lineHeight: 1.2 },
+          texto: "Fa\xE7a uma pergunta"
+        },
+        {
+          chave: "pergunta",
+          estilo: { padding: `${CAIXINHA.pad}cqh 5cqw`, color: "#000", fontWeight: 600, fontSize: `${CAIXINHA.pergunta}cqh`, lineHeight: 1.25, whiteSpace: "pre" },
+          texto: m.linhas.join("\n")
+        }
+      ]
+    };
+  }
+  function print(e, rel, banco) {
+    const item = e.banco ? banco.get(e.banco) : void 0;
+    const m = medidasPrint(e, item);
+    if (item)
+      return {
+        chave: e.id,
+        classe: "absolute overflow-hidden sombra-card",
+        estilo: { ...centrado(m.y, rel), width: `${m.w * 100}cqw`, height: `${m.h * 100}cqh`, borderRadius: "2.2cqw", background: "#111" },
+        filhos: [midia({ id: e.id, banco: item.id }, banco, Math.max(rel, 0))]
+      };
+    const texto = e.texto;
+    if (!texto) return null;
+    return {
+      chave: e.id,
+      classe: "absolute",
+      estilo: {
+        ...centrado(m.y, rel),
+        padding: "1.2cqh 3.2cqw",
+        borderRadius: "1.8cqw",
+        background: "rgba(14,14,14,0.62)",
+        boxShadow: "0 0.6cqh 2cqh rgba(0,0,0,0.3), inset 0 0 0 0.12cqw rgba(255,255,255,0.14)",
+        fontFamily: MONO,
+        fontWeight: 500,
+        fontSize: `${caberEm(texto, 2.6, 0.84, 500).toFixed(3)}cqh`,
+        lineHeight: 1.2,
+        color: "#fff",
+        whiteSpace: "pre"
+      },
+      texto
+    };
+  }
+  function desenharElementos(t, elementos, banco) {
+    const agora = elementos.filter((e) => e.inicio <= t && t < e.fim);
+    if (!agora.length) return { vs: [], chave: "" };
+    let parado = true;
+    const filhos = agora.map((e) => {
+      const rel = t - e.inicio;
+      const d = e.tipo === "palavra_manychat" ? digitacao(e) : null;
+      if (rel < (d ? d.ini + d.dur + DIGITAR.toque : POP.dur)) parado = false;
+      if (e.tipo === "full_ator_lettering" || e.tipo === "lettering" && e.lugar.modo === "ator") return letteringNoAtor(e, rel);
+      if (e.tipo === "lettering") return letteringNoInsert(e, rel);
+      if (e.tipo === "palavra_manychat") return manychat(e, rel);
+      if (e.tipo === "caixinha_perguntas") return caixinha(e, rel);
+      if (e.tipo === "print_sobreposto") return print(e, rel, banco);
+      return null;
+    });
+    const vs = [{ chave: "elementos", classe: "pointer-events-none absolute inset-0 select-none", estilo: { containerType: "size", zIndex: 20 }, filhos }];
+    return { vs, chave: parado ? `e:${agora.map((e) => e.id).join(",")}` : null };
+  }
+  var intervalosDeLettering = (elementos) => elementos.filter((e) => (e.tipo === "full_ator_lettering" || e.tipo === "lettering") && e.texto).map((e) => ({ ini: e.inicio, fim: e.fim }));
+  function zonasDosElementos(elementos, banco) {
+    return elementos.flatMap((e) => {
+      const card = e.tipo === "palavra_manychat" ? { y: yBarra(e.lugar), h: BARRA.h } : e.tipo === "caixinha_perguntas" ? medidasCaixinha(e) : e.tipo === "print_sobreposto" ? medidasPrint(e, e.banco ? banco.get(e.banco) : void 0) : null;
+      return card ? [{ ini: e.inicio, fim: e.fim, divisao: null, ator: null, card: { y: card.y, h: card.h } }] : [];
+    });
+  }
+  function sonsDosElementos(elementos, cat) {
+    if (!cat) return [];
+    const som = ([id, familia2]) => (cat.sons.find((s) => s.id === id) ?? cat.sons.find((s) => s.familia === familia2))?.id ?? null;
+    return elementos.flatMap((e) => {
+      if (e.tipo === "palavra_manychat" && e.texto) {
+        const d = digitacao(e);
+        const ev = eventoNoTempo({ som: som(SONS.digitacao), intensidade: "baixo", atraso: 0 }, e.inicio + d.ini, cat, +d.dur.toFixed(3));
+        return ev ? [ev] : [];
+      }
+      if (e.tipo === "caixinha_perguntas" || e.tipo === "print_sobreposto" && (e.banco || e.texto)) {
+        const ev = eventoNoTempo({ som: som(SONS.pop), intensidade: "baixo", atraso: 0 }, e.inicio, cat);
+        return ev ? [ev] : [];
+      }
+      return [];
+    });
+  }
+
   // src/pagina.ts
   var esperar = (ms) => new Promise((r) => setTimeout(r, ms));
   var doisQuadros = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1430,9 +1707,6 @@
     await doisQuadros();
     while (!motions() && Date.now() < limite3) await esperar(10);
     await doisQuadros();
-  }
-  function desenharElementos(_t, _elementos) {
-    return [];
   }
   function semSobrepor(intervalos, ocupados) {
     const juntos = [];
@@ -1483,12 +1757,26 @@
         return { ini: m.ini, fim: m.fim, dividida: m.dividida, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } };
       })
     ];
-    trechos.push(...semSobrepor(elementos.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })));
+    const lugarEm = (ini, fim) => {
+      const t = (ini + fim) / 2;
+      const x = lista2.find((x2) => t >= x2.t.inicio && t < x2.t.fim);
+      if (x) {
+        const d2 = divisaoDe(x, banco, presets);
+        return { modo: d2?.modo ?? "cheia", f: d2?.f ?? 1, rosto: null };
+      }
+      const m = comMotion.find((m2) => t >= m2.ini && t < m2.fim);
+      if (m) return { modo: m.dividida ? "metade" : "cheia", f: m.dividida ? 0.5 : 1, rosto: null };
+      return { modo: "ator", f: 1, rosto: rostoEm?.(ini, fim) ?? null };
+    };
+    const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]));
+    const desenhaveis = [...planos.filter((p) => p.tipo === "full_ator_lettering"), ...elementos].sort((a, b) => a.inicio - b.inicio).map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }));
+    trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })));
     const quadro = (tempo) => {
       definirRelogio(tempo);
       const atual = lista2.find((x) => tempo >= x.t.inicio && tempo < x.t.fim);
       const motion = comMotion.find((m) => tempo >= m.ini && tempo < m.fim);
-      const elems = desenharElementos(tempo, elementos);
+      const el = desenharElementos(tempo, desenhaveis, banco);
+      const elems = el.vs;
       if (motion && motions[motion.plano]) {
         const mp = motions[motion.plano];
         const src = urlPaginaMotion(mp, motion.fim - motion.ini, motion.fala, true);
@@ -1498,7 +1786,7 @@
       }
       if (!atual) {
         desenhar(raiz, elems);
-        return null;
+        return el.chave || null;
       }
       const divisao = divisaoDe(atual, banco, presets);
       const receita = receitaDoInsert(atual, banco, presets);
@@ -1515,7 +1803,8 @@
         const cena = raiz.querySelector('[data-k="cena"]');
         if (cena) desenhar(raiz, camada([cena.clientWidth, cena.clientHeight]));
       }
-      return chaveParada(atual, tempo - atual.t.inicio, presets);
+      const chave = chaveParada(atual, tempo - atual.t.inicio, presets);
+      return chave == null || el.chave == null ? null : el.chave ? `${chave}|${el.chave}` : chave;
     };
     window.__render = {
       duracao: seq.duracao,
@@ -1540,12 +1829,15 @@
             return eventosDoMotion(marcas, escolhasDeSom(d.sonsMotion[mp.preset], mp), cat).filter((e) => e.t < m.fim - m.ini).map((e) => ({ ...e, t: e.t + m.ini }));
           })
         );
-        return [...dosInserts, ...dosMotions.flat(), ...sonsDasTransicoes(cortes, cat)];
+        return [...dosInserts, ...dosMotions.flat(), ...sonsDosElementos(desenhaveis, cat), ...sonsDasTransicoes(cortes, cat)];
       },
-      // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página), para o ASS
+      // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página e
+      // desviando da barra do ManyChat, da caixinha e do print), sem o que um lettering já mostra, para o ASS
       legenda: async () => {
-        const zonas = zonasDaLegenda(lista2, banco, presets);
-        return d.legenda.ligada ? { blocos: paraExportar(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas)) } : null;
+        const zonas = [...zonasDaLegenda(lista2, banco, presets), ...zonasDosElementos(desenhaveis, banco)];
+        if (!d.legenda.ligada) return null;
+        const blocos = semOsLetterings(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas), saida, intervalosDeLettering(desenhaveis));
+        return { blocos: paraExportar(blocos) };
       },
       // as transições com efeito (o som delas vai em `sons`), para o ffmpeg desenhar depois da montagem (SPEC §8.8)
       transicoes: async () => cortes.filter((c) => c.transicao && c.transicao.efeito.tipo !== "seco").map((c) => ({ t: c.t, ...c.transicao.efeito })),

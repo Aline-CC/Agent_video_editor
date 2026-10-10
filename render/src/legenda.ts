@@ -208,6 +208,32 @@ export function blocosDaLegenda(saida: PalavraSaida[], planos: ItemRef[], lg: Le
   })
 }
 
+/** A legenda sem o que um lettering já mostra (o Full ator com lettering e o elemento Lettering, `elementos.ts`; nas
+ *  referências os dois nunca aparecem juntos): some o bloco cujas palavras caem todas (pelo meio delas) dentro de um
+ *  lettering; o que entraria durante ele (a antecipação) entra quando ele sai, os seguintes a `MINIMO` um do outro, e o
+ *  que ficaria na tela quando ele entra sai ali (colado num bloco que sumiu, fica até o lettering entrar). */
+export function semOsLetterings(bs: Bloco[], saida: PalavraSaida[], letterings: { ini: number; fim: number }[]): Bloco[] {
+  if (!letterings.length) return bs
+  const ls = [...letterings].sort((x, y) => x.ini - y.ini)
+  const meio = new Map(saida.map((w) => [w.id, (w.saida_ini + w.saida_fim) / 2]))
+  const dentro = (t: number | undefined) => t != null && ls.some((l) => l.ini <= t && t < l.fim)
+  const ficam = bs.flatMap((b, i) => (b.palavras.every((id) => dentro(meio.get(id))) ? [] : [{ b, i, ini: b.ini }]))
+  ficam.forEach((x, k) => {
+    for (const l of ls) if (x.ini >= l.ini && x.ini < l.fim) x.ini = l.fim
+    const ant = ficam[k - 1]
+    if (ant && (x.ini !== x.b.ini || ant.ini !== ant.b.ini)) x.ini = Math.max(x.ini, ant.ini + MINIMO)
+  })
+  return ficam.flatMap((x, k) => {
+    const { b, ini } = x
+    const prox = ficam[k + 1]
+    const colado = bs[x.i + 1] && b.fim >= bs[x.i + 1].ini - 1e-6
+    let fim = colado && prox ? prox.ini : ini !== b.ini ? Math.max(b.fim, ini + MINIMO) : b.fim
+    if (prox) fim = Math.min(fim, prox.ini)
+    for (const l of ls) if (ini < l.ini && fim > l.ini) fim = l.ini
+    return fim - ini >= 0.05 ? [{ ...b, ini, fim }] : []
+  })
+}
+
 /** O bloco que aparece no instante `t` (escondidos não contam). */
 export const blocoNoTempo = (bs: Bloco[], t: number) => bs.find((b) => !b.oculto && b.ini <= t && t < b.fim) ?? null
 

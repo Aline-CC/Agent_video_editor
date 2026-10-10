@@ -108,8 +108,11 @@ export async function carregar(slug: string): Promise<Dados> {
     })),
     json<Catalogo['sons']>('/biblioteca/sons/catalogo.json').then((sons) => ({ sons, intensidades: INTENSIDADES })),
   ])
-  // as mídias que o projeto usa (as dos inserts)
-  const ids = [...new Set((edicao.inserts?.pedidos ?? []).flatMap((x) => x.midias.map((m) => m.banco)))]
+  // as mídias que o projeto usa (as dos inserts e as dos prints sobrepostos)
+  const ids = [...new Set([
+    ...(edicao.inserts?.pedidos ?? []).flatMap((x) => x.midias.map((m) => m.banco)),
+    ...(edicao.direcao?.itens ?? []).flatMap((i) => (i.camada === 'elemento' && i.banco ? [i.banco] : [])),
+  ])]
   const banco = new Map<string, ItemBanco>()
   for (const [id, item] of await Promise.all(ids.map(async (id) => [id, await itemBanco(id)] as const))) if (item) banco.set(id, item)
   // os sons de cada preset de motion usado

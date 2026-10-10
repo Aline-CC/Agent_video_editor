@@ -1,6 +1,6 @@
-/** `/render/?projeto=<slug>`: só a camada dos inserts e motions (layout, entrada, fundo, card de comentário e, na fase
- *  seguinte, os elementos), em fundo transparente, parada no instante que o render pede (`window.__render.ir(t)`). O ator
- *  e o áudio saem do bruto, pelo ffmpeg (SPEC §13). Do 18: frontend/src/paginas/Render.tsx (`RenderProjeto`), com as
+/** `/render/?projeto=<slug>`: só a camada dos inserts e motions (layout, entrada, fundo, card de comentário) e dos
+ *  elementos da direção (`elementos.ts`), em fundo transparente, parada no instante que o render pede
+ *  (`window.__render.ir(t)`). O ator e o áudio saem do bruto, pelo ffmpeg (SPEC §13). Do 18: frontend/src/paginas/Render.tsx (`RenderProjeto`), com as
  *  mesmas contas e o mesmo `window.__render`, mais `palavras` e `planos` (o app de revisão usa). */
 import { carregar } from './dados'
 import { montarSequencia } from './sequencia'
@@ -9,25 +9,27 @@ import { geometriaDoAtor, rostoDoArquivo } from './ator'
 import { centroDoMovimento, ehFullAtor } from './movimento'
 import { divisaoDe, lugarDoComentario, type Divisao } from './divisao'
 import { chaveParada, pedidosNoTempo, receitaDoInsert } from './inserts'
-import { blocosDaLegenda, paraExportar, zonasDaLegenda } from './legenda'
+import { blocosDaLegenda, paraExportar, semOsLetterings, zonasDaLegenda } from './legenda'
 import { cortesDoVideo, sonsDasTransicoes } from './transicoes'
 import { eventosDaReceita, type EventoSom } from './sons'
 import { escolhasDeSom, eventosDoMotion, falaDoPlano, fundoDoMotion, marcasDaPagina, urlPaginaMotion } from './motions'
 import { comentarioDe, cardComentario } from './comentario'
 import { definirRelogio, desenhar, insertNoLugar, motionNoLugar, type V } from './desenho'
+import { desenharElementos, intervalosDeLettering, sonsDosElementos, zonasDosElementos, type Elemento, type Lugar } from './elementos'
 
 /** `divisao`: como a tela se divide no trecho (o ator: onde fica, e se a pessoa recortada sai por cima do insert). */
 type Trecho = { ini: number; fim: number; dividida: boolean; divisao: (Divisao & { ator: unknown }) | null }
 declare global {
   interface Window {
     /** O contrato com o render (o mesmo do 18, lido como em `backend/app/exportacao._trechos`):
-     *  - `duracao` (s) do vídeo final; `trechos`: onde há camada para fotografar (inserts com mídia, motions e, para a
-     *    fase seguinte, os pedaços dos elementos que não caem em nenhum deles);
+     *  - `duracao` (s) do vídeo final; `trechos`: onde há camada para fotografar (inserts com mídia, motions e os pedaços
+     *    dos elementos e dos planos Full ator com lettering que não caem em nenhum deles);
      *  - `ir(t)`: leva a página ao instante t e responde, depois de tudo pintado, com a chave do quadro quando ele fica
      *    igual aos seguintes (insert parado: o render reaproveita a foto) ou null;
-     *  - `sons()`: os sons de apoio (presets, motions e transições) no tempo do vídeo final, **sem** o fator de som do
+     *  - `sons()`: os sons de apoio (presets, motions, elementos e transições) no tempo do vídeo final, **sem** o fator de som do
      *    projeto (como no 18: o render multiplica o `ganho` por `fator_da_voz(nivel_voz.db)`, backend/app/sons.py);
-     *  - `transicoes()`: as transições com efeito ({t, tipo, antes, depois, forca}); `legenda()`: {blocos} ou null;
+     *  - `transicoes()`: as transições com efeito ({t, tipo, antes, depois, forca}); `legenda()`: {blocos} ou null (sem
+     *    os blocos que um lettering já mostra);
      *  - `movimentos`: o zoom no ator nos planos de Full ator;
      *  - `palavras`: as palavras que tocam no vídeo final ({id, texto, ini, fim}, s da saída);
      *  - `planos`: os planos da direção no tempo da saída ({id, tipo, ini, fim, descricao, texto}). */
@@ -60,12 +62,6 @@ async function pronto() {
   await doisQuadros()
   while (!motions() && Date.now() < limite) await esperar(10)
   await doisQuadros()
-}
-
-/** A camada dos elementos (lettering, palavra ManyChat, caixinha de perguntas, print sobreposto): acima dos inserts e
- *  motions, abaixo da legenda (que o render desenha por cima, no ASS). Fase seguinte: por enquanto não desenha nada. */
-function desenharElementos(_t: number, _elementos: { id: string; tipo: string; inicio: number; fim: number; texto: string | null }[]): V[] {
-  return []
 }
 
 /** Os pedaços de [ini, fim) que não caem em nenhum dos intervalos `ocupados` (os elementos por cima de um insert ou
@@ -128,17 +124,34 @@ async function iniciar() {
       return { ini: m.ini, fim: m.fim, dividida: m.dividida, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } }
     }),
   ]
-  // os elementos da direção (a camada vem na fase seguinte): os pedaços fora dos inserts e motions já entram para o render
-  // fotografar
-  trechos.push(...semSobrepor(elementos.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })))
+  // os elementos da direção e o texto dos planos Full ator com lettering (`elementos.ts`), cada um com o lugar onde cai
+  // (pelo meio dele): o ator em tela cheia, o insert ou motion na tela toda ou a tela dividida
+  const lugarEm = (ini: number, fim: number): Lugar => {
+    const t = (ini + fim) / 2
+    const x = lista.find((x) => t >= x.t.inicio && t < x.t.fim)
+    if (x) {
+      const d = divisaoDe(x, banco, presets)
+      return { modo: d?.modo ?? 'cheia', f: d?.f ?? 1, rosto: null }
+    }
+    const m = comMotion.find((m) => t >= m.ini && t < m.fim)
+    if (m) return { modo: m.dividida ? 'metade' : 'cheia', f: m.dividida ? 0.5 : 1, rosto: null }
+    return { modo: 'ator', f: 1, rosto: rostoEm?.(ini, fim) ?? null }
+  }
+  const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]))
+  const desenhaveis: Elemento[] = [...planos.filter((p) => p.tipo === 'full_ator_lettering'), ...elementos]
+    .sort((a, b) => a.inicio - b.inicio)
+    .map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }))
+  // os pedaços deles fora dos inserts e motions entram para o render fotografar (os de dentro já saem na foto do trecho)
+  trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })))
 
   // a camada no instante `tempo` e a chave do quadro (parado: sem vídeo na tela, checado depois de pintar, e sem entrada
-  // nem saída andando; motion nunca é parado)
+  // nem saída andando, nem um elemento mexendo; motion nunca é parado)
   const quadro = (tempo: number): string | null => {
     definirRelogio(tempo)
     const atual = lista.find((x) => tempo >= x.t.inicio && tempo < x.t.fim)
     const motion = comMotion.find((m) => tempo >= m.ini && tempo < m.fim)
-    const elems = desenharElementos(tempo, elementos)
+    const el = desenharElementos(tempo, desenhaveis, banco)
+    const elems = el.vs
     if (motion && motions[motion.plano]) {
       const mp = motions[motion.plano]
       const src = urlPaginaMotion(mp, motion.fim - motion.ini, motion.fala, true)
@@ -149,7 +162,7 @@ async function iniciar() {
     }
     if (!atual) {
       desenhar(raiz, elems)
-      return null
+      return el.chave || null
     }
     const divisao = divisaoDe(atual, banco, presets)
     const receita = receitaDoInsert(atual, banco, presets)
@@ -168,7 +181,8 @@ async function iniciar() {
       const cena = raiz.querySelector<HTMLElement>('[data-k="cena"]')
       if (cena) desenhar(raiz, camada([cena.clientWidth, cena.clientHeight]))
     }
-    return chaveParada(atual, tempo - atual.t.inicio, presets)
+    const chave = chaveParada(atual, tempo - atual.t.inicio, presets)
+    return chave == null || el.chave == null ? null : el.chave ? `${chave}|${el.chave}` : chave
   }
 
   window.__render = {
@@ -197,12 +211,15 @@ async function iniciar() {
             .map((e) => ({ ...e, t: e.t + m.ini }))
         }),
       )
-      return [...dosInserts, ...dosMotions.flat(), ...sonsDasTransicoes(cortes, cat)]
+      return [...dosInserts, ...dosMotions.flat(), ...sonsDosElementos(desenhaveis, cat), ...sonsDasTransicoes(cortes, cat)]
     },
-    // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página), para o ASS
+    // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página e
+    // desviando da barra do ManyChat, da caixinha e do print), sem o que um lettering já mostra, para o ASS
     legenda: async () => {
-      const zonas = zonasDaLegenda(lista, banco, presets)
-      return d.legenda.ligada ? { blocos: paraExportar(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas)) } : null
+      const zonas = [...zonasDaLegenda(lista, banco, presets), ...zonasDosElementos(desenhaveis, banco)]
+      if (!d.legenda.ligada) return null
+      const blocos = semOsLetterings(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas), saida, intervalosDeLettering(desenhaveis))
+      return { blocos: paraExportar(blocos) }
     },
     // as transições com efeito (o som delas vai em `sons`), para o ffmpeg desenhar depois da montagem (SPEC §8.8)
     transicoes: async () => cortes.filter((c) => c.transicao && c.transicao.efeito.tipo !== 'seco').map((c) => ({ t: c.t, ...c.transicao!.efeito })),
