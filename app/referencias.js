@@ -4,6 +4,8 @@
 import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, enviar, esc, janela, markdown, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
 import { jsons } from './biblioteca.js'
 
+// o ícone de cada grupo nos chips (o IconeGrupo do 18)
+const ICONE_GRUPO = { todos: 'grade', dividida: 'duasFaixas', cheia: 'celular', lettering: 'letra', ator: 'pessoa', comentario: 'balaoTexto' }
 const GRUPOS = [
   ['dividida', 'Tela dividida', ['tela_dividida_insert', 'tela_dividida_motion']],
   ['cheia', 'Tela cheia', ['insert_tela_cheia', 'motion_tela_cheia']],
@@ -73,16 +75,17 @@ export async function abrirReferencias(tela) {
       curtos: (a, b) => dur(a) - dur(b),
       video: (a, b) => a.ref_nome.localeCompare(b.ref_nome, 'pt-BR') || a.inicio - b.inicio,
     }[ordem])
-    const chip = (id, html) => `<button class="pilula pequena${filtro === id ? ' ativa' : ''}" data-filtro="${id}">${html}</button>`
+    const chip = (id, html, classe = '') => `<button class="pilula pequena${classe}${filtro === id ? ' ativa' : ''}" data-filtro="${id}">${html}</button>`
+    const icone = (id) => ICONE[ICONE_GRUPO[id]] || ''
+    $('#barra-extra').innerHTML = `<span class="contagem">${visiveis.length} ${visiveis.length === 1 ? 'clipe' : 'clipes'}</span>`
     tela.innerHTML = `<div class="filtros filtros-ref">
-        ${chip('favoritos', `${ICONE.estrela} Favoritos <span class="conta">${nFav}</span>`)}
-        ${chip('todos', `Todos <span class="conta">${l.length}</span>`)}
-        ${ativos.map(([id, nome, tipos]) => chip(id, `${esc(nome)} <span class="conta">${contar(tipos)}</span>`)).join('')}
+        ${chip('favoritos', `${filtro === 'favoritos' ? ESTRELA_CHEIA : ICONE.estrela} Favoritos <span class="conta">${nFav}</span>`, ' chip-favoritos')}
+        ${chip('todos', `${icone('todos')} Todos <span class="conta">${l.length}</span>`)}
+        ${ativos.map(([id, nome, tipos]) => chip(id, `${icone(id)} ${esc(nome)} <span class="conta">${contar(tipos)}</span>`)).join('')}
         <span class="filtros-dir">
           <label class="caixa"><input type="checkbox" data-sem-ator ${semAtor ? 'checked' : ''}> Ignorar Full ator</label>
           <label class="caixa"><input type="checkbox" data-revisadas ${soRevisadas ? 'checked' : ''}> Só revisadas</label>
-          <label class="caixa">Ordenar <select data-ordem>${Object.entries(ORDENS).map(([k, n]) => `<option value="${k}"${k === ordem ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-          <span class="dica">${visiveis.length} clipes</span></span></div>
+          <label class="caixa">Ordenar <select data-ordem>${Object.entries(ORDENS).map(([k, n]) => `<option value="${k}"${k === ordem ? ' selected' : ''}>${n}</option>`).join('')}</select></label></span></div>
       ${!clipes.length ? '<p class="vazio">Nenhum clipe ainda. Suba vídeos editados na <a href="#/calibragem">Calibragem</a>: quando a análise terminar, cada plano aparece aqui.</p>'
         : visiveis.length ? `<div class="grade grade-clipes">${visiveis.map(card).join('')}</div>` : '<p class="vazio">Nenhum clipe com esses filtros.</p>'}`
   }

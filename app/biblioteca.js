@@ -362,7 +362,7 @@ async function presets(el) {
     const vis = ps.filter((p) => filtro === 'todos' || (filtro === 'aprovados') === !!p.aprovado)
     el.innerHTML = `<div class="filtros filtros-topo">${[['todos', 'Todos'], ['revisar', 'A revisar'], ['aprovados', 'Aprovados']].map(([k, nome]) => chip(filtro === k, `${nome} <span class="conta">${n[k]}</span>`, `data-filtro="${k}"`)).join('')}
         ${ajuda('Os movimentos dos inserts, recriados das referências. Clique na miniatura para tocar a referência com som, ao lado da recriação; no nome ou na engrenagem, simule em outras telas. Só os aprovados entram nas edições.')}
-        <button class="botao botao-amarelo" data-recomendados>${ICONE.estrela} Recomendados</button></div>
+        <button class="pilula pequena filtros-fim" data-recomendados title="Os favoritos de cada situação, que ficam em cima nas edições">${ICONE.estrela} Recomendados</button></div>
       ${vis.length ? `<div class="grade grade-presets">${vis.map(card).join('')}</div>` : '<p class="vazio">Nenhum preset aqui. Mande ao Claude o trecho de uma referência e ele monta o preset.</p>'}`
     for (const c of $$('.card-preset', el)) ligarCard(c)
   }

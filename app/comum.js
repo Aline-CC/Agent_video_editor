@@ -84,6 +84,7 @@ export function confirmar({ titulo, texto = '', ok = 'Confirmar', perigo = false
     const fundo = document.createElement('div')
     fundo.className = 'modal-fundo'
     fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
+      <button class="modal-fechar" data-r="0" aria-label="Fechar" title="Fechar">${ICONE.fechar}</button>
       <h2>${esc(titulo)}</h2>${texto ? `<p>${esc(texto)}</p>` : ''}
       ${campo ? `<label class="modal-campo"><span>${esc(campo.rotulo)}</span><textarea rows="3" placeholder="${esc(campo.dica || '')}"></textarea></label>` : ''}
       <div class="modal-acoes"><button class="botao" data-r="0">Cancelar</button>
@@ -280,7 +281,7 @@ export const ajuda = (texto) => `<span class="ajuda" tabindex="0" title="${esc(t
 
 /** Ícones (traço, 24×24). */
 const svg = (d, extra = '') =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`
 export const ICONE = {
   tocar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg>`,
   pausar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>`,
@@ -310,6 +311,13 @@ export const ICONE = {
   copiar: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
   clipe: svg('<path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l8-8"/>'),
   imagem: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>'),
+  // os ícones dos grupos de planos nos chips das Referências (lucide, os do IconeGrupo do 18)
+  grade: svg('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>'),
+  duasFaixas: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/>'),
+  celular: svg('<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'),
+  letra: svg('<path d="M12 4v16"/><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/>'),
+  pessoa: svg('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+  balaoTexto: svg('<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/><path d="M7 11h10"/><path d="M7 15h6"/><path d="M7 7h8"/>'),
 }
 /** A estrela cheia (favorito ligado). */
 export const ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`

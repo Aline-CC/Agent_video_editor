@@ -21,7 +21,8 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
 - Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
   e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
   ordem.json e os inserts que o usavam voltam ao 1º favorito da situação (presets.py escolher).
-- GET /api/projetos/<slug>/versoes: cada versão com a data do render, a duração e o estado da revisão dela.
+- GET /api/projetos/<slug>/versoes: cada versão com a data do render, a duração e o estado da revisão dela. · DELETE
+  /api/projetos/<slug>: a pasta vai para projetos/_lixeira/<slug>-AAAAMMDD-HHMMSS (nada sai do disco).
 - Anexos da revisão: POST /api/revisao/<slug>/v<N>/anexo?comentario=<c3|geral> (a imagem ou o vídeo cru no corpo) →
   {caminho: "revisoes/anexos/c3-1.png"} · DELETE /api/revisao/<slug>/v<N>/anexo?caminho=revisoes/anexos/c3-1.png.
 - GET /api/codigos: {tipo: {id: código}} (ferramentas/codigo.py; dá o próximo número aos itens novos).
@@ -75,6 +76,8 @@ def projetos() -> list[dict]:
     """Os projetos com ao menos uma versão, do mais recente para o mais antigo, com o estado da revisão da última."""
     lista = []
     for p in PROJETOS.iterdir() if PROJETOS.is_dir() else []:
+        if p.name.startswith(('_', '.')):  # a _lixeira (os apagados) e o que não é projeto
+            continue
         vs = versoes(p)
         if not vs:
             continue
@@ -171,6 +174,20 @@ def _versoes(h, q, slug):
     if not (PROJETOS / slug).is_dir():
         raise Erro('Projeto não encontrado', 404)
     return versoes_detalhe(slug)
+
+
+@rota('DELETE', r'/api/projetos/([\w-]+)')
+def _apagar_projeto(h, q, slug):
+    """Apagar um projeto não apaga nada do disco: a pasta vai para projetos/_lixeira/<slug>-AAAAMMDD-HHMMSS (como no 18),
+    de onde dá para recuperar movendo de volta."""
+    origem = PROJETOS / slug
+    if slug.startswith('_') or not origem.is_dir():
+        raise Erro('Projeto não encontrado', 404)
+    from datetime import datetime
+    destino = PROJETOS / '_lixeira' / f'{slug}-{datetime.now():%Y%m%d-%H%M%S}'
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(origem), str(destino))
+    return {'ok': True, 'lixeira': str(destino.relative_to(RAIZ))}
 
 
 TIPOS_ANEXO = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif',

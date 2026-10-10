@@ -1,7 +1,7 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
 // revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica, #/aprendizados[/<área>] e as da biblioteca
 // (#/presets, #/transicoes[/<de>><para>], #/banco, #/motions, #/trilhas).
-import { $, $$, ICONE, aviso, chipCodigo, codigos, copiar, esc, json, mmss } from './comum.js'
+import { $, $$, ICONE, aviso, chipCodigo, codigos, confirmar, copiar, enviar, esc, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
 import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
@@ -20,16 +20,41 @@ async function inicio(tela) {
     const [estado, cor] = ESTADOS[p.estado] || ESTADOS.em_revisao
     const proxy = `/projetos/${encodeURIComponent(p.slug)}/versoes/v${p.ultima}/proxy.mp4`
     const n = p.versoes.length
-    return `<a class="card-projeto" href="#/p/${encodeURIComponent(p.slug)}">
+    return `<div class="caixa-projeto" data-slug="${esc(p.slug)}">
+      <button class="apagar-projeto" data-apagar title="Apagar o projeto" aria-label="Apagar ${esc(p.nome)}">${ICONE.lixo}</button>
+      <a class="card-projeto" href="#/p/${encodeURIComponent(p.slug)}">
       <div class="mini mini-916"><video muted playsinline preload="metadata" src="${proxy}#t=1.5"></video>
         <span class="selo ${cor}">${estado}</span>${p.duracao ? `<span class="duracao">${mmss(p.duracao)}</span>` : ''}</div>
       <div class="card-titulo"><h3>${esc(p.nome)}</h3>${chipCodigo(cods.projeto?.[p.slug], p.nome)}</div>
       <p class="sub">${esc(p.slug)} · v${p.ultima} · ${n} ${n === 1 ? 'versão' : 'versões'}${p.comentarios ? ` · ${p.comentarios} ${p.comentarios === 1 ? 'comentário' : 'comentários'}` : ''}</p>
-    </a>`
+    </a></div>`
   })
   tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">Projetos · ${String(projetos.length).padStart(2, '0')}</span>
       <span class="dica">Cada versão que o Claude entrega aparece aqui. Abra, comente e copie a revisão para o chat.</span></div>
     ${projetos.length ? `<div class="grade grade-projetos">${cards.join('')}</div>` : '<p class="vazio">Nenhum projeto com versão ainda. Mande um vídeo bruto ao Claude Code: quando ele entregar a v1, ela aparece aqui.</p>'}`
+  // apagar (como no 18): a pasta vai para a lixeira (projetos/_lixeira/), de onde dá para recuperar
+  tela.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-apagar]')
+    if (!b) return
+    const caixa = b.closest('.caixa-projeto')
+    const p = projetos.find((x) => x.slug === caixa.dataset.slug)
+    const ok = await confirmar({
+      titulo: `Apagar o projeto “${p.nome}”?`,
+      texto: 'O projeto sai da lista e vai para a lixeira (projetos/_lixeira/), de onde dá para recuperar.',
+      ok: 'Apagar',
+      perigo: true,
+    })
+    if (!ok) return
+    try {
+      await enviar('DELETE', `/api/projetos/${encodeURIComponent(p.slug)}`)
+      projetos.splice(projetos.indexOf(p), 1)
+      caixa.remove()
+      $('.cabeca-secao .eyebrow', tela).textContent = `Projetos · ${String(projetos.length).padStart(2, '0')}`
+      aviso(`“${p.nome}” foi para a lixeira`)
+    } catch (err) {
+      aviso(err.message, 'erro')
+    }
+  })
   // o vídeo toca mudo com o mouse em cima
   for (const card of $$('.card-projeto', tela)) {
     const v = $('video', card)
