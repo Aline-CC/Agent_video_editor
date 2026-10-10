@@ -234,7 +234,7 @@ def validar_edicao(itens: list[dict], duracao: float) -> list[dict]:
             ini, fim = max(float(i['inicio']), 0.0), min(float(i['fim']), duracao)
         except (KeyError, TypeError, ValueError):
             raise ValueError(f'{tipos[i["tipo"]]} sem início ou fim') from None
-        if fim - ini < (MIN_PLANO if camada == 'plano' else 0.05):
+        if fim - ini < (MIN_PLANO if camada == 'plano' else 0.05) - 1e-6:  # folga da conta em ponto flutuante
             raise ValueError(f'{tipos[i["tipo"]]} curto demais ({ini:.2f}–{fim:.2f} s)')
         id = str(i.get('id') or '')
         if not id or id in ids:

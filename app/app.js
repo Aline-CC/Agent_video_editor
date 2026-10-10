@@ -1,7 +1,11 @@
-// O app de revisão: roteamento pelo endereço (#/, #/p/<slug>[/vN], #/biblioteca/<aba>) e o início (os projetos).
+// O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
+// revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica e as da biblioteca (#/presets, #/transicoes
+// [/<de>><para>], #/banco, #/motions, #/trilhas).
 import { $, $$, esc, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
-import { abrirBiblioteca } from './biblioteca.js'
+import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
+import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
+import { abrirHeuristica, abrirReferencias } from './referencias.js'
 
 const ESTADOS = {
   em_revisao: ['Em revisão', 'selo-coral'],
@@ -43,15 +47,22 @@ async function rotear() {
   const minha = ++vez
   sair?.()
   sair = null
-  const partes = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
-  const tela = $('#tela')
-  tela.innerHTML = ''
+  let partes = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
+  if (partes[0] === 'biblioteca') partes = partes.slice(1).length ? partes.slice(1) : ['banco'] // endereços antigos
+  const velha = $('#tela')
+  const tela = velha.cloneNode(false) // uma tela nova a cada página: nenhum ouvinte da anterior fica para trás
+  tela.className = ''
+  velha.replaceWith(tela)
   $('#barra-extra').innerHTML = ''
-  const aba = partes[0] === 'biblioteca' ? 'biblioteca' : 'projetos'
+  const aba = partes[0] === 'p' || !partes[0] ? 'projetos' : partes[0]
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
+  document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
   let s
   if (partes[0] === 'p' && partes[1]) s = await abrirRevisao(tela, partes[1], partes[2] ? parseInt(partes[2].replace(/^v/, ''), 10) : null)
-  else if (partes[0] === 'biblioteca') s = await abrirBiblioteca(tela, partes[1] || 'banco')
+  else if (partes[0] === 'calibragem') s = await (partes[1] ? abrirRevisaoReferencia(tela, partes[1]) : abrirCalibragem(tela))
+  else if (partes[0] === 'referencias') s = await abrirReferencias(tela)
+  else if (partes[0] === 'heuristica') s = await abrirHeuristica(tela)
+  else if (PAGINAS_BIBLIOTECA.includes(partes[0])) s = await abrirBiblioteca(tela, partes[0], partes.slice(1))
   else s = await inicio(tela)
   if (minha !== vez) s?.() // já mudou de tela enquanto carregava
   else sair = s

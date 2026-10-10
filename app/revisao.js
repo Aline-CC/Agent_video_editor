@@ -342,6 +342,7 @@ class Revisao {
   // ---------- o tempo ----------
 
   atualizar() {
+    if (this.fechado) return // o vídeo ainda solta eventos depois de sair da tela
     const t = this.video.currentTime
     $('#t-atual').textContent = tempo(t)
     const x = t * this.pxs

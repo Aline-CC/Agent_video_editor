@@ -13,6 +13,15 @@ export async function json(url, padrao = null) {
   }
 }
 
+/** Manda um JSON ao servidor (PUT, POST, DELETE) e devolve a resposta; um erro vem com a mensagem do servidor. */
+export async function enviar(metodo, url, corpo) {
+  const com = corpo !== undefined
+  const r = await fetch(url, { method: metodo, headers: com ? { 'Content-Type': 'application/json' } : {}, body: com ? JSON.stringify(corpo) : undefined })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(d.erro || `Erro ${r.status}`)
+  return d
+}
+
 /** Os nomes de uma pasta pública (pastas terminam em "/"). */
 export const lista = (pasta) => json(`/api/lista?pasta=${encodeURIComponent(pasta)}`, [])
 
@@ -113,6 +122,82 @@ export const PLANOS = {
   comentario_insert_ator: ['Comentário + insert + ator', 'Comentário'],
 }
 export const nomePlano = (tipo) => (PLANOS[tipo] || [tipo])[0]
+/** Os elementos que aparecem por cima dos planos nas referências. */
+export const ELEMENTOS = {
+  lettering: 'Lettering',
+  palavra_manychat: 'Palavra ManyChat',
+  caixinha_perguntas: 'Caixinha de perguntas',
+  print_sobreposto: 'Print/imagem sobreposta',
+}
+/** Um arquivo de uma referência da calibragem. */
+export const urlRef = (ref, arq) => `/biblioteca/referencias/${encodeURIComponent(ref)}/${arq}`
+
+/** Toca o trecho [ini, fim] de um vídeo em loop (com som se o navegador deixar); devolve a função que para. */
+export function tocarTrecho(video, ini, fim, { loop = true } = {}) {
+  let raf
+  const vigiar = () => {
+    if (video.currentTime >= fim - 0.03) {
+      if (!loop) return video.pause()
+      video.currentTime = ini
+    }
+    raf = requestAnimationFrame(vigiar)
+  }
+  const comecar = () => {
+    video.currentTime = ini
+    video.play().catch(() => {
+      video.muted = true
+      video.play().catch(() => {})
+    })
+    cancelAnimationFrame(raf)
+    raf = requestAnimationFrame(vigiar)
+  }
+  video.preload = 'auto' // com preload="none" o metadado nunca chegaria
+  if (video.readyState >= 1) comecar()
+  else video.addEventListener('loadedmetadata', comecar, { once: true })
+  return () => {
+    cancelAnimationFrame(raf)
+    video.removeEventListener('loadedmetadata', comecar)
+  }
+}
+
+/** Uma janela escura por cima da página. Fecha com Esc, clique fora ou a função devolvida; `aoFechar` roda ao fechar. */
+export function janela(html, { classe = '', aoFechar } = {}) {
+  const fundo = document.createElement('div')
+  fundo.className = 'modal-fundo'
+  fundo.innerHTML = `<div class="janela ${classe}" role="dialog" aria-modal="true">${html}</div>`
+  let fechada = false
+  const fechar = () => {
+    if (fechada) return
+    fechada = true
+    document.removeEventListener('keydown', tecla, true)
+    for (const m of fundo.querySelectorAll('video, audio')) m.pause()
+    fundo.remove()
+    aoFechar?.()
+  }
+  const tecla = (e) => {
+    if (e.key !== 'Escape' || fundo !== [...document.querySelectorAll('.modal-fundo')].at(-1)) return
+    if (e.target.closest?.('input, textarea, select') && e.target.closest('.janela')) return e.target.blur()
+    e.preventDefault()
+    e.stopPropagation()
+    fechar()
+  }
+  fundo.addEventListener('mousedown', (e) => e.target === fundo && fechar())
+  fundo.addEventListener('click', (e) => e.target.closest('[data-fechar]') && fechar())
+  document.addEventListener('keydown', tecla, true)
+  document.body.append(fundo)
+  return { el: fundo.firstElementChild, fechar }
+}
+
+/** Lê e grava uma preferência deste navegador (sem quebrar se o armazenamento estiver bloqueado). */
+export function preferencia(chave, padrao, valor) {
+  try {
+    if (valor !== undefined) localStorage.setItem(`revisao.${chave}`, JSON.stringify(valor))
+    const v = localStorage.getItem(`revisao.${chave}`)
+    return v == null ? padrao : JSON.parse(v)
+  } catch {
+    return valor ?? padrao
+  }
+}
 
 /** Ícones (traço, 24×24). */
 const svg = (d, extra = '') =>
@@ -133,4 +218,14 @@ export const ICONE = {
   menos: svg('<path d="M5 12h14"/>'),
   som: svg('<path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/>'),
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  estrela: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>'),
+  fechar: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
+  refazer: svg('<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5"/>'),
+  desfazer: svg('<path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>'),
+  tesoura: svg('<circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5L20 18M8 15.5L20 6"/>'),
+  subir: svg('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>'),
+  abrir: svg('<path d="M14 5h5v5M19 5l-8 8M18 14v5H5V6h5"/>'),
+  seta_baixo: svg('<path d="M6 9l6 6 6-6"/>'),
 }
+/** A estrela cheia (favorito ligado). */
+export const ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`
