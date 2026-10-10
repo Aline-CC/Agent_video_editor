@@ -281,7 +281,11 @@ def render(slug: str, final: bool = False) -> Path:
         arq_leg = legenda.escrever(r.get('legenda'), w, h, tmp / 'legenda.ass')
         vinheta = look.mascara_vinheta(w, h, look.VINHETAS[lk['vinheta']], tmp / 'vinheta.png') if look.ativo(lk) else None
         parte = destino.with_name(destino.stem + '.parte.mp4')
-        cmd = exportacao.comando_final(p / fonte['arquivo'], clipes, horizontal, (edicao.get('enquadramento') or {}).get('x', 0.5), w, h, FPS,
+        # no proxy, o ator sai do proxy 720p (a mesma linha do tempo do bruto): decodificar e escalar o 4K pesava mais que tudo
+        video = p / fonte['arquivo']
+        if not final and not horizontal and fonte.get('proxy') and (p / fonte['proxy']).exists():
+            video = p / fonte['proxy']
+        cmd = exportacao.comando_final(video, clipes, horizontal, (edicao.get('enquadramento') or {}).get('x', 0.5), w, h, FPS,
                                        divisoes, camadas, codec, duracao, parte, mascara if mascara.exists() else None, eventos,
                                        r.get('transicoes'), {'arquivo': arq_leg} if arq_leg else None, lk, vinheta, a, r.get('movimentos'))
         log = tmp / 'ffmpeg.log'
