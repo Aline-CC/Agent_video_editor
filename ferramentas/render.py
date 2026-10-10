@@ -72,7 +72,8 @@ def palavras_na_saida(palavras: list[dict], clipes: list[dict]) -> list[dict]:
 
 def notas(edicao: dict, transcricao: list[dict], saida: list[dict], duracao: float) -> list[dict]:
     """As notas do Claude e as dúvidas dos cortes no tempo do vídeo final: `{id, ini, fim, texto, fala}`. Um trecho todo
-    cortado vira um ponto, onde o corte ficou. `fala`: o que foi dito no trecho (a transcrição, cortado ou não)."""
+    cortado vira um ponto, onde o corte ficou. `fala`: o que fica no vídeo do trecho (ou, se ele foi todo cortado, o
+    que tinha sido dito)."""
     ordem = {w['id']: k for k, w in enumerate(transcricao)}
     tempo = {w['id']: (float(w.get('saida_ini', w.get('ini', 0))), float(w.get('saida_fim', w.get('fim', 0)))) for w in saida if 'id' in w}
     itens = [(f'n{k}', x.get('palavra_ini'), x.get('palavra_fim'), x.get('texto', '')) for k, x in enumerate(edicao.get('notas') or [], 1)]
@@ -89,7 +90,7 @@ def notas(edicao: dict, transcricao: list[dict], saida: list[dict], duracao: flo
             depois = next((tempo[w['id']][0] for w in transcricao[b + 1:] if w['id'] in tempo), duracao)
             t0 = t1 = depois
         out.append({'id': id_, 'ini': round(t0, 3), 'fim': round(t1, 3), 'texto': texto,
-                    'fala': ' '.join(w['texto'].strip() for w in transcricao[a:b + 1])})
+                    'fala': ' '.join(w['texto'].strip() for w in (dentro or transcricao[a:b + 1]))})
     return out
 
 
