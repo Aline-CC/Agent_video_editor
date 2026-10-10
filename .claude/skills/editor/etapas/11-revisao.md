@@ -6,6 +6,7 @@ O criador comenta a versão no app e cola aqui o texto do botão "Copiar revisã
 Revisão · <slug> · v2
 [0:03,2] "a galera considera" — tira esse motion, prefiro tela dividida com o site
 [0:12,0–0:15,4] "esses dois sites" — mostra os dois, um de cada vez
+  ↳ print: projetos/<slug>/revisoes/anexos/c2-1.png
 [↳ dúvida do Claude 0:21,7] "Gemini 3.7" — sim, mantém
 Geral: legenda um pouco mais baixa
 (projetos/<slug>/revisoes/v2.json)
@@ -19,6 +20,8 @@ uv run ferramentas/revisao.py ler <slug> [vN]     # cada comentário com id, ân
 
 ## Aplicar
 
+0. **Abra os prints**: cada comentário com `↳ print: projetos/<slug>/revisoes/anexos/…` (também no `revisao.py ler`)
+   tem imagens do criador; abra cada uma com a ferramenta Read (ela mostra a imagem) antes de aplicar.
 1. **Classifique** cada comentário pela etapa que ele toca e leia o `.md` dessa etapa:
    - fala (corta/volta palavra, repetição) → `02-cortes.md` (edite a `selecao.json` e `cortes.py aplicar`);
    - plano, tipo, o que aparece, lettering, elementos → `03-direcao.md` (edite o `roteiro.md` e `direcao.py aplicar`:
@@ -37,10 +40,9 @@ uv run ferramentas/revisao.py ler <slug> [vN]     # cada comentário com id, ân
    `status`: `aplicado` · `respondido` (era pergunta) · `nao_aplicado` (diga por quê). As respostas aparecem no app.
 5. Entregue como no `10-render.md`: o link, o que mudou em 3–5 linhas.
 
-## Vira regra?
+## Aprendizados: só na conclusão
 
-No fim, olhe os comentários que soam como **gosto geral** ("nunca abra com Full ator", "legenda sempre mais baixa",
-"esse preset é feio") e pergunte ao criador, numa lista curta: "Isso vira regra para os próximos vídeos?". Só com o
-"sim" dele, grave: direção → `exemplos/regras.md` (seção Regras do criador); outra etapa → o `.md` dela (numa seção
-"Regras do criador"); biblioteca (preset/transição/trilha que ele não quer mais) → tire das favoritas em `ordem.json`.
-Correção pontual não vira regra.
+Não grave aprendizados no meio das revisões: eles saem todos juntos quando o vídeo é aprovado (`14-concluir.md`), lendo
+as revisões de todas as versões. Aqui, só cuide de responder bem cada comentário (a resposta diz o que mudou: é o
+registro que a conclusão lê). Exceção: se o criador disser explicitamente que algo vale para sempre ("regra geral",
+"sempre", "nunca mais"), confirme com ele o texto e grave já, como manda o `14-concluir.md`.

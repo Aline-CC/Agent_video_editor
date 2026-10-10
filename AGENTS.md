@@ -9,7 +9,8 @@ Responda em PT-BR, direto. Separe o que existe do que é plano.
 ## Estrutura
 
 - `.claude/skills/editor/`: `SKILL.md` (os fluxos), `etapas/` (um .md por etapa, lido na hora), `exemplos/` (as regras e
-  os roteiros dirigidos do criador), `edicao.md` (o contrato do `edicao.json`).
+  os roteiros dirigidos do criador, gerados pela Calibragem), `aprendizados/` (um .md por área com as correções do
+  criador vídeo a vídeo, e `imagens/`), `edicao.md` (o contrato do `edicao.json`).
 - `ferramentas/`: um script por etapa, `uv run ferramentas/<script>.py` (dependências no próprio arquivo, PEP 723).
   `base.py` e `servidor.py` são o comum.
 - `render/`: a página que desenha a camada dos inserts e motions para o render (fonte em `render/src/`).
@@ -25,7 +26,8 @@ Referência: `../18-harness-video-editor` (o app web anterior). Só leitura: cop
   abstração antes de um caso real. Arquivo novo fora deste mapa: pergunte antes.
 - **Decisões editoriais são do Claude**, guiadas por `exemplos/`; o código valida e calcula tempos.
 - **Tudo preso às palavras** (IDs da transcrição), nunca a segundos (`edicao.md`).
-- **Correção pontual não é regra geral**: no fim de uma revisão, pergunte se vira regra; só então grave na skill.
+- **Correção pontual não é regra geral.** Os aprendizados saem quando um vídeo é aprovado (`etapas/14-concluir.md`):
+  junte-os por área, mostre ao criador e grave só o que ele confirmar.
 - **Não declare aprovado** o que o criador não aprovou.
 - Os originais em `projetos/*/midia/` nunca são alterados.
 - Chaves (OpenRouter, ElevenLabs) só no `.env` da raiz. Nunca mostre, registre ou faça commit delas.

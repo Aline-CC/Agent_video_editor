@@ -1,5 +1,7 @@
 # 06 · Motions e elementos
 
+> **Antes de começar, leia `../aprendizados/motions.md` e `../aprendizados/elementos.md`**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
+
 ## Motions
 
 Um plano de **Motion tela cheia** ou **Tela dividida · motion** recebe uma animação em HTML + GSAP (palco 1080×1920 na
@@ -26,11 +28,14 @@ acompanha as palavras faladas).
 ### Motion novo
 
 Se nenhum preset serve e a ideia é simples (um número que cresce, dois logos lado a lado, uma lista que se monta, um
-gráfico de barras), escreva um preset novo — num **subagente em segundo plano** (`model: opus`), com este pedido:
+gráfico de barras), escreva um preset novo — num **subagente em segundo plano** (`model: opus`), com este pedido. Antes,
+leia os recusados (`biblioteca/motions/presets/_recusados/*.html`: o JSON do topo tem o `motivo` do criador) e não
+sugira de novo o mesmo tipo de coisa.
 
 ```text
 Escreva um preset de motion novo em biblioteca/motions/presets/<id>.html para o editor de Reels em <raiz>.
-Leia antes 2 presets existentes (prompt.html e lettering.html) e biblioteca/motions/runtime.js: copie a estrutura
+Leia antes .claude/skills/editor/aprendizados/motions.md (o que o criador já corrigiu), os motions recusados
+em biblioteca/motions/presets/_recusados/ (e os motivos) e 2 presets existentes (prompt.html e lettering.html) e biblioteca/motions/runtime.js: copie a estrutura
 (o JSON <script id="preset"> com nome, descricao, fundo, duracao, sons; o <script id="campos">; o <style>; a timeline do
 GSAP pausada entregue com motion.pronto(tl); motion.som/motion.digitar/motion.curva/motion.aCada).
 Pedido: <o que a direção pede> · formato <vertical|dividida> · duração <s> · fala: "<fala>".

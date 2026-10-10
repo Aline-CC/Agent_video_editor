@@ -20,3 +20,5 @@ uv run ferramentas/render.py <slug> --final
   ele confere a direção e marca como revisado. Só aí ela entra nos roteiros de exemplo e ensina a direção.
 
 Tempo esperado: ~1 min por minuto de vídeo.
+
+Depois, **conclua o vídeo**: `14-concluir.md` (aprendizados com o criador e faxina do banco).

@@ -4,6 +4,8 @@ Cada plano com insert (Insert tela cheia, Tela dividida · insert, Comentário +
 vídeos e imagens que mostrem o que a marcação pede. Você não busca nada no contexto principal: dispara **um subagente
 por insert, todos de uma vez, em segundo plano** (modelo `sonnet`), e segue para outras etapas enquanto eles trabalham.
 
+> **Antes de começar, leia `../aprendizados/inserts.md` (e mande cada subagente ler também)**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
+
 ## Rodar
 
 ```bash
@@ -36,6 +38,7 @@ Projeto: <slug>. Insert <plano> · <tipo> · formato <vertical|dividida> · <dur
 Fala: "<fala do bloco>"
 O que deve aparecer (marcação): <marcação>
 Contexto do vídeo (1 frase): <assunto do vídeo>.
+Antes: leia <raiz>/.claude/skills/editor/aprendizados/inserts.md (o que o criador já corrigiu) e siga.
 Briefing/materiais: <se houver; caminhos em projetos/<slug>/apoio/>.
 
 Ordem: (1) materiais do criador; (2) `banco.py buscar "<termos>"`; (3) `captura.py <url> --proporcao <16:9 para
@@ -62,15 +65,5 @@ No fim, grave projetos/<slug>/inserts/<plano>.json = {"plano": "<plano>", "midia
   o plano (motion novo, Full ator) — e então reaplique a direção (`direcao.py aplicar`) com o roteiro ajustado.
 - Comentário + insert + ator: o card do comentário usa o texto do plano; a mídia é o insert por trás dele.
 - O que entrou no banco fica para os próximos vídeos (o banco cresce sozinho).
-
-## Aprendizados (1º vídeo de teste, out/2026)
-
-- Os inserts que já estão no banco voltam em ~20 s; os que pedem busca e captura, em 3 a 11 min.
-- openai.com, claude.com e perplexity.ai bloqueiam a captura (Cloudflare): vá para a doc oficial
-  (developers.openai.com, docs.anthropic.com) ou o blog do produto.
-- Sites com WebGL pesado (esferas 3D) podem sair pretos na captura com a máquina carregada; o vídeo do banco curto demais
-  pode virar câmera lenta (`ffmpeg -vf "setpts=PTS/0.42,minterpolate=fps=30:mi_mode=blend"`) e entrar como mídia nova.
-- Exemplos "do que não fazer" (site genérico, site poluído) são os mais difíceis de achar prontos: prefira descrever na
-  marcação um tipo concreto e achável (ex.: "a galeria de templates do Lovable").
 
 Tempo esperado: 3 a 6 min (em paralelo com Áudio, Legenda e Transições).

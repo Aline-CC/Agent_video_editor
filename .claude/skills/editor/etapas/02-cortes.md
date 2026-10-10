@@ -3,6 +3,8 @@
 Você decide **quais palavras ficam**, pelo ID. O código transforma isso em trechos, com as bordas caindo em pausas reais
 do áudio (margens de 100 ms; pausas maiores que 2 s dentro de um trecho são cortadas). Nada é reescrito nem inventado.
 
+> **Antes de começar, leia `../aprendizados/cortes.md`**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
+
 ## Rodar
 
 ```bash
@@ -54,10 +56,5 @@ diferentes se o texto resultante fizer sentido. "Última" não vale se a tentati
 **Na dúvida com impacto no sentido:** manter e sinalizar.
 
 Uma correção pontual num vídeo vale só para aquele vídeo, a menos que o criador diga que é regra geral.
-
-## Aprendizados (do 18)
-
-- O ElevenLabs acerta palavras repetidas ("gastando gastando") que o Whisper fundia; por isso é o motor.
-- Num vídeo de 2 min, a seleção típica remove ~35–45% do bruto (2:02 → 1:02 no vídeo de teste).
 
 Tempo esperado: ~1 min.

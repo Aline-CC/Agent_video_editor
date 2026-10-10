@@ -35,12 +35,14 @@ Briefing: se vier, leia antes dos cortes; ele vale para cortes, direção e inse
 
 ## Fluxo 2 — Revisão colada ("Revisão · <slug> · vN")
 
-Leia `etapas/11-revisao.md`. Aplique cada comentário, renderize a v(N+1), responda cada um no JSON da revisão e
-pergunte, no fim, se algum comentário vira regra.
+Leia `etapas/11-revisao.md`. Aplique cada comentário, renderize a v(N+1) e responda cada um no JSON da revisão (a
+resposta diz o que mudou: é o registro de onde saem os aprendizados na conclusão).
 
 ## Fluxo 3 — Aprovado ("Aprovado · <slug> · vN")
 
-Leia `etapas/12-final.md` e exporte o final em 4K.
+Leia `etapas/12-final.md` e exporte o final em 4K; a versão aprovada vai para a Calibragem. Depois **conclua o vídeo**
+(`etapas/14-concluir.md`): junte os aprendizados das revisões por área, mostre ao criador e grave só o que ele
+confirmar; faça a faxina do banco (apague o que você baixou e não foi usado, melhore a descrição do resto).
 
 ## Fluxo 4 — Biblioteca
 
@@ -53,8 +55,12 @@ um trecho de referência: `etapas/13-presets-novos.md`.
 
 ## Sempre
 
+- **Aprenda com o passado:** antes de cada etapa, leia o `aprendizados/<área>.md` dela (a etapa diz qual). São as
+  correções do criador em vídeos anteriores, com exemplos em `aprendizados/imagens/`: não as repita. Subagentes também.
 - **Paralelize** o que não depende do resto (subagentes em segundo plano para inserts e motions; comandos independentes
   no mesmo turno). Não espere à toa: enquanto um subagente busca, faça outra etapa.
+- **Códigos**: quando o criador citar um código (`PRE-07`, `BAN-012.2`, `REF-03·p7`, `PRJ-02·v3`…), resolva com
+  `uv run ferramentas/codigo.py <código>` antes de agir.
 - **Guarde o porquê** de cada plano (`porque` no edicao.json): o criador vai perguntar.
 - **Dúvidas** que mudam o sentido viram notas para o criador (`edicao.notas`): aparecem no app no ponto exato.
 - **Não reescreva a fala.** Cortes escolhem palavras existentes; legenda só corrige grafia.

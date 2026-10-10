@@ -11,6 +11,8 @@ criador, na página Presets.
   `tela_dividida_insert`, `comentario_insert_ator`); os favoritos em `_favoritos.json`.
 - Compare com as `fontes` e a `descricao` dos presets em `biblioteca/presets/*.json`. Muitos trechos são o mesmo
   movimento de um preset que já existe.
+- Leia os recusados (`biblioteca/presets/_recusados/*.json`: `nome`, `descricao` e o `motivo` do criador) e não sugira de
+  novo o mesmo tipo de coisa.
 - Separe o que é do preset (o card: onde fica, como entra, se mexe e sai) do que é da **mídia** (gravação de tela que
   rola ou dá zoom sozinha, destaque desenhado no print) e dos **elementos** (riscos, setas, lettering, card de comentário).
 

@@ -1,5 +1,7 @@
 # 10 · Render e autorrevisão
 
+> **Antes de começar, leia `../aprendizados/render.md` e, na autorrevisão, confira o vídeo contra os aprendizados de todas as áreas**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
+
 ## Render do proxy
 
 ```bash
@@ -46,11 +48,3 @@ e o que não conseguiu (ex.: "o insert do p7 ficou com um print estático: o sit
 Tempo esperado (máquina calma, 1 min de vídeo com metade em insert): ~55 s do zero; numa revisão, 15 a 26 s, porque os
 trechos de insert/motion que não mudaram vêm do cache (`.cache/camadas/` do projeto) e o áudio também, se não mudou. O
 render imprime "N trechos do cache, M para fotografar". Autorrevisão: ~30 s (o Gemini responde em ~16 s).
-
-## Aprendizados (1º vídeo de teste, out/2026)
-
-- O Gemini acerta problemas de **corte** (o "m" de uma palavra removida escapando) e de **legenda sobre conteúdo**, e
-  erra cor de legenda (diz "preta" para a branca com sombra): confira na folha antes de mexer.
-- Corte com a borda "fora de pausa" (fala colada na palavra removida): o tempo do fim da palavra no ElevenLabs costuma vir
-  ~0,1–0,2 s tarde. Ajuste a borda à mão no `timeline.V1` (guarde o valor da IA em `auto`) e renderize de novo.
-- A legenda na altura medida cai sobre o conteúdo de inserts em tela cheia com muito texto (limitação já conhecida do 18).
