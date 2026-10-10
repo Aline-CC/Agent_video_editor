@@ -853,7 +853,9 @@
       return Math.min(Math.max(c.repouso.w / Math.max(c.repouso.h, 1) * area, 0.4), 2.4);
     });
   }
-  function escolherMidias(am, aspectos, semente) {
+  function escolherMidias(todas, aspectos, semente) {
+    const claras = todas.filter((m) => m.luz == null || m.luz >= 40 && m.luz <= 250);
+    const am = claras.length >= 3 ? claras : todas;
     const familia = (a) => a < 0.8 ? 0 : a < 1.5 ? 1 : 2;
     let s = 0;
     for (const ch of semente) s = s * 31 + ch.charCodeAt(0) >>> 0;
@@ -864,6 +866,24 @@
       const lista = outras.length ? outras : am;
       return lista.length ? lista[(s + k) % lista.length] : null;
     });
+  }
+  function instanteParado(cards2, dur) {
+    const vidas = cards2.map((c) => janela(c, dur));
+    const repousos = cards2.map((c, k) => [vidas[k].ini + (c.entrada?.duracao ?? 0), vidas[k].fim - (c.saida?.duracao ?? 0)]).filter(([a, b]) => b - a > 0.05);
+    let t = dur / 2;
+    if (repousos.length) {
+      const parados = (x) => repousos.filter(([a, b]) => x >= a - 1e-6 && x <= b + 1e-6).length;
+      let n = -1;
+      for (const [a, b] of repousos) {
+        const x = Math.min(a + 0.1, (a + b) / 2);
+        const k = parados(x);
+        if (k > n || k === n && x < t) [t, n] = [x, k];
+      }
+    } else if (vidas.length) {
+      const j = vidas.reduce((m, v) => v.fim - v.ini > m.fim - m.ini ? v : m);
+      t = (j.ini + j.fim) / 2;
+    }
+    return +Math.min(Math.max(t, 0), dur - 0.05).toFixed(3);
   }
   function estiloDoQuadro(g) {
     if (!g) return {};
@@ -972,8 +992,7 @@
     const noT = noTempo(receita, dur);
     const geometria = geometriaDoAtor(divisao, null, am.ator?.rosto ?? null);
     const eventos = eventosDaReceita(receita, dur, catalogo);
-    const entradas = noT.cards.map((c) => janela(c, dur).ini + (c.entrada?.duracao ?? 0));
-    const tParado = Number(q.get("t")) || Math.min(Math.max(...entradas) + 0.1, dur - 0.05);
+    const tParado = Number(q.get("t")) || instanteParado(noT.cards, dur);
     const t0 = am.ator?.t0 ?? 0;
     for (const e of eventos) void buffer(e.som, new OfflineAudioContext(1, 1, 48e3));
     let atorVideo = null;

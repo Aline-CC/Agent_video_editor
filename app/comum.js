@@ -77,21 +77,25 @@ export async function copiar(texto) {
   }
 }
 
-/** Diálogo de confirmação; resolve true/false. Enter confirma, Esc cancela. */
-export function confirmar({ titulo, texto = '', ok = 'Confirmar', perigo = false }) {
+/** Diálogo de confirmação; resolve true/false. Enter confirma, Esc cancela. Com `campo` ({rotulo, dica}), uma caixa de
+ *  texto opcional: resolve o texto escrito ('' se nada) ou null se cancelou. */
+export function confirmar({ titulo, texto = '', ok = 'Confirmar', perigo = false, campo = null }) {
   return new Promise((resolve) => {
     const fundo = document.createElement('div')
     fundo.className = 'modal-fundo'
     fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
       <h2>${esc(titulo)}</h2>${texto ? `<p>${esc(texto)}</p>` : ''}
+      ${campo ? `<label class="modal-campo"><span>${esc(campo.rotulo)}</span><textarea rows="3" placeholder="${esc(campo.dica || '')}"></textarea></label>` : ''}
       <div class="modal-acoes"><button class="botao" data-r="0">Cancelar</button>
       <button class="botao ${perigo ? 'botao-perigo' : 'botao-coral'}" data-r="1">${esc(ok)}</button></div></div>`
+    const caixa = fundo.querySelector('textarea')
     const fechar = (r) => {
       document.removeEventListener('keydown', tecla, true)
       fundo.remove()
-      resolve(r)
+      resolve(campo ? (r ? caixa.value.trim() : null) : r)
     }
     const tecla = (e) => {
+      if (e.key === 'Enter' && e.shiftKey && e.target === caixa) return // Shift+Enter quebra a linha
       if (e.key === 'Escape' || e.key === 'Enter') {
         e.preventDefault()
         e.stopPropagation()
@@ -105,8 +109,19 @@ export function confirmar({ titulo, texto = '', ok = 'Confirmar', perigo = false
     })
     document.addEventListener('keydown', tecla, true)
     document.body.append(fundo)
-    fundo.querySelector('[data-r="1"]').focus()
+    ;(caixa || fundo.querySelector('[data-r="1"]')).focus()
   })
+}
+
+/** Os códigos da biblioteca e dos projetos ({tipo: {id: código}}; ferramentas/codigo.py): pedidos a cada página (o
+ *  servidor dá o próximo número aos itens novos). */
+export const codigos = () => json('/api/codigos', {})
+
+/** O código de um item, discreto, com o botão que copia "código · nome" (o clique é tratado no app.js). */
+export function chipCodigo(codigo, nome) {
+  if (!codigo) return ''
+  const texto = `${codigo} · ${nome}`
+  return `<span class="codigo" title="Código para citar no chat com o Claude">${esc(codigo)}<button type="button" class="copiar-codigo" data-copiar-codigo="${esc(texto)}" title="Copiar “${esc(texto)}”" aria-label="Copiar o código">${ICONE.copiar}</button></span>`
 }
 
 export const modalAberto = () => !!$('.modal-fundo')
@@ -231,6 +246,9 @@ export const ICONE = {
   seta_baixo: svg('<path d="M6 9l6 6 6-6"/>'),
   ajustes: svg('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
   mudo: svg('<path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/>'),
+  copiar: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+  clipe: svg('<path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l8-8"/>'),
+  imagem: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>'),
 }
 /** A estrela cheia (favorito ligado). */
 export const ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`

@@ -368,11 +368,11 @@ article h3, a h3 { margin-top: 11px; font-size: 15px; font-weight: 600; letter-s
 .resposta-nao-aplicado .status { color: var(--coral); }
 .editor { padding: 11px 12px; border: 1px solid var(--coral); border-radius: 8px; background: #23302b; box-shadow: 0 8px 24px #0004; }
 .item .editor { margin-top: 10px; }
-.editor textarea, .geral textarea {
-  width: 100%; margin-top: 8px; padding: 9px 10px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--poco);
+.editor textarea, .geral textarea, .caixa-nova textarea {
+  width: 100%; margin-top: 8px; min-height: 64px; overflow-y: auto; padding: 9px 10px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--poco);
   color: var(--creme); font: 13.5px/1.45 Manrope, sans-serif; resize: vertical;
 }
-.editor textarea:focus, .geral textarea:focus { outline: none; border-color: var(--creme); }
+.editor textarea:focus, .geral textarea:focus, .caixa-nova textarea:focus { outline: none; border-color: var(--creme); }
 .editor-acoes { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
 .editor-acoes .dica { margin-right: auto; font-size: 11px; }
 .geral { padding: 12px 14px 14px; border-top: 1px solid var(--linha); }
@@ -666,3 +666,102 @@ article h3, a h3 { margin-top: 11px; font-size: 15px; font-weight: 600; letter-s
 .bloco-sim { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--linha); border-radius: 8px; background: var(--poco); }
 .bloco-sim .chips:empty { display: none; }
 .preset-lado .dados { margin: 0; }
+
+/* ---------- códigos (PRE-07, REF-03·p7…): discretos, com o botão copiar ---------- */
+.codigo {
+  display: inline-flex; align-items: center; gap: 2px; flex: none; padding: 0 2px 0 7px; height: 20px; border: 1px solid var(--linha);
+  border-radius: 999px; font: 600 10.5px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.02em; color: var(--nevoa); white-space: nowrap;
+}
+.copiar-codigo {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 999px;
+  background: transparent; color: var(--nevoa); opacity: 0.8;
+}
+.copiar-codigo svg { width: 11px; height: 11px; }
+.copiar-codigo:hover { opacity: 1; color: var(--creme); background: #faf7ee1a; }
+.copiar-codigo.copiado { color: var(--salvia); opacity: 1; }
+.card-pe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.acoes-pe { display: flex; gap: 6px; margin-left: auto; }
+.card-titulo .codigo { margin-left: auto; }
+.trilha-nome .codigo { align-self: flex-start; margin-top: 3px; font-size: 10.5px; }
+.trechos li .codigo, .lista-simples li .codigo { margin-left: auto; margin-right: 6px; }
+.plano .copiar-codigo { position: absolute; right: 2px; top: 50%; translate: 0 -50%; color: inherit; opacity: 0; }
+.plano:hover .copiar-codigo { opacity: 0.85; }
+.plano-atual .codigo { margin-top: 2px; }
+.trilha-projeto .codigo { margin-left: -2px; }
+.janela-cabeca .codigo { margin-left: 2px; }
+.botao-recusar:hover { color: var(--erro) !important; border-color: var(--erro) !important; }
+
+/* recusar: o motivo no diálogo */
+.modal-campo { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 12px; font-weight: 600; color: #4d5c55; }
+.modal-campo textarea {
+  width: 100%; resize: vertical; padding: 8px 10px; border: 1px solid #18302c40; border-radius: 6px; background: #fff;
+  color: var(--tinta); font: 400 13px/1.4 Manrope, sans-serif;
+}
+.modal-campo textarea:focus { outline: none; border-color: var(--tinta); }
+
+/* ---------- seletor de versões (como o do frame.io) ---------- */
+.seletor-versao { position: relative; }
+.botao-versao { height: 32px; gap: 6px; padding: 0 10px 0 13px; border-color: var(--coral); font-size: 14px; }
+.botao-versao b { font-weight: 800; letter-spacing: -0.01em; }
+.botao-versao svg { width: 14px; height: 14px; color: var(--coral); transition: transform 0.2s; }
+.botao-versao[aria-expanded="true"] svg { transform: rotate(180deg); }
+.atual {
+  padding: 1px 6px; border-radius: 999px; background: var(--menta); color: var(--tinta); font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.menu-versoes {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; display: flex; flex-direction: column; min-width: 330px;
+  max-height: 60vh; overflow: auto; padding: 6px; border: 1px solid var(--linha-forte); border-radius: 10px;
+  background: var(--poco); box-shadow: 0 18px 50px #000a;
+}
+.item-versao {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 10px; padding: 9px 11px; border-radius: 7px;
+  text-decoration: none;
+}
+.item-versao > b { font-size: 15px; font-weight: 800; }
+.item-versao .atual { justify-self: start; }
+.item-versao:hover { background: #faf7ee12; }
+.item-versao.ativa { background: #f5775722; box-shadow: inset 2px 0 0 var(--coral); }
+.versao-dados { grid-column: 1 / -1; font-size: 12px; color: var(--nevoa); }
+.versao-estado { grid-column: 1 / -1; font-size: 12px; color: var(--nevoa); }
+.versao-estado b { color: var(--salvia); font-weight: 700; }
+.ve-em_revisao { color: var(--coral); }
+.ve-enviada { color: var(--amarelo); }
+.ve-aprovada { color: var(--menta); }
+.aviso-versao { flex: none; font-size: 12px; color: var(--amarelo); white-space: nowrap; }
+.aviso-versao:empty { display: none; }
+.trilha-projeto .nome-projeto { min-width: 40px; }
+.aviso-versao a { color: var(--amarelo); font-weight: 700; }
+
+/* ---------- prints nos comentários ---------- */
+.anexos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.anexo { position: relative; }
+.anexo-img { display: block; padding: 0; border: 1px solid var(--linha-forte); border-radius: 6px; overflow: hidden; background: #0b1714; cursor: zoom-in; }
+.anexo-img img { display: block; width: 76px; height: 56px; object-fit: cover; }
+.anexo-img:hover { border-color: var(--creme); }
+.anexo-tirar {
+  position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 999px; background: var(--creme); color: var(--tinta); opacity: 0; transition: opacity 0.15s;
+}
+.anexo-tirar svg { width: 10px; height: 10px; }
+.anexo:hover .anexo-tirar, .anexo-tirar:focus-visible { opacity: 1; }
+.editor.soltando, .geral.soltando, .caixa-nova.soltando { outline: 2px dashed var(--amarelo); outline-offset: -4px; }
+.janela-anexo { position: relative; width: auto; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); padding: 0; background: #000; overflow: hidden; }
+.anexo-grande { display: block; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); object-fit: contain; }
+.anexo-fechar { position: absolute; top: 8px; right: 8px; background: #0b1714cc; }
+
+/* a caixa do comentário novo, sempre embaixo da lista (como no frame.io) */
+.caixa-nova { padding: 12px 14px 12px; border-top: 1px solid var(--linha); background: #182f2b; }
+.caixa-nova textarea { min-height: 84px; }
+.caixa-nova .fala { margin-top: 4px; font-size: 12px; color: var(--nevoa); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caixa-nova .fala:empty { display: none; }
+.caixa-nova.presa .chip-tempo { background: var(--coral); border-color: var(--coral); color: var(--creme); }
+.caixa-nova.presa textarea { border-color: var(--coral); }
+.geral .editor-acoes { margin-top: 4px; }
+.geral label kbd { margin-left: 4px; }
+.botao-clipe { cursor: pointer; color: var(--nevoa); border: 1px solid var(--linha-forte); }
+.botao-clipe:hover { color: var(--creme); }
+.anexo-img video { display: block; width: 76px; height: 56px; object-fit: cover; }
+.anexo-play { position: absolute; inset: 0; display: grid; place-items: center; color: var(--creme); pointer-events: none; }
+.anexo-play svg { width: 18px; height: 18px; filter: drop-shadow(0 1px 3px #000c); }
+.io-ponto i { left: 5px; }

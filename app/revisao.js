@@ -1,6 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
-import { $, $$, ICONE, agora, aviso, confirmar, copiar, dataHora, esc, json, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
+import { $, $$, ICONE, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -17,6 +17,26 @@ const STATUS = {
 }
 const chaveStatus = (s) => (s === 'não aplicado' ? 'nao_aplicado' : s || 'pendente')
 const quando = (c) => (c.fim != null ? `${tempo(c.t)}–${tempo(c.fim)}` : tempo(c.t))
+/** Um comentário que conta: com texto ou com print anexado. */
+const temConteudo = (c) => !!(c.texto?.trim() || c.anexos?.length)
+const numero = (id) => parseInt(String(id).replace(/\D/g, ''), 10) || 0
+const VIDEO = /\.(mp4|mov|webm)$/i
+/** Uma caixa de texto que cresce com o que se escreve (até 40% da tela). */
+const crescer = (el) => {
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight + 2, Math.round(innerHeight * 0.4))}px`
+}
+/** O botão de clipe de uma caixa de comentário (`alvo`: nova, editor ou geral). */
+const clipe = (alvo) =>
+  `<label class="botao-icone pequeno botao-clipe" title="Anexar imagens ou vídeos (também dá para colar com ⌘V ou arrastar)"><input type="file" accept="image/*,video/*" multiple hidden data-anexar="${alvo}">${ICONE.clipe}</label>`
+/** O estado da revisão de uma versão, no seletor de versões (GET /api/projetos/<slug>/versoes). */
+const ESTADO_VERSAO = {
+  sem: () => 'sem revisão',
+  em_revisao: (n) => `em revisão (${n} ${n === 1 ? 'comentário' : 'comentários'})`,
+  enviada: () => 'revisão enviada',
+  aprovada: () => 'aprovada',
+}
 
 export async function abrirRevisao(tela, slug, vPedida) {
   const projetos = await json('/api/projetos', [])
@@ -40,7 +60,8 @@ class Revisao {
     this.pxs = 1
     this.ajustar = true // a linha do tempo cabe inteira na largura
     this.entrada = null // a marca I (s)
-    this.editor = null // {t, fim, responde?, id? (editando), texto?}
+    this.editor = null // editando um comentário ou respondendo uma dúvida: {t, fim, responde?, id?, texto?, anexos?}
+    this.nova = { preso: false, t: 0, fim: null, anexos: [], novoId: null } // a caixa de baixo: o comentário novo
     this.sel = null
     this.fila = Promise.resolve()
     this.sujo = false
@@ -48,13 +69,15 @@ class Revisao {
   }
 
   async abrir() {
-    const [palavras, planos, notas, info, rev] = await Promise.all([
+    const [palavras, planos, notas, info, rev, cods] = await Promise.all([
       json(this.base + 'palavras.json', []),
       json(this.base + 'planos.json', []),
       json(this.base + 'notas.json', []),
       json(this.base + 'info.json', {}),
       json(this.urlRevisao, null),
+      codigos(),
     ])
+    this.codigo = cods.projeto?.[this.slug]
     this.palavras = listaDe(palavras, 'palavras').slice().sort((a, b) => a.ini - b.ini)
     this.planos = listaDe(planos, 'planos')
     this.notas = listaDe(notas, 'notas')
@@ -73,7 +96,8 @@ class Revisao {
   montar() {
     const extra = $('#barra-extra')
     extra.innerHTML = `<div class="trilha-projeto"><a href="#/" class="botao-icone" title="Projetos">${ICONE.voltar}</a>
-        <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span><div class="versoes" id="versoes"></div></div>
+        <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span>${chipCodigo(this.codigo, this.proj.nome)}
+        <div class="seletor-versao" id="versoes"></div><span class="aviso-versao" id="aviso-versao"></span></div>
       <span class="salvo" id="salvo"></span>
       <button class="botao" data-acao="aprovar" id="b-aprovar">Aprovar</button>
       <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button>`
@@ -89,8 +113,12 @@ class Revisao {
         <div class="lado lado-dir">
           <div class="bloco"><span class="eyebrow">Atalhos</span>
             <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar / pausar</dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>1 quadro</dd>
-            <dt><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>1 segundo</dd><dt><kbd>C</kbd></dt><dd>comentar este ponto</dd>
-            <dt><kbd>I</kbd> <kbd>O</kbd></dt><dd>entrada e saída de um trecho</dd><dt><kbd>Esc</kbd></dt><dd>fechar / cancelar</dd></dl></div>
+            <dt><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>1 segundo</dd>
+            <dt>escrever na caixa</dt><dd>comentar o instante (pausa o vídeo)</dd>
+            <dt><kbd>I</kbd> <kbd>O</kbd></dt><dd>entrada e saída de um trecho</dd>
+            <dt><kbd>Enter</kbd></dt><dd>grava · <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha</dd>
+            <dt><kbd>⌘V</kbd></dt><dd>cola um print ou vídeo na caixa</dd>
+            <dt><kbd>C</kbd></dt><dd>comentário geral</dd><dt><kbd>Esc</kbd></dt><dd>sair da caixa / cancelar</dd></dl></div>
           ${this.info.resumo ? `<div class="bloco"><span class="eyebrow">O que mudou na v${this.v}</span><p class="resumo-versao">${esc(this.info.resumo)}</p></div>` : ''}
         </div>
       </section>
@@ -105,9 +133,9 @@ class Revisao {
         </div>
         <div class="grupo velocidades">${VELOCIDADES.map((x) => `<button class="pilula pequena${x === 1 ? ' ativa' : ''}" data-vel="${x}">${num(x, x % 1 ? 1 : 0)}×</button>`).join('')}</div>
         <div class="grupo">
-          <button class="botao" data-acao="comentar">${ICONE.balao} Comentar <kbd>C</kbd></button>
           <button class="botao" data-acao="entrada" id="b-entrada">Entrada <kbd>I</kbd></button>
           <button class="botao" data-acao="saida">Saída <kbd>O</kbd></button>
+          <button class="botao" data-acao="geral">${ICONE.balao} Comentário geral <kbd>C</kbd></button>
         </div>
       </div>
       <section class="linha">
@@ -126,34 +154,134 @@ class Revisao {
         <div class="painel-cabeca"><span class="eyebrow">Comentários · v${this.v}</span><span class="resumo" id="resumo"></span></div>
         <div id="estado"></div>
         <div class="lista" id="lista"></div>
-        <div class="geral"><label class="eyebrow" for="geral">Comentário geral</label>
-          <textarea id="geral" rows="2" placeholder="Sobre o vídeo todo (ex.: legenda um pouco mais baixa)">${esc(this.rev.geral || '')}</textarea>
-          <div id="resposta-geral"></div></div>
+        <div class="caixa-nova" id="caixa-nova">
+          <div class="item-cabeca"><span class="eyebrow" id="nova-rotulo">Comentar em</span><span class="chip-tempo estatico" id="nova-quando">0:00,0</span>
+            <button class="botao-icone pequeno" data-acao="soltar" id="nova-soltar" hidden title="Soltar: a caixa volta a acompanhar o vídeo">${ICONE.fechar}</button></div>
+          <p class="fala" id="nova-fala"></p>
+          <textarea id="nova-texto" rows="3" placeholder="O que mudar aqui? Ao escrever, o vídeo pausa e o comentário fica neste instante."></textarea>
+          <div id="nova-anexos"></div>
+          <div class="editor-acoes">${clipe('nova')}<span class="dica">Enter grava · Shift+Enter quebra a linha · ⌘V cola print ou vídeo</span>
+            <button class="botao pequeno botao-coral" data-acao="salvar-nova">Comentar</button></div></div>
+        <div class="geral"><label class="eyebrow" for="geral">Comentário geral <kbd>C</kbd></label>
+          <textarea id="geral" rows="2" placeholder="Sobre o vídeo todo (ex.: legenda um pouco mais baixa) · ⌘V cola print ou vídeo">${esc(this.rev.geral || '')}</textarea>
+          <div id="anexos-geral"></div><div class="editor-acoes">${clipe('geral')}</div><div id="resposta-geral"></div></div>
       </aside>
     </div>`
     this.video = $('#video')
     this.renderVersoes()
     this.renderEstado()
     this.renderLista()
+    this.renderGeral()
     this.renderLinha()
+  }
+
+  renderGeral() {
+    $('#anexos-geral').innerHTML = this.htmlAnexos(this.rev.anexos_geral, 'geral')
+    crescer($('#geral'))
+  }
+
+  /** A caixa do comentário novo: o instante (acompanha o vídeo até começar a escrever; com I e O, o trecho). */
+  quandoNova() {
+    const n = this.nova
+    if (n.preso) return { t: n.t, fim: n.fim }
+    const t = this.video.currentTime
+    if (this.entrada != null) {
+      const [a, b] = [Math.min(this.entrada, t), Math.max(this.entrada, t)]
+      return { t: a, fim: b - a < 0.05 ? null : b }
+    }
+    return { t, fim: null }
+  }
+
+  renderNova() {
+    const q = this.quandoNova()
+    const rotulo = quando(q)
+    if (rotulo !== this.rotuloNova || this.nova.preso !== this.presoNova) {
+      this.rotuloNova = rotulo
+      this.presoNova = this.nova.preso
+      $('#nova-quando').textContent = rotulo
+      $('#nova-rotulo').textContent = this.nova.preso ? 'Comentário em' : 'Comentar em'
+      $('#nova-soltar').hidden = !this.nova.preso
+      $('#caixa-nova').classList.toggle('presa', this.nova.preso)
+      const fala = q.fim != null ? this.falaIntervalo(q.t, q.fim) : this.falaPonto(q.t)
+      $('#nova-fala').textContent = fala ? `“${fala}”` : ''
+    }
+  }
+
+  renderNovaAnexos() {
+    $('#nova-anexos').innerHTML = this.htmlAnexos(this.nova.anexos, 'nova')
+  }
+
+  /** Começou a escrever (ou anexou): pausa o vídeo e prende o comentário no instante (ou no trecho de I a agora). */
+  prenderNova() {
+    if (this.nova.preso) return
+    this.video.pause()
+    Object.assign(this.nova, this.quandoNova(), { preso: true })
+    this.entrada = null
+    this.renderNova()
+    this.renderMarcas()
+  }
+
+  /** A caixa volta a acompanhar o vídeo (o texto escrito fica). */
+  soltarNova() {
+    this.nova.preso = false
+    this.nova.fim = null
+    this.entrada = null
+    this.renderNova()
+    this.renderMarcas()
+  }
+
+  salvarNova() {
+    const campo = $('#nova-texto')
+    const texto = campo.value.trim()
+    const n = this.nova
+    if (!texto && !n.anexos.length) return
+    const q = this.quandoNova()
+    const c = this.novoComentario({ ...q, novoId: n.novoId, anexos: n.anexos }, texto)
+    this.rev.comentarios.push(c)
+    this.sel = c.id
+    this.nova = { preso: false, t: 0, fim: null, anexos: [], novoId: null }
+    this.entrada = null
+    campo.value = ''
+    crescer(campo)
+    this.renderNovaAnexos()
+    this.renderNova()
+    this.renderLista()
+    this.renderMarcas()
+    this.agendarSalvar()
   }
 
   renderVersoes() {
     const s = encodeURIComponent(this.slug)
-    $('#versoes').innerHTML = this.proj.versoes
-      .map((n) => `<a class="pilula pequena${n === this.v ? ' ativa' : ''}" href="#/p/${s}/v${n}">v${n}</a>`)
-      .join('')
+    const ultima = this.proj.ultima
+    const lista = this.menuVersoes
+    $('#versoes').innerHTML = `<button class="botao botao-versao" data-acao="versoes" aria-haspopup="listbox" aria-expanded="${!!lista}" title="Trocar de versão">
+        <b>v${this.v}</b>${this.v === ultima ? '<span class="atual">atual</span>' : ''}${ICONE.seta_baixo}</button>
+      ${lista ? `<div class="menu-versoes" role="listbox">${lista.map((x) => `<a class="item-versao${x.v === this.v ? ' ativa' : ''}" role="option" aria-selected="${x.v === this.v}" href="#/p/${s}/v${x.v}">
+          <b>v${x.v}</b>${x.v === ultima ? '<span class="atual">atual</span>' : ''}
+          <span class="versao-dados">${x.criado_em ? dataHora(x.criado_em) : '—'}${x.duracao ? ` · ${mmss(x.duracao)}` : ''}</span>
+          <span class="versao-estado ve-${x.estado}">${(ESTADO_VERSAO[x.estado] || ESTADO_VERSAO.sem)(x.comentarios)}${x.aplicados ? ` · <b>${x.aplicados} ${x.aplicados === 1 ? 'aplicado' : 'aplicados'}</b>` : ''}</span></a>`).join('')}</div>` : ''}`
+    $('#aviso-versao').innerHTML = this.v < ultima ? `Você está vendo a v${this.v} (há uma v${ultima} mais nova) · <a href="#/p/${s}/v${ultima}">abrir a v${ultima}</a>` : ''
     const b = $('#b-aprovar')
     b.innerHTML = this.rev.aprovado ? `${ICONE.check} Aprovado` : 'Aprovar'
     b.classList.toggle('botao-menta', !!this.rev.aprovado)
   }
 
+  /** O seletor de versões: abre com a lista fresca (data do render, duração e o estado da revisão de cada uma). */
+  async alternarVersoes(abrir = !this.menuVersoes) {
+    if (!abrir) {
+      this.menuVersoes = null
+      return this.renderVersoes()
+    }
+    const l = await json(`/api/projetos/${encodeURIComponent(this.slug)}/versoes`, null)
+    if (this.fechado) return
+    this.menuVersoes = l || this.proj.versoes.slice().reverse().map((v) => ({ v, estado: 'sem', comentarios: 0, aplicados: 0 }))
+    this.renderVersoes()
+  }
+
   renderEstado() {
     const r = this.rev
     const ultima = this.proj.ultima
-    const s = encodeURIComponent(this.slug)
     let html = ''
-    if (this.v < ultima) html += `<div class="faixa-estado estado-antiga">Esta é a v${this.v}. <a href="#/p/${s}/v${ultima}">Abrir a v${ultima}, a última →</a></div>`
     if (r.aprovado) html += `<div class="faixa-estado estado-aprovado">${ICONE.check} Aprovada. O Claude exporta o final em 4K.</div>`
     else if (r.enviado_em) html += `<div class="faixa-estado estado-enviada">Revisão enviada em ${dataHora(r.enviado_em)}.${this.v < ultima ? '' : ` Esperando a v${this.v + 1}.`}</div>`
     $('#estado').innerHTML = html
@@ -162,7 +290,7 @@ class Revisao {
   }
 
   renderResumo() {
-    const cs = this.rev.comentarios.filter((c) => c.texto)
+    const cs = this.rev.comentarios.filter(temConteudo)
     const n = (k) => cs.filter((c) => chaveStatus(c.status) === k).length
     const partes = [`${cs.length} ${cs.length === 1 ? 'comentário' : 'comentários'}`]
     for (const [k, um, varios] of [['aplicado', 'aplicado', 'aplicados'], ['respondido', 'respondido', 'respondidos'], ['nao_aplicado', 'não aplicado', 'não aplicados']]) {
@@ -184,14 +312,13 @@ class Revisao {
       ...comentarios.map((c) => ({ t: c.t, html: this.htmlComentario(c) })),
       ...this.notas.map((n) => ({ t: n.ini, html: this.htmlNota(n, respostas.get(n.id)) })),
     ].sort((a, b) => a.t - b.t)
-    const ed = this.editor
-    let html = ed && !ed.id && !ed.responde ? this.htmlEditor() : ''
-    html += itens.map((i) => i.html).join('')
-    if (!itens.length && !ed) html = `<p class="vazio-lista">Nenhum comentário ainda.<br>Aperte <kbd>C</kbd> num ponto do vídeo, ou <kbd>I</kbd> e <kbd>O</kbd> para um trecho.</p>`
+    let html = itens.map((i) => i.html).join('')
+    if (!itens.length) html = `<p class="vazio-lista">Nenhum comentário ainda.<br>Escreva na caixa abaixo: o vídeo pausa e o comentário fica naquele instante (<kbd>I</kbd> e <kbd>O</kbd> marcam um trecho).</p>`
     $('#lista').innerHTML = html
     this.renderResumo()
     const campo = $('#editor-texto')
     if (campo) {
+      crescer(campo)
       campo.focus()
       campo.setSelectionRange(campo.value.length, campo.value.length)
       campo.closest('.editor').scrollIntoView({ block: 'nearest' })
@@ -206,9 +333,22 @@ class Revisao {
         <span class="item-acoes"><button class="botao-icone pequeno" data-editar="${c.id}" title="Editar">${ICONE.lapis}</button>
         <button class="botao-icone pequeno" data-apagar="${c.id}" title="Apagar">${ICONE.lixo}</button></span></header>
       ${c.fala ? `<p class="fala">“${esc(c.fala)}”</p>` : ''}
-      <p class="texto">${esc(c.texto)}</p>
+      ${c.texto ? `<p class="texto">${esc(c.texto)}</p>` : ''}${this.htmlAnexos(c.anexos, c.id)}
       ${this.htmlResposta(c)}
     </article>`
+  }
+
+  /** As miniaturas dos prints de um comentário (`dono`: o id dele, "editor" ou "geral"): clicar amplia; × tira. */
+  htmlAnexos(lista, dono) {
+    if (!lista?.length) return ''
+    return `<div class="anexos">${lista.map((a) => `<span class="anexo"><button class="anexo-img" data-ampliar="${esc(a)}" title="${VIDEO.test(a) ? 'Tocar o vídeo' : 'Ampliar o print'}">${VIDEO.test(a)
+      ? `<video muted playsinline preload="metadata" src="${this.urlAnexo(a)}#t=0.1"></video><span class="anexo-play">${ICONE.tocar}</span>`
+      : `<img src="${this.urlAnexo(a)}" alt="print" loading="lazy">`}</button>
+      <button class="anexo-tirar" data-tirar-anexo="${esc(`${dono}|${a}`)}" title="Tirar o print" aria-label="Tirar o print">${ICONE.fechar}</button></span>`).join('')}</div>`
+  }
+
+  urlAnexo(a) {
+    return `/projetos/${encodeURIComponent(this.slug)}/${a.split('/').map(encodeURIComponent).join('/')}`
   }
 
   htmlNota(n, resp) {
@@ -219,7 +359,7 @@ class Revisao {
       pe = `<div class="replica"><header class="item-cabeca"><span class="eyebrow">↳ Sua resposta</span>
           <span class="item-acoes"><button class="botao-icone pequeno" data-editar="${resp.id}" title="Editar">${ICONE.lapis}</button>
           <button class="botao-icone pequeno" data-apagar="${resp.id}" title="Apagar">${ICONE.lixo}</button></span></header>
-          <p class="texto">${esc(resp.texto)}</p>${this.htmlResposta(resp)}</div>`
+          ${resp.texto ? `<p class="texto">${esc(resp.texto)}</p>` : ''}${this.htmlAnexos(resp.anexos, resp.id)}${this.htmlResposta(resp)}</div>`
     else pe = `<button class="botao pequeno" data-responder="${n.id}">Responder</button>`
     return `<article class="item item-nota${this.sel === n.id ? ' item-sel' : ''}" data-nota="${n.id}" data-ir="${n.ini}">
       <header class="item-cabeca"><span class="num num-nota">?</span><span class="rotulo-claude">Dúvida do Claude</span>
@@ -240,13 +380,14 @@ class Revisao {
 
   htmlEditor() {
     const ed = this.editor
-    const titulo = ed.responde ? 'Sua resposta' : ed.id ? 'Editar comentário' : ed.fim != null ? 'Comentário no trecho' : 'Comentário'
+    const titulo = ed.responde ? 'Sua resposta' : 'Editar comentário'
     const fala = ed.responde ? '' : ed.fim != null ? this.falaIntervalo(ed.t, ed.fim) : this.falaPonto(ed.t)
     return `<div class="editor">
       <div class="item-cabeca"><span class="eyebrow">${titulo}</span>${ed.responde ? '' : `<span class="chip-tempo estatico">${quando(ed)}</span>`}</div>
       ${fala ? `<p class="fala">“${esc(fala)}”</p>` : ''}
-      <textarea id="editor-texto" rows="3" placeholder="${ed.responde ? 'Responda a dúvida' : 'O que mudar aqui?'}">${esc(ed.texto || '')}</textarea>
-      <div class="editor-acoes"><span class="dica">Enter salva · Shift+Enter quebra a linha · Esc cancela</span>
+      <textarea id="editor-texto" rows="3" placeholder="${ed.responde ? 'Responda a dúvida' : 'O que mudar aqui?'} (⌘V ou arraste para anexar print ou vídeo)">${esc(ed.texto || '')}</textarea>
+      ${this.htmlAnexos(ed.anexos, 'editor')}
+      <div class="editor-acoes">${clipe('editor')}<span class="dica">Enter salva · Shift+Enter quebra a linha · Esc cancela</span>
         <button class="botao pequeno" data-acao="cancelar">Cancelar</button>
         <button class="botao pequeno botao-coral" data-acao="salvar-editor">Salvar</button></div>
     </div>`
@@ -292,10 +433,19 @@ class Revisao {
         const w = Math.max((p.fim - p.ini) * this.pxs - 1, 1)
         const [nome, curto] = PLANOS[p.tipo] || [p.tipo, p.tipo]
         const rot = w >= 130 ? `<b>${esc(p.id)}</b> ${esc(nome)}` : w >= 70 ? `<b>${esc(p.id)}</b> ${esc(curto)}` : w >= 24 ? `<b>${esc(p.id)}</b>` : ''
-        const dica = `${p.id} · ${nome} · ${tempo(p.ini)}–${tempo(p.fim)}${p.descricao ? `\n${p.descricao}` : ''}${p.texto ? `\nTexto: ${p.texto}` : ''}`
-        return `<div class="plano tipo-${esc(p.tipo)}" style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px" title="${esc(dica)}">${rot}</div>`
+        const cod = this.codigoPlano(p)
+        const dica = `${cod ? `${cod.codigo} · ` : `${p.id} · `}${nome} · ${tempo(p.ini)}–${tempo(p.fim)}${p.descricao ? `\n${p.descricao}` : ''}${p.texto ? `\nTexto: ${p.texto}` : ''}`
+        const copia = cod && w >= 90 ? `<button type="button" class="copiar-codigo" data-copiar-codigo="${esc(cod.texto)}" title="Copiar “${esc(cod.texto)}”" aria-label="Copiar o código do plano">${ICONE.copiar}</button>` : ''
+        return `<div class="plano tipo-${esc(p.tipo)}" style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px" title="${esc(dica)}">${rot}${copia}</div>`
       })
       .join('')
+  }
+
+  /** O código de um plano desta versão (PRJ-04·p5) e o texto que o botão copia (com a versão e o tempo). */
+  codigoPlano(p) {
+    if (!this.codigo) return null
+    const codigo = `${this.codigo}·${p.id}`
+    return { codigo, texto: `${codigo} · ${nomePlano(p.tipo)} (v${this.v}, ${tempo(p.ini)})` }
   }
 
   renderPalavras() {
@@ -330,10 +480,11 @@ class Revisao {
     $('#f-notas').innerHTML = this.notas
       .map((n) => marca(n.id, n.ini, n.fim, respondidas.has(n.id) ? '✓' : '?', `marca-nota${respondidas.has(n.id) ? ' marca-nota-ok' : ''}`, `Dúvida do Claude · ${n.texto}`))
       .join('')
-    // a marca de entrada (I) e o trecho do comentário sendo escrito
-    const ed = this.editor
+    // a marca de entrada (I) e o trecho do comentário sendo escrito na caixa
+    const n = this.nova
     let io = ''
-    if (ed && !ed.responde && ed.fim != null) io = `<div class="io-trecho" style="left:${ed.t * px}px;width:${(ed.fim - ed.t) * px}px"></div>`
+    if (n?.preso && n.fim != null) io = `<div class="io-trecho" style="left:${n.t * px}px;width:${(n.fim - n.t) * px}px"></div>`
+    else if (n?.preso) io = `<div class="io-entrada io-ponto" style="left:${n.t * px}px"><i>✎</i></div>`
     else if (this.entrada != null) io = `<div class="io-entrada" style="left:${this.entrada * px}px"><i>I</i></div>`
     $('#io').innerHTML = io
     $('#b-entrada').classList.toggle('ativo', this.entrada != null)
@@ -345,6 +496,7 @@ class Revisao {
     if (this.fechado) return // o vídeo ainda solta eventos depois de sair da tela
     const t = this.video.currentTime
     $('#t-atual').textContent = tempo(t)
+    this.renderNova()
     const x = t * this.pxs
     $('#cabeca').style.transform = `translateX(${x}px)`
     const tocando = !this.video.paused
@@ -374,8 +526,9 @@ class Revisao {
     if (p !== this.iPlano) {
       this.iPlano = p
       const q = this.planos[p]
+      const cod = q && this.codigoPlano(q)
       $('#plano-atual').innerHTML = q
-        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}${q.descricao ? `<p class="plano-desc">${esc(q.descricao)}</p>` : ''}`
+        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}${q.descricao ? `<p class="plano-desc">${esc(q.descricao)}</p>` : ''}`
         : '<span class="apagado">—</span>'
     }
   }
@@ -451,9 +604,11 @@ class Revisao {
   }
 
   fecharEditor() {
-    const eraTrecho = this.editor?.fim != null && !this.editor.responde
+    const ed = this.editor
+    // os prints colados neste editor e não salvos saem do disco
+    const antes = (ed?.id && this.rev.comentarios.find((x) => x.id === ed.id)?.anexos) || []
+    for (const a of ed?.anexos || []) if (!antes.includes(a)) this.apagarAnexo(a)
     this.editor = null
-    if (eraTrecho) this.entrada = null
     this.renderLista()
     this.renderMarcas()
   }
@@ -462,57 +617,80 @@ class Revisao {
     const ed = this.editor
     if (!ed) return
     const texto = ($('#editor-texto')?.value ?? ed.texto ?? '').trim()
+    const anexos = ed.anexos || []
     const cs = this.rev.comentarios
     if (ed.id) {
       const c = cs.find((x) => x.id === ed.id)
-      if (c && !texto) cs.splice(cs.indexOf(c), 1)
-      else if (c && texto !== c.texto) c.texto = texto
-    } else if (texto) {
+      for (const a of c?.anexos || []) if (!anexos.includes(a) || (!texto && !anexos.length)) this.apagarAnexo(a)
+      if (c && !texto && !anexos.length) cs.splice(cs.indexOf(c), 1)
+      else if (c) {
+        c.texto = texto
+        if (anexos.length) c.anexos = anexos
+        else delete c.anexos
+      }
+    } else if (texto || anexos.length) {
       const c = this.novoComentario(ed, texto)
       cs.push(c)
       this.sel = ed.responde || c.id
     }
     this.editor = null
-    this.entrada = null
     this.renderLista()
     this.renderMarcas()
     this.agendarSalvar()
   }
 
-  novoComentario({ t, fim, responde }, texto) {
-    const n = Math.max(0, ...this.rev.comentarios.map((c) => parseInt(String(c.id).replace(/\D/g, ''), 10) || 0)) + 1
+  /** O id do próximo comentário (reservado ao colar um print num comentário ainda não salvo: o arquivo leva o id). */
+  proximoId() {
+    this.reservado = Math.max(this.reservado || 0, ...this.rev.comentarios.map((c) => numero(c.id))) + 1
+    return `c${this.reservado}`
+  }
+
+  novoComentario({ t, fim, responde, novoId, anexos }, texto) {
+    const n = novoId ? numero(novoId) : Math.max(this.reservado || 0, ...this.rev.comentarios.map((c) => numero(c.id))) + 1
     const nota = responde && this.notas.find((x) => x.id === responde)
     const fala = nota ? (nota.fala ? limpar(nota.fala) : this.falaIntervalo(nota.ini, nota.fim ?? nota.ini + 0.5)) : fim != null ? this.falaIntervalo(t, fim) : this.falaPonto(t)
     return {
       id: `c${n}`, t: r3(t), fim: fim == null ? null : r3(fim), palavra: this.palavraPerto(t)?.id ?? null, fala, texto,
-      criado_em: agora(), de: 'rodrigo', status: 'pendente', resposta: null, ...(responde ? { responde } : {}),
+      criado_em: agora(), de: 'rodrigo', status: 'pendente', resposta: null, ...(responde ? { responde } : {}), ...(anexos?.length ? { anexos } : {}),
     }
   }
 
-  comentarPonto() {
-    this.abrirEditor({ t: this.video.currentTime, fim: null })
+  /** C: o comentário geral (sobre o vídeo todo). */
+  focarGeral() {
+    const g = $('#geral')
+    g.scrollIntoView({ block: 'nearest' })
+    g.focus()
+    g.setSelectionRange(g.value.length, g.value.length)
   }
 
+  /** I: a entrada de um trecho; a caixa passa a mostrar o trecho da entrada até o cursor (solta, se estava presa). */
   marcarEntrada() {
-    if (this.editor && !this.editor.id) this.salvarEditor()
+    this.nova.preso = false
+    this.nova.fim = null
     this.entrada = this.video.currentTime
+    this.renderNova()
     this.renderMarcas()
     aviso(`Entrada em ${tempo(this.entrada)}. Agora O marca a saída.`)
   }
 
+  /** O: a saída; o trecho fica preso na caixa, pronta para escrever. */
   marcarSaida() {
     if (this.entrada == null) return aviso('Marque a entrada com I antes.', 'erro')
-    const t = this.video.currentTime
-    const [a, b] = [Math.min(this.entrada, t), Math.max(this.entrada, t)]
-    this.abrirEditor({ t: a, fim: b - a < 0.05 ? null : b })
+    this.video.pause()
+    Object.assign(this.nova, this.quandoNova(), { preso: true })
+    this.entrada = null
+    this.renderNova()
+    this.renderMarcas()
+    $('#nova-texto').focus()
   }
 
   async apagar(id) {
     const c = this.rev.comentarios.find((x) => x.id === id)
     if (!c) return
-    const ok = await confirmar({ titulo: 'Apagar este comentário?', texto: c.texto, ok: 'Apagar', perigo: true })
+    const ok = await confirmar({ titulo: 'Apagar este comentário?', texto: c.texto || (c.anexos?.length ? 'O comentário e os prints dele.' : ''), ok: 'Apagar', perigo: true })
     if (!ok) return
     this.rev.comentarios.splice(this.rev.comentarios.indexOf(c), 1)
+    for (const a of c.anexos || []) this.apagarAnexo(a)
     this.renderLista()
     this.renderMarcas()
     this.agendarSalvar()
@@ -560,18 +738,25 @@ class Revisao {
   /** O texto que o criador cola no chat do Claude Code (o mesmo do `revisao.py ler`). */
   texto() {
     const linhas = [`Revisão · ${this.slug} · v${this.v}`]
-    for (const c of this.rev.comentarios.filter((x) => x.texto?.trim()).sort((a, b) => a.t - b.t)) {
+    // como o `linha_anexos` do revisao.py: "print" quando são só imagens, "anexo" quando há vídeo
+    const prints = (l) => `  ↳ ${l.some((a) => VIDEO.test(a)) ? 'anexo' : 'print'}: ${l.map((a) => `projetos/${this.slug}/${a}`).join(', ')}`
+    for (const c of this.rev.comentarios.filter(temConteudo).sort((a, b) => a.t - b.t)) {
       const ancora = c.responde ? `↳ dúvida do Claude ${tempo(c.t)}` : quando(c)
-      linhas.push(`[${ancora}] ${c.fala ? `"${c.fala}" — ` : ''}${umaLinha(c.texto)}`)
+      linhas.push(`[${ancora}] ${c.fala ? `"${c.fala}" — ` : ''}${umaLinha(c.texto || '') || '(ver o print)'}`)
+      if (c.anexos?.length) linhas.push(prints(c.anexos))
     }
-    if (this.rev.geral?.trim()) linhas.push(`Geral: ${umaLinha(this.rev.geral)}`)
+    if (this.rev.geral?.trim() || this.rev.anexos_geral?.length) {
+      linhas.push(`Geral: ${umaLinha(this.rev.geral || '') || '(ver o print)'}`)
+      if (this.rev.anexos_geral?.length) linhas.push(prints(this.rev.anexos_geral))
+    }
     linhas.push(`(projetos/${this.slug}/revisoes/v${this.v}.json)`)
     return linhas.join('\n')
   }
 
   async copiarRevisao() {
     if (this.editor) this.salvarEditor()
-    if (!this.rev.comentarios.some((c) => c.texto?.trim()) && !this.rev.geral?.trim())
+    if ($('#nova-texto').value.trim() || this.nova.anexos.length) this.salvarNova()
+    if (!this.rev.comentarios.some(temConteudo) && !this.rev.geral?.trim() && !this.rev.anexos_geral?.length)
       return aviso('Nada para enviar ainda: comente um ponto (C) ou escreva o comentário geral.', 'erro')
     this.rev.enviado_em = agora()
     await this.salvar()
@@ -631,6 +816,90 @@ class Revisao {
     }
   }
 
+  // ---------- os prints (colar com ⌘V ou arrastar no comentário) ----------
+
+  /** Envia as imagens e os vídeos ao servidor (revisoes/anexos/<comentário>-<n>.<ext>) e os prende à caixa do
+   *  comentário novo (`alvo` "nova": prende o instante, como começar a escrever), ao comentário sendo editado
+   *  ("editor") ou ao comentário geral. */
+  async anexar(arquivos, alvo) {
+    const imagens = [...arquivos].filter((f) => f.type?.startsWith('image/') || f.type?.startsWith('video/'))
+    if (!imagens.length) return aviso('Só imagens e vídeos entram como anexo.', 'erro')
+    let cid = 'geral'
+    if (alvo === 'nova') {
+      this.prenderNova()
+      cid = this.nova.novoId ||= this.proximoId()
+    } else if (alvo === 'editor') {
+      const ed = this.editor
+      if (!ed) return
+      ed.texto = $('#editor-texto')?.value ?? ed.texto
+      cid = ed.id || (ed.novoId ||= this.proximoId())
+    }
+    let n = 0
+    for (const f of imagens) {
+      try {
+        const r = await fetch(`/api/revisao/${encodeURIComponent(this.slug)}/v${this.v}/anexo?comentario=${cid}`, { method: 'POST', headers: { 'Content-Type': f.type }, body: f })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(d.erro || `Erro ${r.status}`)
+        if (alvo === 'geral') {
+          ;(this.rev.anexos_geral ||= []).push(d.caminho)
+          this.agendarSalvar()
+        } else if (alvo === 'nova') this.nova.anexos.push(d.caminho)
+        else if (this.editor) (this.editor.anexos ||= []).push(d.caminho)
+        else this.apagarAnexo(d.caminho) // o editor fechou enquanto enviava
+        n++
+      } catch (x) {
+        aviso(`O print não entrou: ${x.message}`, 'erro')
+      }
+    }
+    if (alvo === 'geral') this.renderGeral()
+    else if (alvo === 'nova') this.renderNovaAnexos()
+    else if (this.editor) this.renderLista()
+    if (n) aviso(n === 1 ? 'Anexado' : `${n} anexados`)
+  }
+
+  apagarAnexo(caminho) {
+    fetch(`/api/revisao/${encodeURIComponent(this.slug)}/v${this.v}/anexo?caminho=${encodeURIComponent(caminho)}`, { method: 'DELETE' }).catch(() => {})
+  }
+
+  /** O × de uma miniatura: no editor, sai ao salvar; num comentário salvo ou no geral, sai já. */
+  tirarAnexo(dono, caminho) {
+    if (dono === 'nova') {
+      this.nova.anexos = this.nova.anexos.filter((a) => a !== caminho)
+      this.renderNovaAnexos()
+      return this.apagarAnexo(caminho)
+    }
+    if (dono === 'editor') {
+      if (!this.editor) return
+      this.editor.texto = $('#editor-texto')?.value ?? this.editor.texto
+      this.editor.anexos = (this.editor.anexos || []).filter((a) => a !== caminho)
+      const salvo = this.editor.id && this.rev.comentarios.find((x) => x.id === this.editor.id)?.anexos?.includes(caminho)
+      if (!salvo) this.apagarAnexo(caminho)
+      return this.renderLista()
+    }
+    if (dono === 'geral') {
+      this.rev.anexos_geral = (this.rev.anexos_geral || []).filter((a) => a !== caminho)
+      if (!this.rev.anexos_geral.length) delete this.rev.anexos_geral
+      this.renderGeral()
+    } else {
+      const c = this.rev.comentarios.find((x) => x.id === dono)
+      if (!c) return
+      c.anexos = (c.anexos || []).filter((a) => a !== caminho)
+      if (!c.anexos.length) delete c.anexos
+      if (!temConteudo(c)) this.rev.comentarios.splice(this.rev.comentarios.indexOf(c), 1)
+      this.renderLista()
+      this.renderMarcas()
+    }
+    this.apagarAnexo(caminho)
+    this.agendarSalvar()
+  }
+
+  ampliar(caminho) {
+    const midia = VIDEO.test(caminho)
+      ? `<video class="anexo-grande" src="${this.urlAnexo(caminho)}" controls autoplay playsinline></video>`
+      : `<img class="anexo-grande" src="${this.urlAnexo(caminho)}" alt="print">`
+    janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button>${midia}`, { classe: 'janela-anexo' })
+  }
+
   // ---------- eventos ----------
 
   ligar() {
@@ -657,8 +926,49 @@ class Revisao {
 
     $('#geral').addEventListener('input', (e) => {
       this.rev.geral = e.target.value
+      crescer(e.target)
       this.agendarSalvar()
     })
+    // a caixa do comentário novo: escrever prende o instante (e pausa); apagar tudo solta
+    $('#nova-texto').addEventListener('input', (e) => {
+      crescer(e.target)
+      if (e.target.value.trim()) this.prenderNova()
+      else if (!this.nova.anexos.length && this.nova.fim == null) this.soltarNova()
+    })
+    // o botão de clipe
+    this.tela.addEventListener('change', (e) => {
+      const alvo = e.target.dataset?.anexar
+      if (!alvo) return
+      this.anexar(e.target.files, alvo)
+      e.target.value = ''
+    })
+    // colar (⌘V) ou arrastar um print ou vídeo na caixa do comentário novo, no comentário sendo editado ou no geral
+    const alvoDe = (el) => (el?.closest?.('.caixa-nova') ? 'nova' : el?.closest?.('.editor') ? 'editor' : el?.closest?.('.geral') ? 'geral' : null)
+    this.tela.addEventListener('paste', (e) => {
+      const alvo = alvoDe(e.target)
+      const arquivos = [...(e.clipboardData?.files || [])]
+      if (!alvo || !arquivos.some((f) => /^(image|video)\//.test(f.type))) return // texto: cola normal
+      e.preventDefault()
+      this.anexar(arquivos, alvo)
+    })
+    const comArquivo = (e) => [...(e.dataTransfer?.types || [])].includes('Files')
+    this.tela.addEventListener('dragover', (e) => {
+      const alvo = alvoDe(e.target)
+      if (!alvo || !comArquivo(e)) return
+      e.preventDefault()
+      e.target.closest('.caixa-nova, .editor, .geral').classList.add('soltando')
+    })
+    this.tela.addEventListener('dragleave', (e) => e.target.closest?.('.caixa-nova, .editor, .geral')?.classList.remove('soltando'))
+    this.tela.addEventListener('drop', (e) => {
+      const alvo = alvoDe(e.target)
+      if (!alvo || !comArquivo(e)) return
+      e.preventDefault()
+      e.target.closest('.caixa-nova, .editor, .geral').classList.remove('soltando')
+      this.anexar(e.dataTransfer.files, alvo)
+    })
+    // o seletor de versões fecha ao clicar fora
+    this.foraMenu = (e) => this.menuVersoes && !e.target.closest?.('.seletor-versao') && this.alternarVersoes(false)
+    document.addEventListener('click', this.foraMenu)
 
     // clicar/arrastar na linha do tempo busca; ⌘/Ctrl + rolagem aproxima
     const conteudo = $('#conteudo')
@@ -693,6 +1003,7 @@ class Revisao {
     const editor = e.target.closest('.editor')
     if (!b || (editor && !editor.contains(b))) return // dentro do campo de comentário, só os botões dele
     if (b.tagName === 'BUTTON') b.blur()
+    if (b.classList.contains('item-versao')) return setTimeout(() => this.alternarVersoes(false)) // a versão abre pelo endereço
     const d = b.dataset
     if (d.acao) return this.acao(d.acao)
     if (d.vel) {
@@ -700,9 +1011,14 @@ class Revisao {
       for (const x of $$('[data-vel]')) x.classList.toggle('ativa', x === b)
       return
     }
+    if (d.ampliar) return this.ampliar(d.ampliar)
+    if (d.tirarAnexo) {
+      const k = d.tirarAnexo.indexOf('|')
+      return this.tirarAnexo(d.tirarAnexo.slice(0, k), d.tirarAnexo.slice(k + 1))
+    }
     if (d.editar) {
       const c = this.rev.comentarios.find((x) => x.id === d.editar)
-      return c && this.abrirEditor({ id: c.id, t: c.t, fim: c.fim, responde: c.responde, texto: c.texto })
+      return c && this.abrirEditor({ id: c.id, t: c.t, fim: c.fim, responde: c.responde, texto: c.texto, anexos: [...(c.anexos || [])] })
     }
     if (d.apagar) return this.apagar(d.apagar)
     if (d.responder) {
@@ -724,7 +1040,9 @@ class Revisao {
       'quadro+': () => this.passo(QUADRO),
       'seg-': () => this.passo(-1),
       'seg+': () => this.passo(1),
-      comentar: () => this.comentarPonto(),
+      geral: () => this.focarGeral(),
+      soltar: () => this.soltarNova(),
+      'salvar-nova': () => this.salvarNova(),
       entrada: () => this.marcarEntrada(),
       saida: () => this.marcarSaida(),
       'zoom-': () => this.zoom(1 / 1.6),
@@ -733,6 +1051,7 @@ class Revisao {
       'salvar-editor': () => this.salvarEditor(),
       aprovar: () => this.aprovar(),
       copiar: () => this.copiarRevisao(),
+      versoes: () => this.alternarVersoes(),
     }[nome]
     a?.()
   }
@@ -741,13 +1060,20 @@ class Revisao {
     if (modalAberto()) return
     const campo = e.target.closest?.('input, textarea, select, [contenteditable]')
     if (campo) {
-      if (campo.id === 'editor-texto' && e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      const enter = e.key === 'Enter' && !e.shiftKey && !e.isComposing
+      if (campo.id === 'editor-texto' && enter) {
         e.preventDefault()
         this.salvarEditor()
+      } else if (campo.id === 'nova-texto' && enter) {
+        e.preventDefault()
+        this.salvarNova()
       } else if (e.key === 'Escape') {
         e.preventDefault()
         if (campo.id === 'editor-texto') this.fecharEditor()
-        else campo.blur()
+        else {
+          campo.blur()
+          if (campo.id === 'nova-texto' && !campo.value.trim() && !this.nova.anexos.length) this.soltarNova()
+        }
       }
       return
     }
@@ -757,15 +1083,14 @@ class Revisao {
       ' ': () => this.alternar(),
       ArrowLeft: () => this.passo(e.shiftKey ? -1 : -QUADRO),
       ArrowRight: () => this.passo(e.shiftKey ? 1 : QUADRO),
-      c: () => this.comentarPonto(),
+      c: () => this.focarGeral(),
       i: () => this.marcarEntrada(),
       o: () => this.marcarSaida(),
       Escape: () => {
-        if (this.editor) this.fecharEditor()
-        else if (this.entrada != null) {
-          this.entrada = null
-          this.renderMarcas()
-        } else if (this.sel) this.selecionar(null)
+        if (this.menuVersoes) this.alternarVersoes(false)
+        else if (this.editor) this.fecharEditor()
+        else if (this.entrada != null || this.nova.preso) this.soltarNova()
+        else if (this.sel) this.selecionar(null)
       },
     }[k]
     if (f) {
@@ -783,6 +1108,7 @@ class Revisao {
     window.removeEventListener('keydown', this.teclas)
     window.removeEventListener('resize', this.redim)
     window.removeEventListener('pagehide', this.saida)
+    document.removeEventListener('click', this.foraMenu)
     $('#barra-extra').removeEventListener('click', this.cliques)
     this.video.pause()
     this.video.removeAttribute('src')

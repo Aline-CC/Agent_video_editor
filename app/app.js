@@ -1,7 +1,7 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
 // revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica e as da biblioteca (#/presets, #/transicoes
 // [/<de>><para>], #/banco, #/motions, #/trilhas).
-import { $, $$, esc, json, mmss } from './comum.js'
+import { $, $$, ICONE, aviso, chipCodigo, codigos, copiar, esc, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
 import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
@@ -15,7 +15,7 @@ const ESTADOS = {
 
 async function inicio(tela) {
   tela.className = 'pagina pagina-inicio'
-  const projetos = await json('/api/projetos', [])
+  const [projetos, cods] = await Promise.all([json('/api/projetos', []), codigos()])
   const cards = projetos.map((p) => {
     const [estado, cor] = ESTADOS[p.estado] || ESTADOS.em_revisao
     const proxy = `/projetos/${encodeURIComponent(p.slug)}/versoes/v${p.ultima}/proxy.mp4`
@@ -23,7 +23,7 @@ async function inicio(tela) {
     return `<a class="card-projeto" href="#/p/${encodeURIComponent(p.slug)}">
       <div class="mini mini-916"><video muted playsinline preload="metadata" src="${proxy}#t=1.5"></video>
         <span class="selo ${cor}">${estado}</span>${p.duracao ? `<span class="duracao">${mmss(p.duracao)}</span>` : ''}</div>
-      <h3>${esc(p.nome)}</h3>
+      <div class="card-titulo"><h3>${esc(p.nome)}</h3>${chipCodigo(cods.projeto?.[p.slug], p.nome)}</div>
       <p class="sub">${esc(p.slug)} · v${p.ultima} · ${n} ${n === 1 ? 'versão' : 'versões'}${p.comentarios ? ` · ${p.comentarios} ${p.comentarios === 1 ? 'comentário' : 'comentários'}` : ''}</p>
     </a>`
   })
@@ -67,6 +67,24 @@ async function rotear() {
   if (minha !== vez) s?.() // já mudou de tela enquanto carregava
   else sair = s
 }
+
+// o botão copiar dos códigos (comum.chipCodigo), em qualquer página: na captura, antes do clique do card ou do link
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('[data-copiar-codigo]')
+  if (!b) return
+  e.preventDefault()
+  e.stopPropagation()
+  copiar(b.dataset.copiarCodigo).then(() => {
+    aviso(`Copiado · ${b.dataset.copiarCodigo}`)
+    b.classList.add('copiado')
+    b.innerHTML = ICONE.check
+    setTimeout(() => {
+      b.classList.remove('copiado')
+      b.innerHTML = ICONE.copiar
+    }, 1400)
+  })
+}, true)
+for (const ev of ['pointerdown', 'mousedown']) document.addEventListener(ev, (e) => e.target.closest?.('[data-copiar-codigo]') && e.stopPropagation(), true)
 
 window.addEventListener('hashchange', rotear)
 rotear()

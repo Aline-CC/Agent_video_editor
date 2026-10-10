@@ -5,7 +5,7 @@
 
     uv run ferramentas/revisao.py ler <slug> [vN]
         a revisão (a da última versão, se não disser) no mesmo texto do "Copiar revisão" do app e, para cada
-        comentário, o id, a âncora (palavras) e o plano sob ele: é o que o Claude usa para aplicar.
+        comentário, o id, a âncora (palavras), o plano sob ele e os prints anexados (abra com o Read antes de aplicar).
     uv run ferramentas/revisao.py responder <slug> <vN> <id|geral> --status aplicado|respondido|nao_aplicado --resposta "…"
         grava a resposta no comentário (o app mostra embaixo dele); "geral" responde o comentário geral.
     uv run ferramentas/revisao.py clipes [--refazer]
@@ -38,15 +38,31 @@ def uma_linha(s: str) -> str:
     return ' / '.join(p.strip() for p in s.strip().splitlines() if p.strip())
 
 
+def tem_conteudo(c: dict) -> bool:
+    """Um comentário que conta: com texto ou com print anexado."""
+    return bool((c.get('texto') or '').strip() or c.get('anexos'))
+
+
+def linha_anexos(slug: str, anexos: list[str]) -> str:
+    """Os anexos de um comentário, numa linha embaixo dele (o Claude abre cada print com o Read; num vídeo, tira
+    quadros com o ffmpeg). "print" quando são só imagens; "anexo" quando há vídeo."""
+    rotulo = 'anexo' if any(a.lower().endswith(('.mp4', '.mov', '.webm')) for a in anexos) else 'print'
+    return f'  ↳ {rotulo}: {", ".join(f"projetos/{slug}/{a}" for a in anexos)}'
+
+
 def texto(slug: str, v: int, rev: dict) -> str:
     """O texto do botão "Copiar revisão" (app/revisao.js, `texto()`): mude os dois juntos."""
     linhas = [f'Revisão · {slug} · v{v}']
-    for c in sorted((c for c in rev.get('comentarios', []) if (c.get('texto') or '').strip()), key=lambda c: c['t']):
+    for c in sorted((c for c in rev.get('comentarios', []) if tem_conteudo(c)), key=lambda c: c['t']):
         ancora = f'↳ dúvida do Claude {tempo(c["t"])}' if c.get('responde') else quando(c)
         fala = f'"{c["fala"]}" — ' if c.get('fala') else ''
-        linhas.append(f'[{ancora}] {fala}{uma_linha(c["texto"])}')
-    if (rev.get('geral') or '').strip():
-        linhas.append(f'Geral: {uma_linha(rev["geral"])}')
+        linhas.append(f'[{ancora}] {fala}{uma_linha(c.get("texto") or "") or "(ver o print)"}')
+        if c.get('anexos'):
+            linhas.append(linha_anexos(slug, c['anexos']))
+    if (rev.get('geral') or '').strip() or rev.get('anexos_geral'):
+        linhas.append(f'Geral: {uma_linha(rev.get("geral") or "") or "(ver o print)"}')
+        if rev.get('anexos_geral'):
+            linhas.append(linha_anexos(slug, rev['anexos_geral']))
     linhas.append(f'(projetos/{slug}/revisoes/v{v}.json)')
     return '\n'.join(linhas)
 
@@ -81,7 +97,7 @@ def ler(slug: str, v: str | None) -> None:
     estado = 'APROVADA' if rev.get('aprovado') else f'enviada em {rev["enviado_em"]}' if rev.get('enviado_em') else 'ainda não enviada'
     print(f'\nEstado: {estado}. Para cada um: revisao.py responder {slug} v{n} <id> --status … --resposta "…"')
     for c in sorted(rev.get('comentarios', []), key=lambda c: c['t']):
-        if not (c.get('texto') or '').strip():
+        if not tem_conteudo(c):
             continue
         fim = c.get('fim')
         w1 = palavra_em(fim) if fim is not None else None
@@ -91,9 +107,13 @@ def ler(slug: str, v: str | None) -> None:
         if c.get('responde'):
             nota = notas.get(c['responde'], {})
             print(f'  responde à dúvida {c["responde"]}: {nota.get("texto", "?")}')
-        print(f'  {uma_linha(c["texto"])}')
+        print(f'  {uma_linha(c.get("texto") or "") or "(só o print)"}')
+        for a in c.get('anexos') or []:
+            print(f'  anexo: projetos/{slug}/{a}{"" if (p / a).is_file() else " (o arquivo sumiu)"}')
         if c.get('resposta'):
             print(f'  ↳ resposta: {c["resposta"]}')
+    for a in rev.get('anexos_geral') or []:
+        print(f'\n- geral · anexo: projetos/{slug}/{a}')
     g = rev.get('resposta_geral')
     if g:
         print(f'\n- geral · {g.get("status")} ↳ {g.get("resposta") or ""}')

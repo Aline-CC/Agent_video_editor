@@ -4,7 +4,7 @@
  *  (enquadrado pelo rosto), o fundo — com vídeos de verdade: o ator é o proxy do projeto mais recente e as mídias são
  *  vídeos do banco na proporção pedida (`/api/presets/amostras`). Toca em loop no relógio do vídeo do ator (ou num
  *  relógio de fora: `__sim.tocar({ relogio })`, para andar junto da referência), com os sons dos momentos do preset.
- *  Parada, mostra o repouso (depois da última entrada; `t=` escolhe outro instante) com as miniaturas das mídias.
+ *  Parada, mostra o repouso (`instanteParado`; `t=` escolhe outro instante) com as miniaturas das mídias.
  *  - `tela`: `original` é a do preset (tela cheia ou dividida), com as mídias na proporção dos cards da referência;
  *  - `n`: o número de mídias (sem ele, o da referência); `prop`: com 1 mídia, `pe` (9:16) · `1:1` · `4:3` · `16:9`; com
  *    várias, `pe` (todas 9:16) · `mista` (9:16 + horizontais) · `deitada` (só horizontais);
@@ -14,7 +14,7 @@
  *  parado), `info` e `log` (cada som que começou a soar: {som, t, relogio, ganho, audio}: `audio` é o estado do contexto). Também por postMessage
  *  ({sim: 'tocar' | 'parar' | 'som', ligado}). Gerado: `preset.js` (o comando está em preset.html). */
 import type { ItemBanco, PedidoInsert } from './tipos'
-import { janela, nMidias, noFormato, noTempo, paraMidias, type Preset, type Receita } from './presets'
+import { janela, nMidias, noFormato, noTempo, paraMidias, type CardReceita, type Preset, type Receita } from './presets'
 import { divisaoDe, receitaParaInsert } from './divisao'
 import { ajustesEfetivos, comAjustes } from './ajustes'
 import { geometriaDoAtor, type Geometria, type Rosto } from './ator'
@@ -25,7 +25,7 @@ import type { PedidoNoTempo } from './inserts'
 type Tela = 'dividida' | 'vertical' | 'atras'
 type Amostras = {
   ator: { video: string; t0: number; rosto: Rosto | null; deitado: boolean; x: number; pessoa: string | null; poster?: string } | null
-  midias: { id: string; video: string; imagem: string; aspecto: number; duracao: number }[]
+  midias: { id: string; video: string; imagem: string; aspecto: number; duracao: number; luz?: number | null }[]
 }
 type Opcoes = { relogio?: (() => number) | null; som?: boolean; audio?: AudioContext }
 type Log = { som: string; t: number; relogio: number; ganho: number; audio: AudioContextState }
@@ -69,8 +69,12 @@ function aspectosDaReferencia(r: Receita, n: number): number[] {
 }
 
 /** O vídeo do banco de cada mídia: um da mesma família de proporção (em pé, ~4:3, ~16:9), girando entre os que há (a
- *  partir de um ponto que depende do preset, para os cards não mostrarem todos o mesmo). */
-function escolherMidias(am: Amostras['midias'], aspectos: number[], semente: string) {
+ *  partir de um ponto que depende do preset, para os cards não mostrarem todos o mesmo). As quase pretas e as quase
+ *  brancas (`luz` fora de 40–250: um site escuro, ou uma página em branco, parado parece um card vazio na miniatura)
+ *  ficam de fora quando há outras. */
+function escolherMidias(todas: Amostras['midias'], aspectos: number[], semente: string) {
+  const claras = todas.filter((m) => m.luz == null || (m.luz >= 40 && m.luz <= 250))
+  const am = claras.length >= 3 ? claras : todas
   const familia = (a: number) => (a < 0.8 ? 0 : a < 1.5 ? 1 : 2)
   let s = 0
   for (const ch of semente) s = (s * 31 + ch.charCodeAt(0)) >>> 0
@@ -81,6 +85,32 @@ function escolherMidias(am: Amostras['midias'], aspectos: number[], semente: str
     const lista = outras.length ? outras : am
     return lista.length ? lista[(s + k) % lista.length] : null
   })
+}
+
+/** O instante que a simulação mostra parada: o começo do repouso (0,1 s depois da entrada) em que mais cards estão
+ *  parados na tela ao mesmo tempo (num preset de vários cards, quando todos já entraram; no empate, o mais cedo). Numa
+ *  sequência de tomadas trocadas no corte (`fim_frac`), a 1ª tomada parada, nunca depois de todas saírem. Sem
+ *  nenhum repouso (todos se mexendo do começo ao fim), o meio da vida do card mais longo. O mesmo de `repousoDe` em
+ *  app/biblioteca.js: mude os dois juntos. */
+export function instanteParado(cards: CardReceita[], dur: number): number {
+  const vidas = cards.map((c) => janela(c, dur))
+  const repousos = cards
+    .map((c, k) => [vidas[k].ini + (c.entrada?.duracao ?? 0), vidas[k].fim - (c.saida?.duracao ?? 0)] as const)
+    .filter(([a, b]) => b - a > 0.05)
+  let t = dur / 2
+  if (repousos.length) {
+    const parados = (x: number) => repousos.filter(([a, b]) => x >= a - 1e-6 && x <= b + 1e-6).length
+    let n = -1
+    for (const [a, b] of repousos) {
+      const x = Math.min(a + 0.1, (a + b) / 2)
+      const k = parados(x)
+      if (k > n || (k === n && x < t)) [t, n] = [x, k]
+    }
+  } else if (vidas.length) {
+    const j = vidas.reduce((m, v) => (v.fim - v.ini > m.fim - m.ini ? v : m))
+    t = (j.ini + j.fim) / 2
+  }
+  return +Math.min(Math.max(t, 0), dur - 0.05).toFixed(3)
 }
 
 /** O quadro do ator na geometria (do 18: `estiloDoQuadro` em ator/ator.ts): o vídeo inteiro escalado e deslocado; na
@@ -209,8 +239,7 @@ async function iniciar() {
   const noT = noTempo(receita, dur)
   const geometria = geometriaDoAtor(divisao, null, am.ator?.rosto ?? null)
   const eventos = eventosDaReceita(receita, dur, catalogo)
-  const entradas = noT.cards.map((c) => janela(c, dur).ini + (c.entrada?.duracao ?? 0))
-  const tParado = Number(q.get('t')) || Math.min(Math.max(...entradas) + 0.1, dur - 0.05)
+  const tParado = Number(q.get('t')) || instanteParado(noT.cards, dur)
   const t0 = am.ator?.t0 ?? 0
   for (const e of eventos) void buffer(e.som, new OfflineAudioContext(1, 1, 48000)) // já baixados quando tocar
 

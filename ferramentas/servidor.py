@@ -16,12 +16,20 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
 - GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
   · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
   · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> · PUT /api/motions/<id>/aprovar.
+- Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
+  e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
+  ordem.json e os inserts que o usavam voltam ao 1º favorito da situação (presets.py escolher).
+- GET /api/projetos/<slug>/versoes: cada versão com a data do render, a duração e o estado da revisão dela.
+- Anexos da revisão: POST /api/revisao/<slug>/v<N>/anexo?comentario=<c3|geral> (a imagem ou o vídeo cru no corpo) →
+  {caminho: "revisoes/anexos/c3-1.png"} · DELETE /api/revisao/<slug>/v<N>/anexo?caminho=revisoes/anexos/c3-1.png.
+- GET /api/codigos: {tipo: {id: código}} (ferramentas/codigo.py; dá o próximo número aos itens novos).
 """
 import hashlib
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -135,6 +143,88 @@ def _revisao(h, q, slug, v):  # o app grava a revisão inteira
     destino = PROJETOS / slug / 'revisoes' / f'v{v}.json'
     gravar_json(destino, juntar_respostas(h.corpo(), ler_json(destino, {}) or {}))
     return {'ok': True}
+
+
+def versoes_detalhe(slug: str) -> list[dict]:
+    """Cada versão (da mais nova para a mais antiga): a data do render, a duração e o estado da revisão dela."""
+    p = PROJETOS / slug
+    out = []
+    for v in reversed(versoes(p)):
+        info = ler_json(p / 'versoes' / f'v{v}' / 'info.json', {}) or {}
+        rev = ler_json(p / 'revisoes' / f'v{v}.json', None)
+        cs = [c for c in (rev or {}).get('comentarios', []) if (c.get('texto') or '').strip() or c.get('anexos')]
+        tem = bool(cs or ((rev or {}).get('geral') or '').strip())
+        estado = 'aprovada' if (rev or {}).get('aprovado') else 'enviada' if (rev or {}).get('enviado_em') else 'em_revisao' if tem else 'sem'
+        out.append({'v': v, 'criado_em': info.get('criado_em'), 'duracao': info.get('duracao'), 'estado': estado,
+                    'comentarios': len(cs), 'aplicados': sum(1 for c in cs if c.get('status') == 'aplicado')})
+    return out
+
+
+@rota('GET', r'/api/projetos/([\w-]+)/versoes')
+def _versoes(h, q, slug):
+    if not (PROJETOS / slug).is_dir():
+        raise Erro('Projeto não encontrado', 404)
+    return versoes_detalhe(slug)
+
+
+TIPOS_ANEXO = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif',
+               'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/webm': '.webm'}
+ANEXO = r'revisoes/anexos/(c\d+|geral)-\d+\.(png|jpg|webp|gif|mp4|mov|webm)'
+
+
+@rota('POST', r'/api/revisao/([\w-]+)/v(\d+)/anexo')
+def _anexar(h, q, slug, v):
+    """Uma imagem ou um vídeo colado, arrastado ou escolhido num comentário:
+    projetos/<slug>/revisoes/anexos/<comentário>-<n>.<ext> (n: o próximo livre; a extensão, a do tipo)."""
+    cid = q.get('comentario', [''])[0]
+    if not (PROJETOS / slug / 'versoes' / f'v{v}').is_dir() or not re.fullmatch(r'c\d+|geral', cid):
+        raise Erro('Comentário ou versão inválida', 422)
+    ext = TIPOS_ANEXO.get((h.headers.get('Content-Type') or '').split(';')[0].strip())
+    if not ext:
+        raise Erro('Só imagens (png, jpg, webp, gif) e vídeos (mp4, mov, webm).', 422)
+    resta = int(h.headers.get('Content-Length') or 0)
+    if not 0 < resta <= 500 << 20:
+        raise Erro('O arquivo está vazio ou passou de 500 MB.', 422)
+    pasta = PROJETOS / slug / 'revisoes' / 'anexos'
+    pasta.mkdir(parents=True, exist_ok=True)
+    with TRAVA_ANEXO:  # reserva o nome (o arquivo vazio) antes de receber
+        usados = [int(m.group(1)) for a in pasta.glob(f'{cid}-*') if (m := re.fullmatch(rf'{cid}-(\d+)\.\w+', a.name))]
+        destino = pasta / f'{cid}-{max(usados, default=0) + 1}{ext}'
+        destino.touch()
+    try:
+        with open(destino, 'wb') as f:
+            while resta > 0:
+                bloco = h.rfile.read(min(1 << 20, resta))
+                if not bloco:
+                    break
+                f.write(bloco)
+                resta -= len(bloco)
+        if resta:
+            raise Erro('O envio parou no meio.', 400)
+    except BaseException:
+        destino.unlink(missing_ok=True)
+        raise
+    return {'caminho': str(destino.relative_to(PROJETOS / slug))}
+
+
+@rota('DELETE', r'/api/revisao/([\w-]+)/v(\d+)/anexo')
+def _tirar_anexo(h, q, slug, v):
+    caminho = q.get('caminho', [''])[0]
+    if not re.fullmatch(ANEXO, caminho):
+        raise Erro('Anexo inválido', 422)
+    (PROJETOS / slug / caminho).unlink(missing_ok=True)
+    return {'ok': True}
+
+
+TRAVA_ANEXO = threading.Lock()
+
+
+# ---- códigos
+
+@rota('GET', '/api/codigos')
+def _codigos(h, q):
+    import codigo
+    return codigo.mapa()
 
 
 # ---- calibragem e referências
@@ -300,6 +390,21 @@ def aprovar_json(pasta: Path, id_: str, aprovado) -> dict:
     return dados
 
 
+LUZ: dict[tuple[str, float], int | None] = {}
+
+
+def luz(img: Path) -> int | None:
+    """O brilho médio (0–255) de uma miniatura do banco: a simulação dos presets evita as quase pretas (um site escuro
+    parado parece um card vazio) e as quase brancas. Medido uma vez por arquivo (o ffmpeg reduz a imagem a 1 pixel cinza)."""
+    if not img.is_file():
+        return None
+    chave = (str(img), img.stat().st_mtime)
+    if chave not in LUZ:
+        r = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(img), '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], capture_output=True)
+        LUZ[chave] = r.stdout[0] if r.returncode == 0 and r.stdout else None
+    return LUZ[chave]
+
+
 def amostras_simulacao() -> dict:
     """O que a simulação dos presets (render/preset.html) usa de verdade: o ator — o proxy do bruto do projeto mais
     recente que tem um (de preferência com a pessoa recortada), com o trecho de 8 s em que o rosto aparece melhor (`t0`), o rosto típico nele, já no recorte
@@ -349,7 +454,7 @@ def amostras_simulacao() -> dict:
         video = i.get('proxy') or i.get('arquivo')
         if video and (d / video).is_file():
             midias.append({'id': d.name, 'video': f'/biblioteca/banco/{d.name}/{video}', 'imagem': f'/biblioteca/banco/{d.name}/miniatura.jpg',
-                           'aspecto': round(i['largura'] / i['altura'], 4), 'duracao': i.get('duracao') or 0})
+                           'aspecto': round(i['largura'] / i['altura'], 4), 'duracao': i.get('duracao') or 0, 'luz': luz(d / 'miniatura.jpg')})
     return {'ator': ator, 'midias': midias}
 
 
@@ -451,6 +556,108 @@ def _aprovar_motion(h, q, id_):
     dados.pop('a_revisar', None)
     arq.write_text(html[:m.start(2)] + json.dumps(dados, ensure_ascii=False) + html[m.end(2):], encoding='utf-8')
     return dados
+
+
+# ---- recusar (os presets e motions que o Claude sugeriu; ou descartar um aprovado)
+
+def usos_preset(id_: str) -> dict[str, list[str]]:
+    """{projeto: [planos]} dos inserts que usam o preset."""
+    out = {}
+    for arq in sorted(PROJETOS.glob('*/edicao.json')):
+        planos = [x.get('plano') for x in ((ler_json(arq, {}) or {}).get('inserts') or {}).get('pedidos') or []
+                  if (x.get('enriquecimento') or {}).get('preset') == id_]
+        if planos:
+            out[arq.parent.name] = planos
+    return out
+
+
+def usos_motion(id_: str) -> dict[str, list[str]]:
+    out = {}
+    for arq in sorted(PROJETOS.glob('*/edicao.json')):
+        planos = [k for k, m in ((ler_json(arq, {}) or {}).get('motions') or {}).items() if m.get('preset') == id_]
+        if planos:
+            out[arq.parent.name] = planos
+    return out
+
+
+def agora_iso() -> str:
+    from datetime import datetime
+    return datetime.now().isoformat(timespec='seconds')
+
+
+@rota('GET', f'/api/presets/{ID}/usos')
+def _usos_preset(h, q, id_):
+    arquivo_json(BIBLIOTECA / 'presets', id_)
+    return usos_preset(id_)
+
+
+@rota('POST', f'/api/presets/{ID}/recusar')
+def _recusar_preset(h, q, id_):
+    """Move o preset para presets/_recusados/<id>.json (com recusado_em e o motivo, que o Claude lê antes de sugerir
+    outro), tira-o de todas as situações do ordem.json e devolve os inserts que o usavam ao 1º favorito da situação."""
+    import contextlib
+    import io
+    pasta = BIBLIOTECA / 'presets'
+    arq = arquivo_json(pasta, id_)
+    if id_ == 'ordem':
+        raise Erro('ordem.json não é um preset', 422)
+    motivo = str(h.corpo().get('motivo') or '').strip()[:1000]
+    dados = ler_json(arq) | {'recusado_em': agora_iso(), **({'motivo': motivo} if motivo else {})}
+    gravar_json(pasta / '_recusados' / f'{id_}.json', dados)
+    arq.unlink()
+    ordem = ler_json(pasta / 'ordem.json', {}) or {}
+    for chave, o in list(ordem.items()):
+        ids = o.get('ids') or []
+        if id_ in ids:
+            k = ids.index(id_)
+            o['ids'] = [x for x in ids if x != id_]
+            if k < o.get('favoritos', 0):
+                o['favoritos'] -= 1
+            if not o['ids']:
+                ordem.pop(chave)
+    gravar_json(pasta / 'ordem.json', ordem)
+    usos = usos_preset(id_)
+    trocas = {}
+    if usos:
+        import presets as P
+        from base import gravar, ler
+        for slug in usos:
+            ed = ler(slug)
+            for x in (ed.get('inserts') or {}).get('pedidos') or []:
+                if (x.get('enriquecimento') or {}).get('preset') == id_:
+                    x['enriquecimento'].pop('preset')
+            gravar(slug, ed)
+            saida = io.StringIO()
+            with contextlib.redirect_stdout(saida):
+                P.escolher(slug)
+            trocas[slug] = [l for l in saida.getvalue().splitlines() if '—' in l or 'nenhum preset' in l]
+    return {'ok': True, 'usos': usos, 'trocas': trocas}
+
+
+@rota('GET', r'/api/motions/([\w-]+)/usos')
+def _usos_motion(h, q, id_):
+    if not (BIBLIOTECA / 'motions' / 'presets' / f'{id_}.html').is_file():
+        raise Erro(f'Motion não encontrado: {id_}', 404)
+    return usos_motion(id_)
+
+
+@rota('POST', r'/api/motions/([\w-]+)/recusar')
+def _recusar_motion(h, q, id_):
+    """Move o motion para motions/presets/_recusados/<id>.html, com recusado_em e o motivo no JSON do topo."""
+    arq = BIBLIOTECA / 'motions' / 'presets' / f'{id_}.html'
+    if not arq.is_file():
+        raise Erro(f'Motion não encontrado: {id_}', 404)
+    motivo = str(h.corpo().get('motivo') or '').strip()[:1000]
+    html = arq.read_text(encoding='utf-8')
+    m = JSON_DO_MOTION.search(html)
+    if m:
+        dados = json.loads(m.group(2)) | {'recusado_em': agora_iso(), **({'motivo': motivo} if motivo else {})}
+        html = html[:m.start(2)] + json.dumps(dados, ensure_ascii=False) + html[m.end(2):]
+    destino = BIBLIOTECA / 'motions' / 'presets' / '_recusados' / arq.name
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(html, encoding='utf-8')
+    arq.unlink()
+    return {'ok': True, 'usos': usos_motion(id_)}
 
 
 class Handler(SimpleHTTPRequestHandler):

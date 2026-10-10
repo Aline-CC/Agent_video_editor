@@ -1,7 +1,7 @@
 // A Calibragem: os Reels já editados do criador (as referências). A IA descobre como cada um foi dirigido; aqui ele sobe
 // os vídeos, acompanha a análise e revisa a direção de cada um (planos-base, elementos, marcação). Cada referência
 // revisada vira um roteiro de exemplo que o Claude lê antes de dirigir (ferramentas/calibragem.py regenera sozinho).
-import { $, $$, ELEMENTOS, ICONE, PLANOS, ajuda, aviso, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ELEMENTOS, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, tempo, tocarTrecho, urlRef } from './comum.js'
 
 const STATUS = {
   na_fila: ['Na fila', 'selo-amarelo'],
@@ -24,6 +24,7 @@ export async function abrirCalibragem(tela) {
   let recusadas = []
   let enviando = null // "2/3" enquanto sobe
   let editando = null // o id sendo renomeado (a grade não se redesenha por cima)
+  let cod = {}
 
   const card = (r) => {
     const [rotulo, cor] = STATUS[r.status] || [r.status, 'selo-coral']
@@ -35,7 +36,7 @@ export async function abrirCalibragem(tela) {
           <button class="botao-icone pequeno" data-apagar title="Apagar">${ICONE.lixo}</button></span></div>`
     return `<article class="card-ref${abrivel(r) ? ' abrivel' : ''}" data-id="${esc(r.id)}">
       ${abrivel(r) ? `<a href="#/calibragem/${encodeURIComponent(r.id)}" title="Abrir a revisão">${mini}</a>` : mini}
-      ${editando === r.id ? `<input class="renomear" value="${esc(r.nome)}" maxlength="120">` : `<h3 data-renomear title="Dois cliques para renomear">${esc(r.nome)}</h3>`}
+      ${editando === r.id ? `<input class="renomear" value="${esc(r.nome)}" maxlength="120">` : `<div class="card-titulo"><h3 data-renomear title="Dois cliques para renomear">${esc(r.nome)}</h3>${chipCodigo(cod[r.id], r.nome)}</div>`}
       <p class="sub">${emAndamento(r) ? esc(passo || 'Na fila') : `${dataHora(r.criado_em)}${r.largura ? ` · ${r.largura}×${r.altura}` : ''}`}</p>
       ${r.status === 'erro' ? `<p class="erro-ref">${esc(r.erro || 'A análise falhou.')}</p><button class="botao pequeno" data-tentar>${ICONE.refazer} Tentar de novo</button>` : ''}
     </article>`
@@ -62,6 +63,7 @@ export async function abrirCalibragem(tela) {
     let l
     try {
       l = await enviar('GET', '/api/referencias')
+      if (l.some((r) => !cod[r.id])) cod = (await codigos()).referencia || {}
     } catch (e) {
       tela.innerHTML = `<p class="vazio">${esc(e.message)}</p>`
       return
@@ -213,14 +215,14 @@ export async function abrirRevisaoReferencia(tela, id) {
     tela.innerHTML = `<p class="vazio">${esc(e.message)}. <a href="#/calibragem">Voltar à Calibragem</a></p>`
     return null
   }
-  const r = new RevisaoReferencia(tela, id, d)
+  const r = new RevisaoReferencia(tela, id, d, ((await codigos()).referencia || {})[id])
   r.abrir()
   return () => r.fechar()
 }
 
 class RevisaoReferencia {
-  constructor(tela, id, d) {
-    Object.assign(this, { tela, id, ref: d.referencia })
+  constructor(tela, id, d, codigo) {
+    Object.assign(this, { tela, id, ref: d.referencia, codigo })
     this.base = d.base || urlRef(id, '')
     this.itens = d.itens.map((i) => ({ ...i }))
     this.cortes = (Array.isArray(d.cortes) ? d.cortes : d.cortes?.cortes || []).map(Number)
@@ -243,7 +245,7 @@ class RevisaoReferencia {
 
   abrir() {
     $('#barra-extra').innerHTML = `<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
-        <span class="nome-projeto">${esc(this.ref.nome)}</span><span class="dica">referência · ${mmss(this.dur)}</span></div>
+        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}<span class="dica">referência · ${mmss(this.dur)}</span></div>
       <span class="salvo" id="salvo"></span>
       <button class="botao" data-acao="reanalisar" title="A IA refaz a análise deste vídeo do zero (o proxy e a transcrição ficam)">${ICONE.refazer} Reanalisar</button>
       <button class="botao" data-acao="revisada" id="b-revisada"></button>`
@@ -402,7 +404,8 @@ class RevisaoReferencia {
     const tipos = plano ? Object.fromEntries(Object.entries(PLANOS).map(([k, v]) => [k, v[0]])) : ELEMENTOS
     const unico = plano && this.planos().length < 2
     const texto = !plano || COM_TEXTO.includes(i.tipo)
-    el.innerHTML = `<div class="painel-cabeca"><span class="eyebrow">${plano ? 'Plano-base' : 'Elemento'} · ${esc(i.id)}</span>
+    el.innerHTML = `<div class="painel-cabeca"><div class="item-cabeca"><span class="eyebrow">${plano ? 'Plano-base' : 'Elemento'} · ${esc(i.id)}</span>
+        ${plano && this.codigo ? chipCodigo(`${this.codigo}·${i.id}`, `${this.nomeTipo(i)} · ${this.ref.nome} ${tempo(i.inicio)}`) : ''}</div>
         <div class="item-cabeca"><span class="chip-plano ${plano ? `tipo-${esc(i.tipo)}` : `el-${esc(i.tipo)}`}">${esc(this.nomeTipo(i))}</span>
         <span class="chip-tempo estatico">${tempo(i.inicio)} → ${tempo(i.fim)}</span><b class="dur">${num(i.fim - i.inicio, 2)} s</b></div></div>
       <div class="detalhe-corpo">

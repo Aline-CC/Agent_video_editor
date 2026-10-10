@@ -1,7 +1,7 @@
 // A biblioteca: presets (aprovar e os recomendados por situação), transições (as favoritas de cada par de grupos),
 // banco de inserts (corrigir nome, descrição e palavras-chave; apagar), motions (aprovar os novos) e trilhas.
 // O Claude é quem cria; aqui o criador vê, aprova e marca os melhores.
-import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, seg, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, seg, tocarTrecho, urlRef } from './comum.js'
 
 export const PAGINAS_BIBLIOTECA = ['presets', 'transicoes', 'banco', 'motions', 'trilhas']
 
@@ -56,7 +56,9 @@ function origemDe(o) {
 }
 
 async function banco(el) {
-  const ids = (await lista('biblioteca/banco')).filter((n) => n.endsWith('/')).map((n) => n.slice(0, -1))
+  const [nomes, cods] = await Promise.all([lista('biblioteca/banco'), codigos()])
+  const cod = cods.midia || {}
+  const ids = nomes.filter((n) => n.endsWith('/')).map((n) => n.slice(0, -1))
   const itens = (await Promise.all(ids.map((id) => json(`/biblioteca/banco/${id}/item.json`).then((it) => it && { ...it, id: it.id || id })))).filter(Boolean)
   const originais = itens.filter((i) => !i.pai).sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
   const trechos = {}
@@ -73,17 +75,17 @@ async function banco(el) {
         <span class="selo ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
         ${video && it.duracao ? `<span class="duracao">${seg(it.duracao)}</span>` : ''}
         ${ts.length ? `<span class="selo selo-coral selo-dir">${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}</span>` : ''}</div>
-      <h3>${esc(it.nome)}</h3>
+      <div class="card-titulo"><h3>${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
       ${it.descricao ? `<p class="desc">${esc(it.descricao)}</p>` : '<p class="desc apagado">sem descrição</p>'}
       <p class="origem">${origemDe(it.origem)}</p>
-      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}"><span>${esc(t.nome)}</span><span class="apagado">${seg(t.fim - t.inicio)}</span></li>`).join('')}</ul>` : ''}
+      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)}</span></li>`).join('')}</ul>` : ''}
     </article>`
   })
   el.innerHTML = cabeca(`Banco · ${dois(originais.length)} mídias`, 'Os vídeos e imagens dos inserts, de todos os projetos. Passe o mouse para tocar; clique para corrigir o nome, a descrição e as palavras-chave.') +
     (originais.length ? `<div class="grade grade-banco">${cards.join('')}</div>` : '<p class="vazio">O banco está vazio.</p>')
 
   for (const card of $$('.card-banco', el)) {
-    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => banco(el)))
+    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => banco(el), cod))
     const v = $('video', card)
     if (!v) continue
     let trecho = null // [ini, fim] enquanto o mouse está num trecho
@@ -118,7 +120,7 @@ async function banco(el) {
 }
 
 /** O detalhe de uma mídia: corrigir nome, descrição e palavras-chave, ver onde é usada e apagar. */
-async function detalheBanco(id, recarregar) {
+async function detalheBanco(id, recarregar, cod = {}) {
   let d
   try {
     d = await enviar('GET', `/api/banco/${id}`)
@@ -132,7 +134,7 @@ async function detalheBanco(id, recarregar) {
   const usos = d.usos.concat(d.trechos.flatMap((t) => t.usos.map((u) => `${u} · trecho “${t.nome}”`)))
   const { el, fechar } = janela(`
     <header class="janela-cabeca"><span class="selo-linha ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
-      <span class="dica">${esc(id)}</span><button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
+      ${chipCodigo(cod[id], it.nome)}<span class="dica">${esc(id)}</span><button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
     <div class="banco-detalhe">
       <div class="banco-midia">${video ? `<video src="${base}${it.proxy || 'proxy.mp4'}" controls muted playsinline autoplay loop></video>` : `<img src="${base}${esc(it.arquivo || 'miniatura.jpg')}" alt="">`}
         <dl class="dados"><dt>Dimensões</dt><dd>${it.largura || '?'} × ${it.altura || '?'}</dd>
@@ -147,7 +149,7 @@ async function detalheBanco(id, recarregar) {
         <div class="acoes-linha"><button class="botao botao-coral" type="submit" disabled>Salvar</button>
           <button class="botao botao-perigo-contorno" type="button" data-apagar>${ICONE.lixo} Apagar do banco</button></div>
         <p class="erro-linha" hidden></p>
-        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span><span class="apagado">${seg(t.fim - t.inicio)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
+        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
         <div class="bloco-lista"><span class="eyebrow">Usada em · ${usos.length}</span>
           ${usos.length ? `<ul class="lista-simples">${usos.map((u) => `<li><a href="#/p/${encodeURIComponent(projetoDe(u))}" data-fechar>${esc(u)}</a></li>`).join('')}</ul>` : '<p class="dica">Nenhum projeto usa esta mídia.</p>'}</div>
       </form>
@@ -218,18 +220,41 @@ function favoritasPorTela(chaves) {
   }
   return Object.entries(por).map(([tela, l]) => `<b>${TELAS[tela] || tela}</b> ${l.join(' · ')}`)
 }
+const botaoRecusar = (p) =>
+  `<button class="botao-icone pequeno botao-recusar" data-recusar title="${p.aprovado ? 'Descartar (sai da biblioteca)' : 'Recusar a sugestão'}" aria-label="${p.aprovado ? 'Descartar' : 'Recusar'}">${p.aprovado ? ICONE.lixo : ICONE.fechar}</button>`
 const botaoAprovar = (aprovado) =>
   `<button class="botao-check${aprovado ? ' ligado' : ''}" data-aprovar title="${aprovado ? 'Aprovado · clique para tirar a aprovação' : 'Aprovar'}" aria-pressed="${!!aprovado}">${ICONE.check}</button>`
 
 /** O clipe da referência (com som; `revisao.py clipes`) e a simulação (render/preset.html) de um preset. */
 const urlClipe = (p) => `/biblioteca/presets/clipes/${p.id}.mp4`
 const urlSim = (p, s = {}) => `/render/preset.html?${new URLSearchParams({ preset: p.id, ...Object.fromEntries(Object.entries(s).filter(([, v]) => v != null)) })}`
-/** O repouso do trecho da referência (depois da última entrada; como no 18): o quadro que a miniatura mostra parada. */
+/** O instante parado do trecho da referência: o quadro que a miniatura mostra parada (a referência e a recriação). É
+ *  o `instanteParado` de render/src/preset.ts (mude os dois juntos): o começo do repouso em que mais cards estão parados
+ *  na tela (no empate, o mais cedo); numa sequência de tomadas, a 1ª tomada parada, nunca depois de todas saírem. */
 function repousoDe(p) {
   const f = p.fontes?.[0]
   const dur = f ? f.fim - f.inicio : p.receita?.duracao_ref || 1
-  const ent = (p.receita?.cards || []).map((c) => c.inicio_frac * dur + (c.entrada?.duracao ?? 0))
-  return +Math.min(Math.max(0, ...ent) + 0.1, dur - 0.05).toFixed(3)
+  const cards = p.receita?.cards || []
+  const janela = (c) => {
+    const ini = c.inicio_frac * dur
+    return { ini, fim: Math.max(c.fim_frac != null ? Math.min(c.fim_frac * dur + (c.fim_mais ?? 0), dur) : dur - (c.sai_antes_do_fim || 0), ini + 0.05) }
+  }
+  const vidas = cards.map(janela)
+  const repousos = cards.map((c, k) => [vidas[k].ini + (c.entrada?.duracao ?? 0), vidas[k].fim - (c.saida?.duracao ?? 0)]).filter(([a, b]) => b - a > 0.05)
+  let t = dur / 2
+  if (repousos.length) {
+    const parados = (x) => repousos.filter(([a, b]) => x >= a - 1e-6 && x <= b + 1e-6).length
+    let n = -1
+    for (const [a, b] of repousos) {
+      const x = Math.min(a + 0.1, (a + b) / 2)
+      const k = parados(x)
+      if (k > n || (k === n && x < t)) [t, n] = [x, k]
+    }
+  } else if (vidas.length) {
+    const j = vidas.reduce((m, v) => (v.fim - v.ini > m.fim - m.ini ? v : m))
+    t = (j.ini + j.fim) / 2
+  }
+  return +Math.min(Math.max(t, 0), dur - 0.05).toFixed(3)
 }
 /** As proporções simuladas: com 1 mídia, uma só; com várias, as combinações que acontecem (as do 18). */
 const PROPS_SIM = (n) => (n === 1 ? [['pe', '9:16'], ['1:1', '1:1'], ['4:3', '4:3'], ['16:9', '16:9']] : [['pe', 'Todas 9:16'], ['mista', '9:16 + horizontais'], ['deitada', 'Só horizontais']])
@@ -274,8 +299,9 @@ function tocarPar(v, f, { comSom, rep }) {
 }
 
 async function presets(el) {
-  const [ps, ordem0] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), json('/biblioteca/presets/ordem.json', {})])
+  const [ps, ordem0, cods] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), json('/biblioteca/presets/ordem.json', {}), codigos()])
   const sons = await nomesDosSons()
+  const cod = cods.preset || {}
   let ordem = ordem0 || {}
   let filtro = 'todos'
   ps.sort((a, b) => (a.aprovado ? 1 : 0) - (b.aprovado ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR')) // os a revisar primeiro
@@ -317,7 +343,8 @@ async function presets(el) {
         <span class="video-tocar">${ICONE.tocar}</span></div>
       <div class="card-titulo"><h3 data-abrir title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>
         ${nFav ? `<span class="n-fav" title="Recomendado em ${nFav} ${nFav === 1 ? 'situação' : 'situações'}">${ESTRELA_CHEIA}${nFav}</span>` : ''}
-        ${botaoAprovar(p.aprovado)}<button class="botao-icone pequeno" data-abrir title="Simular em outras telas">${ICONE.ajustes}</button></div>
+        ${botaoAprovar(p.aprovado)}${botaoRecusar(p)}<button class="botao-icone pequeno" data-abrir title="Simular em outras telas">${ICONE.ajustes}</button></div>
+      <div class="card-pe">${chipCodigo(cod[p.id], p.nome)}</div>
     </article>`
   }
   const ligarCard = (c) => {
@@ -352,6 +379,31 @@ async function presets(el) {
     c.outerHTML = card(p)
     ligarCard($(`.card-preset[data-id="${p.id}"]`, el))
   }
+  /** Recusar (um sugerido, "a revisar") ou descartar (um aprovado): vai para presets/_recusados/, com o motivo. */
+  const recusar = async (p, aoRecusar) => {
+    const usos = await json(`/api/presets/${p.id}/usos`, {})
+    const onde = Object.entries(usos || {}).map(([slug, planos]) => `${slug} (${planos.join(', ')})`)
+    const n = Object.values(usos || {}).flat().length
+    const verbo = p.aprovado ? 'Descartar' : 'Recusar'
+    const motivo = await confirmar({
+      titulo: `${verbo} “${p.nome}”?`,
+      texto: `${p.aprovado ? 'O preset sai da biblioteca e dos recomendados de todas as situações' : 'A sugestão sai da biblioteca'} (vai para presets/_recusados/).${n ? `\n${n === 1 ? '1 insert usa' : `${n} inserts usam`} este preset — ${onde.join('; ')}: os inserts que o usam voltam ao 1º favorito da situação.` : ''}`,
+      ok: verbo,
+      perigo: true,
+      campo: { rotulo: 'Por quê? (opcional: o Claude lê para não sugerir de novo o mesmo tipo de coisa)', dica: 'ex.: movimento exagerado, parece template' },
+    })
+    if (motivo == null) return
+    try {
+      await enviar('POST', `/api/presets/${p.id}/recusar`, { motivo })
+    } catch (x) {
+      return aviso(x.message, 'erro')
+    }
+    aviso(`“${p.nome}” ${p.aprovado ? 'descartado' : 'recusado'}${n ? ` · ${n} ${n === 1 ? 'insert voltou' : 'inserts voltaram'} ao 1º favorito` : ''}`)
+    ps.splice(ps.indexOf(p), 1)
+    ordem = (await json('/biblioteca/presets/ordem.json', {})) || {}
+    aoRecusar?.()
+    desenhar()
+  }
   const abrirRecomendados = () => recomendados(ps, ordem, (o) => {
     ordem = o
     desenhar()
@@ -367,9 +419,10 @@ async function presets(el) {
     const p = c && ps.find((x) => x.id === c.dataset.id)
     if (!p) return
     if (e.target.closest('[data-aprovar]')) return aprovar(p)
+    if (e.target.closest('[data-recusar]')) return recusar(p)
     if (e.target.closest('[data-abrir]')) {
       pararCard()
-      detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas: favoritasDe(p), sons })
+      detalhePreset(p, { aprovar, recusar, recomendados: abrirRecomendados, favoritas: favoritasDe(p), sons, codigo: cod[p.id] })
     }
   })
   desenhar()
@@ -381,7 +434,7 @@ async function presets(el) {
 
 /** O modal de um preset: a referência com som e a Simulação (Original · as telas, os números de mídias e as proporções
  *  em que o preset vale, como o "Simular" do 18), tocando juntas; Aprovar e Recomendados no título. */
-function detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas, sons }) {
+function detalhePreset(p, { aprovar, recusar, recomendados: abrirRecomendados, favoritas, sons, codigo }) {
   const u = usosDe(p)
   const r = p.receita || {}
   const fonte = p.fontes?.[0]
@@ -398,8 +451,9 @@ function detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas,
   const sonsP = (r.sons || []).filter((s) => s.som).map((s) => `${esc(sons[s.som] || s.som)} <span class="apagado">(${esc(s.momento)})</span>`)
 
   const { el, fechar } = janela(`
-    <header class="janela-cabeca"><h2 title="${esc(p.id)}">${esc(p.nome)}</h2>
+    <header class="janela-cabeca"><h2 title="${esc(p.id)}">${esc(p.nome)}</h2>${chipCodigo(codigo, p.nome)}
       <button class="botao pequeno${p.aprovado ? ' botao-menta' : ''}" data-aprovar-modal>${ICONE.check} <span>${p.aprovado ? 'Aprovado' : 'Aprovar'}</span></button>
+      <button class="botao pequeno botao-perigo-contorno" data-recusar-modal title="${p.aprovado ? 'Tira o preset da biblioteca (vai para os recusados)' : 'Recusa a sugestão (vai para os recusados)'}">${ICONE.fechar} <span>${p.aprovado ? 'Descartar' : 'Recusar'}</span></button>
       <button class="botao pequeno" data-recomendados-modal>${ICONE.estrela} Recomendados</button>
       <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
     <div class="preset-detalhe">
@@ -487,8 +541,9 @@ function detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas,
     tocando ? parar() : tocar()
   })
   el.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-tela], [data-n], [data-prop], [data-aprovar-modal], [data-recomendados-modal]')
+    const b = e.target.closest('[data-tela], [data-n], [data-prop], [data-aprovar-modal], [data-recomendados-modal], [data-recusar-modal]')
     if (!b) return
+    if (b.hasAttribute('data-recusar-modal')) return recusar(p, fechar)
     if (b.dataset.tela) {
       const n0 = ns[0] ?? 1
       return mudar(b.dataset.tela === 'original' ? null : { tela: b.dataset.tela, n: sim?.n ?? n0, prop: sim?.prop ?? '' })
@@ -499,6 +554,7 @@ function detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas,
     aprovar(p).then(() => {
       b.classList.toggle('botao-menta', !!p.aprovado)
       $('span', b).textContent = p.aprovado ? 'Aprovado' : 'Aprovar'
+      $('[data-recusar-modal] span', el).textContent = p.aprovado ? 'Descartar' : 'Recusar'
     })
   })
   v.addEventListener('error', () => palco.classList.add('sem-video'))
@@ -624,11 +680,12 @@ const N_FAVORITAS = 2
 const grupoDe = (tipo) => (tipo.startsWith('full_ator') ? 'ator' : tipo.startsWith('tela_dividida') || tipo === 'comentario_insert_ator' ? 'dividida' : 'cheia')
 
 async function transicoes(el, resto) {
-  const [ts, ordem0, pares, sons] = await Promise.all([
+  const [ts, ordem0, pares, sons, cods] = await Promise.all([
     jsons('biblioteca/transicoes', ['ordem.json', 'pares.json']),
     json('/biblioteca/transicoes/ordem.json', {}),
     json('/biblioteca/transicoes/pares.json', {}),
     nomesDosSons(),
+    codigos(),
   ])
   let ordem = ordem0 || {}
   const porId = Object.fromEntries(ts.map((t) => [t.id, t]))
@@ -671,6 +728,7 @@ async function transicoes(el, resto) {
       <div class="card-titulo"><h3>${esc(t.nome)}</h3>
         ${par ? `<button class="estrela${fav ? ' ligada' : ''}" data-estrela title="${fav ? 'Tirar das favoritas do par' : 'Favorita deste par'}">${fav ? ESTRELA_CHEIA : ICONE.estrela}</button>` : ''}
         ${botaoAprovar(t.aprovado)}</div>
+      <div class="card-pe">${chipCodigo(cods.transicao?.[t.id], t.nome)}</div>
       ${par && k === 1 && fav ? '<button class="link" data-padrao>Tornar o padrão do par</button>' : ''}
       <p class="desc">${esc(t.descricao || '')}</p>
       <dl class="dados"><dt>Efeito</dt><dd>${efeito(t.efeito)}</dd><dt>Som</dt><dd>${som(t.som)}</dd></dl>
@@ -794,7 +852,7 @@ async function motions(el) {
     }
     return { id: n.replace(/\.html$/, ''), ...(dado('preset') || {}), campos: dado('campos') || {} }
   }
-  const ms = await Promise.all(nomes.map(ler))
+  const [ms, cods] = await Promise.all([Promise.all(nomes.map(ler)), codigos()])
   ms.sort((a, b) => (b.a_revisar ? 1 : 0) - (a.a_revisar ? 1 : 0) || (a.nome || a.id).localeCompare(b.nome || b.id, 'pt-BR'))
   const sons = await nomesDosSons()
   const nRevisar = ms.filter((m) => m.a_revisar).length
@@ -806,7 +864,9 @@ async function motions(el) {
       : `<div class="sem-previa"><b>${esc(m.nome || m.id)}</b><span>a prévia vem da página de render</span></div>`
     return `<article class="card-motion" data-id="${esc(m.id)}">
       <div class="mini mini-916 fundo-${esc(m.fundo || 'escuro')}">${previa}${m.a_revisar ? '<span class="selo selo-coral">A revisar</span>' : ''}</div>
-      <div class="card-titulo"><h3>${esc(m.nome || m.id)}</h3>${m.a_revisar ? `<button class="botao pequeno" data-aprovar title="Tira a marca “a revisar”">${ICONE.check} Aprovar</button>` : ''}</div>
+      <div class="card-titulo"><h3>${esc(m.nome || m.id)}</h3></div>
+      <div class="card-pe">${chipCodigo(cods.motion?.[m.id], m.nome || m.id)}${m.a_revisar ? `<span class="acoes-pe"><button class="botao pequeno" data-aprovar title="Tira a marca “a revisar”">${ICONE.check} Aprovar</button>
+        <button class="botao pequeno botao-perigo-contorno" data-recusar title="Recusa a sugestão (vai para motions/presets/_recusados/)">${ICONE.fechar} Recusar</button></span>` : ''}</div>
       <p class="desc">${esc(m.descricao || '')}</p>
       <dl class="dados"><dt>Campos</dt><dd>${campos.length ? campos.map(esc).join(' · ') : '<span class="apagado">nenhum</span>'}</dd>
         <dt>Duração</dt><dd>${m.duracao ? seg(m.duracao) : '—'}</dd>
@@ -817,13 +877,15 @@ async function motions(el) {
   el.innerHTML = cabeca(`Motions · ${dois(ms.length)}${nRevisar ? ` · ${nRevisar} a revisar` : ''}`, temRender ? 'As animações de tela cheia e dividida, tocando em loop no formato vertical. Os novos chegam “a revisar”: aprove os que ficaram bons.' : 'As animações de tela cheia e dividida. A prévia tocando aparece quando a página de render (render/motion.html) existir.') +
     `<div class="grade grade-motions">${cards.join('')}</div>`
   el.onclick = async (e) => {
+    const r = e.target.closest('[data-recusar]')
+    if (r) return recusarMotion(ms.find((m) => m.id === r.closest('.card-motion').dataset.id), () => motions(el))
     const b = e.target.closest('[data-aprovar]')
     if (!b) return
     const c = b.closest('.card-motion')
     try {
       await enviar('PUT', `/api/motions/${encodeURIComponent(c.dataset.id)}/aprovar`)
       $('.selo-coral', c)?.remove()
-      b.remove()
+      b.closest('.acoes-pe').remove()
       aviso('Motion aprovado')
     } catch (x) {
       aviso(x.message, 'erro')
@@ -831,15 +893,36 @@ async function motions(el) {
   }
 }
 
+/** Recusar um motion sugerido: vai para motions/presets/_recusados/<id>.html, com o motivo no JSON do topo. */
+async function recusarMotion(m, recarregar) {
+  const usos = await json(`/api/motions/${encodeURIComponent(m.id)}/usos`, {})
+  const onde = Object.entries(usos || {}).map(([slug, planos]) => `${slug} (${planos.join(', ')})`)
+  const motivo = await confirmar({
+    titulo: `Recusar “${m.nome || m.id}”?`,
+    texto: `A sugestão sai da biblioteca (vai para motions/presets/_recusados/).${onde.length ? `\nUsado em ${onde.join('; ')}: esses planos ficam sem motion até o Claude pôr outro.` : ''}`,
+    ok: 'Recusar',
+    perigo: true,
+    campo: { rotulo: 'Por quê? (opcional: o Claude lê para não sugerir de novo o mesmo tipo de coisa)', dica: 'ex.: lento demais, texto pequeno' },
+  })
+  if (motivo == null) return
+  try {
+    await enviar('POST', `/api/motions/${encodeURIComponent(m.id)}/recusar`, { motivo })
+    aviso(`“${m.nome || m.id}” recusado`)
+    recarregar()
+  } catch (x) {
+    aviso(x.message, 'erro')
+  }
+}
+
 // ---------- Trilhas ----------
 
 async function trilhas(el) {
-  const cat = await json('/biblioteca/trilhas/catalogo.json', { faixas: [] })
+  const [cat, cods] = await Promise.all([json('/biblioteca/trilhas/catalogo.json', { faixas: [] }), codigos()])
   const faixas = cat?.faixas || (Array.isArray(cat) ? cat : [])
   el.innerHTML = cabeca(`Trilhas · ${dois(faixas.length)}`, 'As músicas de fundo (instrumentais, para tocar baixo sob a voz).') +
     `<div class="lista-trilhas">${faixas.map((f) => `<div class="trilha" data-id="${esc(f.id)}">
         <button class="botao-icone botao-tocar" data-src="/biblioteca/trilhas/${esc(f.arquivo || `${f.id}.m4a`)}" aria-label="Ouvir">${ICONE.tocar}</button>
-        <div class="trilha-nome"><b>${esc(f.nome)}</b><span class="apagado">${esc(f.id)}</span></div>
+        <div class="trilha-nome"><b>${esc(f.nome)}</b><span class="apagado">${esc(f.id)}</span>${chipCodigo(cods.trilha?.[f.id], f.nome)}</div>
         <span class="trilha-clima">${esc(f.clima || '')}</span>
         <span class="trilha-num">${f.bpm ? `${Math.round(f.bpm)} BPM` : ''}</span>
         <span class="trilha-num">${f.duracao ? mmss(f.duracao) : ''}</span>

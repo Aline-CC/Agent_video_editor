@@ -1,6 +1,6 @@
 // As páginas que leem as referências da calibragem: a galeria de Referências (todos os planos, para ver como cada tipo
 // foi usado e favoritar os melhores) e a Heurística da direção (as regras e os roteiros de exemplo que o Claude lê).
-import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, enviar, esc, janela, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, enviar, esc, janela, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
 import { jsons } from './biblioteca.js'
 
 const GRUPOS = [
@@ -28,8 +28,10 @@ export async function abrirReferencias(tela) {
     tela.innerHTML = `<p class="vazio">${esc(e.message)}</p>`
     return null
   }
-  const presets = await jsons('biblioteca/presets', ['ordem.json'])
+  const [presets, cods] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), codigos()])
   const clipes = dados.clipes
+  const codigoDo = (c) => (cods.referencia?.[c.ref] ? `${cods.referencia[c.ref]}·${c.id}` : null)
+  const chipDo = (c) => chipCodigo(codigoDo(c), `${nomePlano(c.tipo)} · ${c.ref_nome} ${tempo(c.inicio)}`)
   for (const c of clipes) {
     if (!sorteio.has(chaveClipe(c))) sorteio.set(chaveClipe(c), Math.random())
     c.presets = presets.filter((p) => (p.fontes || []).some((f) => f.ref === c.ref && f.inicio >= c.inicio - 0.5 && f.fim <= c.fim + 0.5))
@@ -50,7 +52,7 @@ export async function abrirReferencias(tela) {
         ${c.presets.length ? '<span class="selo selo-preset">preset</span>' : ''}
         <button class="estrela${c.favorito ? ' ligada' : ''}" data-favoritar title="${c.favorito ? 'Tirar dos favoritos' : 'Favoritar'} (F no clipe aberto)">${c.favorito ? ESTRELA_CHEIA : ICONE.estrela}</button>
         ${c.revisado ? '<span class="selo-revisado">✓ revisado</span>' : ''}<span class="duracao duracao-baixo">${seg(c.fim - c.inicio)}</span></div>
-      <p class="sub">${esc(c.ref_nome)} · ${tempo(c.inicio)}</p>
+      <p class="sub">${esc(c.ref_nome)} · ${tempo(c.inicio)}</p><div class="card-pe">${chipDo(c)}</div>
       ${c.texto ? `<p class="texto-clipe">“${esc(c.texto)}”</p>` : ''}
       <p class="desc desc-2">${esc(c.descricao || '')}</p>
     </article>`
@@ -185,7 +187,7 @@ export async function abrirReferencias(tela) {
       const viz = (x, fim) => (x ? `${esc(nomePlano(x.tipo))} · ${seg(x.duracao)}` : `— (${fim} o vídeo)`)
       const props = Object.entries(o.proporcao || {}).sort((a, b) => b[1] - a[1])
       el.innerHTML = `<header class="janela-cabeca" data-k="${k}"><span class="chip-plano tipo-${esc(c.tipo)}">${esc(nomePlano(c.tipo))}</span>
-          ${c.revisado ? '<span class="t-revisado">✓ revisado</span>' : ''}<span class="dica">${k + 1} de ${visiveis.length}</span>
+          ${chipDo(c)}${c.revisado ? '<span class="t-revisado">✓ revisado</span>' : ''}<span class="dica">${k + 1} de ${visiveis.length}</span>
           ${c.presets.length ? `<a class="link" href="#/presets" data-fechar>${c.presets.length === 1 ? 'Virou preset' : `${c.presets.length} presets`} ↗</a>` : ''}
           <span class="espaco"></span>
           <button class="botao pequeno estrela-botao${c.favorito ? ' ligada' : ''}" data-favoritar>${c.favorito ? ESTRELA_CHEIA : ICONE.estrela} ${c.favorito ? 'Favorito' : 'Favoritar'} <kbd>F</kbd></button>
