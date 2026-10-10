@@ -1,7 +1,7 @@
 // A Calibragem: os Reels já editados do criador (as referências). A IA descobre como cada um foi dirigido; aqui ele sobe
 // os vídeos, acompanha a análise e revisa a direção de cada um (planos-base, elementos, marcação). Cada referência
 // revisada vira um roteiro de exemplo que o Claude lê antes de dirigir (ferramentas/calibragem.py regenera sozinho).
-import { $, $$, ELEMENTOS, ICONE, PLANOS, aviso, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ELEMENTOS, ICONE, PLANOS, ajuda, aviso, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, tempo, tocarTrecho, urlRef } from './comum.js'
 
 const STATUS = {
   na_fila: ['Na fila', 'selo-amarelo'],
@@ -46,7 +46,7 @@ export async function abrirCalibragem(tela) {
     const numeros = [[n('revisado'), 'revisada', 'revisadas'], [n('a_revisar'), 'a revisar', 'a revisar'], [n('analisando'), 'analisando', 'analisando'], [n('na_fila'), 'na fila', 'na fila'], [n('erro'), 'com erro', 'com erro']]
       .filter(([q]) => q).map(([q, um, varios]) => `${q} ${q === 1 ? um : varios}`).join(' · ')
     tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">Calibragem · ${String(refs.length).padStart(2, '0')} vídeos${numeros ? ` <span class="numeros">· ${numeros}</span>` : ''}</span>
-        <span class="dica">Seus Reels já editados: a IA descobre como cada um foi dirigido, você corrige e marca como revisado. Cada um vira um roteiro de exemplo que o Claude lê antes de dirigir.</span>
+        ${ajuda('Seus Reels já editados: a IA descobre como cada um foi dirigido, você corrige e marca como revisado. Cada um vira um roteiro de exemplo que o Claude lê antes de dirigir.')}
         <label class="botao botao-coral"><input type="file" accept="video/*,.mp4,.mov,.m4v,.webm" multiple hidden>${enviando ? `Enviando ${enviando}…` : `${ICONE.subir} Adicionar vídeos`}</label></div>
       ${recusadas.length ? `<div class="caixa-erro"><b>${recusadas.length} ${recusadas.length === 1 ? 'vídeo não entrou' : 'vídeos não entraram'}:</b><ul>${recusadas.map((x) => `<li><b>${esc(x.nome)}</b> — ${esc(x.motivo)}</li>`).join('')}</ul><button class="botao pequeno" data-ok>ok</button></div>` : ''}
       ${refs.length ? `<div class="grade grade-projetos">${refs.map(card).join('')}</div>` : '<p class="vazio">Nenhuma referência ainda. Comece com 5 a 10 Reels editados que você considera bons: arraste os vídeos para cá.</p>'}

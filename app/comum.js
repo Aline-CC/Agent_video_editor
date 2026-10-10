@@ -199,6 +199,9 @@ export function preferencia(chave, padrao, valor) {
   }
 }
 
+/** Um "?" discreto com a explicação da página na dica (no lugar da frase no cabeçalho). */
+export const ajuda = (texto) => `<span class="ajuda" tabindex="0" title="${esc(texto)}" aria-label="${esc(texto)}">?</span>`
+
 /** Ícones (traço, 24×24). */
 const svg = (d, extra = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`
@@ -226,6 +229,8 @@ export const ICONE = {
   subir: svg('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>'),
   abrir: svg('<path d="M14 5h5v5M19 5l-8 8M18 14v5H5V6h5"/>'),
   seta_baixo: svg('<path d="M6 9l6 6 6-6"/>'),
+  ajustes: svg('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
+  mudo: svg('<path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/>'),
 }
 /** A estrela cheia (favorito ligado). */
 export const ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`

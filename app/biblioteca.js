@@ -1,7 +1,7 @@
 // A biblioteca: presets (aprovar e os recomendados por situação), transições (as favoritas de cada par de grupos),
 // banco de inserts (corrigir nome, descrição e palavras-chave; apagar), motions (aprovar os novos) e trilhas.
 // O Claude é quem cria; aqui o criador vê, aprova e marca os melhores.
-import { $, $$, ESTRELA_CHEIA, ICONE, aviso, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, seg, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, seg, tocarTrecho, urlRef } from './comum.js'
 
 export const PAGINAS_BIBLIOTECA = ['presets', 'transicoes', 'banco', 'motions', 'trilhas']
 
@@ -37,8 +37,9 @@ function tocarNoHover(card, video, inicio = 0) {
   card.addEventListener('mouseleave', () => video.pause())
 }
 
-const cabeca = (titulo, texto, extra = '') =>
-  `<div class="cabeca-secao"><span class="eyebrow">${titulo}</span><span class="dica">${texto}</span>${extra}</div>`
+/** O cabeçalho das páginas: uma linha, o título com a contagem; a explicação fica na dica do "?". */
+const cabeca = (titulo, explica = '', extra = '') =>
+  `<div class="cabeca-secao"><span class="eyebrow">${titulo}</span>${explica ? ajuda(explica) : ''}${extra}</div>`
 const dois = (n) => String(n).padStart(2, '0')
 const chip = (ativo, html, attrs = '') => `<button class="pilula pequena${ativo ? ' ativa' : ''}" ${attrs}>${html}</button>`
 
@@ -187,7 +188,6 @@ async function detalheBanco(id, recarregar) {
 // ---------- Presets ----------
 
 const TELAS = { dividida: 'Tela dividida', vertical: 'Tela cheia', atras: 'Ator embaixo' }
-const MIDIAS = { 1: '1 mídia', 2: '2 mídias', '2+': '3 ou mais' }
 const PROPORCOES = { pe: '9:16', quadrada: 'Quadrada', deitada: 'Horizontal' }
 const nMidias = (r) => Math.max(1, ...(r?.cards || []).map((c, k) => (c.midia ?? k) + 1))
 const chaveMidias = (n) => (n <= 1 ? '1' : n === 2 ? '2' : '2+')
@@ -221,71 +221,288 @@ function favoritasPorTela(chaves) {
 const botaoAprovar = (aprovado) =>
   `<button class="botao-check${aprovado ? ' ligado' : ''}" data-aprovar title="${aprovado ? 'Aprovado · clique para tirar a aprovação' : 'Aprovar'}" aria-pressed="${!!aprovado}">${ICONE.check}</button>`
 
+/** O clipe da referência (com som; `revisao.py clipes`) e a simulação (render/preset.html) de um preset. */
+const urlClipe = (p) => `/biblioteca/presets/clipes/${p.id}.mp4`
+const urlSim = (p, s = {}) => `/render/preset.html?${new URLSearchParams({ preset: p.id, ...Object.fromEntries(Object.entries(s).filter(([, v]) => v != null)) })}`
+/** O repouso do trecho da referência (depois da última entrada; como no 18): o quadro que a miniatura mostra parada. */
+function repousoDe(p) {
+  const f = p.fontes?.[0]
+  const dur = f ? f.fim - f.inicio : p.receita?.duracao_ref || 1
+  const ent = (p.receita?.cards || []).map((c) => c.inicio_frac * dur + (c.entrada?.duracao ?? 0))
+  return +Math.min(Math.max(0, ...ent) + 0.1, dur - 0.05).toFixed(3)
+}
+/** As proporções simuladas: com 1 mídia, uma só; com várias, as combinações que acontecem (as do 18). */
+const PROPS_SIM = (n) => (n === 1 ? [['pe', '9:16'], ['1:1', '1:1'], ['4:3', '4:3'], ['16:9', '16:9']] : [['pe', 'Todas 9:16'], ['mista', '9:16 + horizontais'], ['deitada', 'Só horizontais']])
+
+/** O `__sim` da página de simulação dentro do iframe, quando ela termina de carregar (null se falhou). */
+function simDe(f) {
+  return new Promise((ok) => {
+    const pegar = () => {
+      const s = f.contentWindow?.__sim
+      if (!s) return ok(null)
+      s.pronto.then(() => ok(s), () => ok(null))
+    }
+    if (f.contentWindow?.__sim && f.contentDocument?.readyState === 'complete') pegar()
+    else f.addEventListener('load', pegar, { once: true })
+  })
+}
+let audioSim = null // o áudio dos sons da simulação: criado no clique (aqui, onde houve o gesto) e emprestado ao iframe
+const audioDoClique = () => {
+  audioSim ||= new AudioContext()
+  if (audioSim.state === 'suspended') audioSim.resume().catch(() => {})
+  return audioSim
+}
+
+/** Referência e recriação tocando juntas: o vídeo da referência (com ou sem som) e a simulação no relógio dele. Devolve
+ *  a função que para (e volta ao repouso). */
+function tocarPar(v, f, { comSom, rep }) {
+  let parado = false
+  v.muted = !comSom
+  v.loop = true
+  v.currentTime = 0
+  v.play().catch(() => {
+    v.muted = true
+    v.play().catch(() => {})
+  })
+  const s = simDe(f).then((sim) => (parado ? null : (sim?.tocar({ relogio: () => v.currentTime, som: false }), sim)))
+  return () => {
+    parado = true
+    v.pause()
+    v.currentTime = rep
+    s.then((sim) => sim?.parar())
+  }
+}
+
 async function presets(el) {
-  const [ps, ordem0, sons] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), json('/biblioteca/presets/ordem.json', {}), nomesDosSons()])
+  const [ps, ordem0] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), json('/biblioteca/presets/ordem.json', {})])
+  const sons = await nomesDosSons()
   let ordem = ordem0 || {}
   let filtro = 'todos'
   ps.sort((a, b) => (a.aprovado ? 1 : 0) - (b.aprovado ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR')) // os a revisar primeiro
+  const favoritasDe = (p) => Object.entries(ordem).filter(([, o]) => (o.ids || []).slice(0, o.favoritos || 0).includes(p.id)).map(([c]) => c)
+
+  // um card toca por vez: com o mouse em cima, mudo; clicado, com o som da referência (clicar de novo para)
+  let atual = null // { card, comSom, parar }
+  const pararCard = () => {
+    atual?.parar()
+    atual?.card.classList.remove('tocando', 'com-som')
+    atual = null
+  }
+  const tocarCard = (c, comSom) => {
+    const v = $('.v-ref', c)
+    if (atual?.card === c) {
+      if (comSom && !atual.comSom) {
+        atual.comSom = true
+        v.muted = false
+        c.classList.add('com-som')
+      }
+      return
+    }
+    pararCard()
+    const p = ps.find((x) => x.id === c.dataset.id)
+    atual = { card: c, comSom, parar: tocarPar(v, $('iframe', c), { comSom, rep: repousoDe(p) }) }
+    c.classList.add('tocando')
+    c.classList.toggle('com-som', comSom)
+  }
+  const fora = new IntersectionObserver((es) => es.forEach((e) => !e.isIntersecting && atual?.card === e.target && pararCard()))
 
   const card = (p) => {
-    const u = usosDe(p)
-    const fonte = p.fontes?.[0]
-    const sonsP = (p.receita?.sons || []).map((s) => `${esc(sons[s.som] || s.som)}${s.momento ? ` <span class="apagado">(${esc(s.momento)})</span>` : ''}`)
-    const fav = Object.entries(ordem).filter(([, o]) => (o.ids || []).slice(0, o.favoritos || 0).includes(p.id)).map(([c]) => c)
+    const nFav = favoritasDe(p).length
+    const rep = repousoDe(p)
     return `<article class="card-preset" data-id="${p.id}">
-      <div class="mini mini-916"><video muted loop playsinline preload="metadata" src="/biblioteca/presets/clipes/${p.id}.mp4#t=0.05"></video>
+      <div class="mini mini-par" title="Clique para tocar com som">
+        <div class="lado"><video class="v-ref" playsinline preload="metadata" src="${urlClipe(p)}#t=${rep}"></video><span class="sem-clipe">sem clipe</span><span class="rotulo">Referência</span></div>
+        <div class="lado"><iframe loading="lazy" tabindex="-1" allow="autoplay" title="Recriação" src="${urlSim(p, { t: rep })}"></iframe><span class="rotulo">Recriação</span></div>
         <span class="selo ${p.aprovado ? 'selo-menta' : 'selo-coral'}">${p.aprovado ? 'Aprovado' : 'A revisar'}</span>
-        ${fav.length ? `<span class="selo selo-amarelo selo-dir" title="Favorito em ${fav.length} situações">★ ${fav.length}</span>` : ''}
-        <span class="sem-clipe">sem clipe de referência</span></div>
-      <div class="card-titulo"><h3>${esc(p.nome)}</h3>${botaoAprovar(p.aprovado)}</div>
-      <p class="desc">${esc(p.descricao || '')}</p>
-      <dl class="dados">
-        <dt>Vale em</dt><dd>${u.telas.map((t) => TELAS[t] || t).join(' · ')}</dd>
-        <dt>Mídias</dt><dd>${u.midias.map((m) => MIDIAS[m] || m).join(' · ')}${u.proporcoes ? ` <span class="apagado">(${u.proporcoes.map((x) => PROPORCOES[x] || x).join(', ')})</span>` : ''}</dd>
-        <dt>Sons</dt><dd>${sonsP.length ? sonsP.join(' · ') : '<span class="apagado">nenhum</span>'}</dd>
-        ${fonte ? `<dt>Referência</dt><dd>${esc(String(fonte.ref).replace(/^externa:/, ''))} ${mmss(fonte.inicio)}${p.fontes.length > 1 ? ` <span class="apagado">+${p.fontes.length - 1}</span>` : ''}</dd>` : ''}
-        ${fav.length ? `<dt class="t-fav">★ Favorito</dt><dd class="favoritas">${favoritasPorTela(fav).join('<br>')}</dd>` : ''}
-      </dl>
+        <span class="video-tocar">${ICONE.tocar}</span></div>
+      <div class="card-titulo"><h3 data-abrir title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>
+        ${nFav ? `<span class="n-fav" title="Recomendado em ${nFav} ${nFav === 1 ? 'situação' : 'situações'}">${ESTRELA_CHEIA}${nFav}</span>` : ''}
+        ${botaoAprovar(p.aprovado)}<button class="botao-icone pequeno" data-abrir title="Simular em outras telas">${ICONE.ajustes}</button></div>
     </article>`
   }
   const ligarCard = (c) => {
-    const v = $('video', c)
+    const v = $('.v-ref', c)
     v.addEventListener('error', () => c.classList.add('sem-video'))
-    tocarNoHover(c, v)
+    const mini = $('.mini', c)
+    mini.addEventListener('mouseenter', () => !atual?.comSom && tocarCard(c, false))
+    mini.addEventListener('mouseleave', () => atual?.card === c && !atual.comSom && pararCard())
+    mini.addEventListener('click', () => (atual?.card === c && atual.comSom ? pararCard() : tocarCard(c, true)))
+    fora.observe(c)
   }
   const desenhar = () => {
+    pararCard()
     const n = { todos: ps.length, revisar: ps.filter((p) => !p.aprovado).length, aprovados: ps.filter((p) => p.aprovado).length }
     const vis = ps.filter((p) => filtro === 'todos' || (filtro === 'aprovados') === !!p.aprovado)
-    el.innerHTML = cabeca(`Presets · ${dois(ps.length)}`, 'Os movimentos dos inserts, recriados das referências. Passe o mouse para ver o trecho de onde veio. Só os aprovados entram nas edições; os recomendados de cada situação vêm primeiro.') +
-      `<div class="filtros">${[['todos', 'Todos'], ['revisar', 'A revisar'], ['aprovados', 'Aprovados']].map(([k, nome]) => chip(filtro === k, `${nome} <span class="conta">${n[k]}</span>`, `data-filtro="${k}"`)).join('')}
-        <button class="botao botao-amarelo" data-recomendados>${ICONE.estrela} Recomendados por situação</button></div>
+    el.innerHTML = `<div class="filtros filtros-topo">${[['todos', 'Todos'], ['revisar', 'A revisar'], ['aprovados', 'Aprovados']].map(([k, nome]) => chip(filtro === k, `${nome} <span class="conta">${n[k]}</span>`, `data-filtro="${k}"`)).join('')}
+        ${ajuda('Os movimentos dos inserts, recriados das referências. Clique na miniatura para tocar a referência com som, ao lado da recriação; no nome ou na engrenagem, simule em outras telas. Só os aprovados entram nas edições.')}
+        <button class="botao botao-amarelo" data-recomendados>${ICONE.estrela} Recomendados</button></div>
       ${vis.length ? `<div class="grade grade-presets">${vis.map(card).join('')}</div>` : '<p class="vazio">Nenhum preset aqui. Mande ao Claude o trecho de uma referência e ele monta o preset.</p>'}`
     for (const c of $$('.card-preset', el)) ligarCard(c)
   }
-  el.addEventListener('click', async (e) => {
+  const aprovar = async (p) => {
+    try {
+      Object.assign(p, await enviar('PUT', `/api/presets/${p.id}`, { aprovado: !p.aprovado }))
+      aviso(p.aprovado ? `“${p.nome}” aprovado` : `“${p.nome}” voltou para a revisão`)
+    } catch (x) {
+      return aviso(x.message, 'erro')
+    }
+    const c = $(`.card-preset[data-id="${p.id}"]`, el)
+    if (!c) return
+    if (atual?.card === c) pararCard()
+    c.outerHTML = card(p)
+    ligarCard($(`.card-preset[data-id="${p.id}"]`, el))
+  }
+  const abrirRecomendados = () => recomendados(ps, ordem, (o) => {
+    ordem = o
+    desenhar()
+  })
+  el.addEventListener('click', (e) => {
     const f = e.target.closest('[data-filtro]')
     if (f) {
       filtro = f.dataset.filtro
       return desenhar()
     }
-    if (e.target.closest('[data-recomendados]')) return recomendados(ps, ordem, (o) => {
-      ordem = o
-      desenhar()
-    })
-    const b = e.target.closest('[data-aprovar]')
-    if (!b) return
-    const c = b.closest('.card-preset')
-    const p = ps.find((x) => x.id === c.dataset.id)
-    try {
-      Object.assign(p, await enviar('PUT', `/api/presets/${p.id}`, { aprovado: !p.aprovado }))
-      c.outerHTML = card(p)
-      ligarCard($(`.card-preset[data-id="${p.id}"]`, el))
-      aviso(p.aprovado ? `“${p.nome}” aprovado` : `“${p.nome}” voltou para a revisão`)
-    } catch (x) {
-      aviso(x.message, 'erro')
+    if (e.target.closest('[data-recomendados]')) return abrirRecomendados()
+    const c = e.target.closest('.card-preset')
+    const p = c && ps.find((x) => x.id === c.dataset.id)
+    if (!p) return
+    if (e.target.closest('[data-aprovar]')) return aprovar(p)
+    if (e.target.closest('[data-abrir]')) {
+      pararCard()
+      detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas: favoritasDe(p), sons })
     }
   })
   desenhar()
+  return () => {
+    pararCard()
+    fora.disconnect()
+  }
+}
+
+/** O modal de um preset: a referência com som e a Simulação (Original · as telas, os números de mídias e as proporções
+ *  em que o preset vale, como o "Simular" do 18), tocando juntas; Aprovar e Recomendados no título. */
+function detalhePreset(p, { aprovar, recomendados: abrirRecomendados, favoritas, sons }) {
+  const u = usosDe(p)
+  const r = p.receita || {}
+  const fonte = p.fontes?.[0]
+  const rep = repousoDe(p)
+  const telas = Object.keys(TELAS).filter((t) => u.telas.includes(t))
+  const ns = ['1', '2', '2+'].filter((m) => u.midias.includes(m)).map((m) => (m === '1' ? 1 : m === '2' ? 2 : 3))
+  const nomeN = (n) => (n === 1 ? '1 mídia' : n === 2 ? '2 mídias' : r.repete || nMidias(r) < 3 ? '3 ou mais' : nMidias(r) === 3 ? '3 mídias' : `3 a ${nMidias(r)} mídias`)
+  const ok = (x) => !u.proporcoes || u.proporcoes.includes(x)
+  const vale = (id) => (id === 'pe' ? ok('pe') : id === '1:1' ? ok('quadrada') : id === 'mista' ? ok('pe') && ok('deitada') : ok('deitada'))
+  const props = (n) => PROPS_SIM(n).filter(([id]) => vale(id))
+  let sim = null // null: a tela original (sincronizada com a referência)
+  let ouvir = 'ref' // quem se ouve: a referência ou os sons da simulação
+  let tocando = false
+  const sonsP = (r.sons || []).filter((s) => s.som).map((s) => `${esc(sons[s.som] || s.som)} <span class="apagado">(${esc(s.momento)})</span>`)
+
+  const { el, fechar } = janela(`
+    <header class="janela-cabeca"><h2 title="${esc(p.id)}">${esc(p.nome)}</h2>
+      <button class="botao pequeno${p.aprovado ? ' botao-menta' : ''}" data-aprovar-modal>${ICONE.check} <span>${p.aprovado ? 'Aprovado' : 'Aprovar'}</span></button>
+      <button class="botao pequeno" data-recomendados-modal>${ICONE.estrela} Recomendados</button>
+      <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
+    <div class="preset-detalhe">
+      <div class="preset-palco mini-par" title="Clique para tocar ou parar">
+        <div class="lado"><video class="v-ref" playsinline preload="auto" src="${urlClipe(p)}#t=${rep}"></video>
+          <button class="rotulo" data-ouvir="ref" title="Ouvir a referência"></button></div>
+        <div class="lado"><iframe allow="autoplay" tabindex="-1" title="Simulação"></iframe>
+          <button class="rotulo" data-ouvir="sim" title="Ouvir os sons do preset"></button></div>
+        <span class="video-tocar">${ICONE.tocar}</span></div>
+      <aside class="preset-lado">
+        ${p.descricao ? `<p class="desc-preset">${esc(p.descricao)}</p>` : ''}
+        <div class="bloco-sim"><span class="eyebrow">Simular</span><div class="chips" data-linha="tela"></div><div class="chips" data-linha="n"></div><div class="chips" data-linha="prop"></div></div>
+        <dl class="dados">
+          <dt>Sons</dt><dd>${sonsP.length ? sonsP.join(' · ') : '<span class="apagado">nenhum</span>'}</dd>
+          ${fonte ? `<dt>Referência</dt><dd>${esc(String(fonte.ref).replace(/^externa:/, ''))} · ${mmss(fonte.inicio)}${p.fontes.length > 1 ? ` <span class="apagado">+${p.fontes.length - 1}</span>` : ''}</dd>` : ''}
+          ${favoritas.length ? `<dt class="t-fav">★ Recomendado</dt><dd class="favoritas">${favoritasPorTela(favoritas).join('<br>')}</dd>` : ''}
+        </dl>
+      </aside>
+    </div>`, { classe: 'janela-preset', aoFechar: () => parar() })
+  const v = $('.v-ref', el)
+  const f = $('iframe', el)
+  const palco = $('.preset-palco', el)
+
+  const marcar = () => {
+    const linhas = {
+      tela: [chip(!sim, 'Original', 'data-tela="original" title="Como na referência"'), ...telas.map((t) => chip(sim?.tela === t, TELAS[t], `data-tela="${t}"`))],
+      n: sim ? ns.map((n) => chip(sim.n === n, nomeN(n), `data-n="${n}"`)) : [],
+      prop: sim ? props(sim.n).map(([id, nome]) => chip(sim.prop === id, nome, `data-prop="${id}"`)) : [],
+    }
+    for (const [k, l] of Object.entries(linhas)) $(`[data-linha="${k}"]`, el).innerHTML = l.join('')
+    $('[data-ouvir="ref"]', el).innerHTML = `${ouvir === 'ref' ? ICONE.som : ICONE.mudo} Referência`
+    $('[data-ouvir="sim"]', el).innerHTML = `${ouvir === 'sim' ? ICONE.som : ICONE.mudo} ${sim ? 'Simulação' : 'Recriação'}`
+    for (const b of $$('[data-ouvir]', el)) b.classList.toggle('ativo', b.dataset.ouvir === ouvir)
+    palco.classList.toggle('tocando', tocando)
+  }
+  // a página da simulação que está no iframe (a cada troca de situação, outra)
+  let simAtual = Promise.resolve(null)
+  const parar = () => {
+    tocando = false
+    v.pause()
+    v.currentTime = rep
+    simAtual.then((s) => s?.parar())
+    marcar()
+  }
+  // na tela original, a recriação anda no relógio da referência; simulando, cada uma no seu (a simulação dura o que um
+  // insert daquele número de mídias dura). Os sons da simulação tocam no áudio criado aqui, no clique.
+  const tocar = () => {
+    tocando = true
+    const audio = ouvir === 'sim' ? audioDoClique() : undefined
+    v.muted = ouvir !== 'ref'
+    v.loop = true
+    v.currentTime = 0
+    v.play().catch(() => {
+      v.muted = true
+      v.play().catch(() => {})
+    })
+    simAtual.then((s) => tocando && s?.tocar({ relogio: sim ? null : () => v.currentTime, som: ouvir === 'sim', audio }))
+    marcar()
+  }
+  const carregar = () => {
+    simAtual = new Promise((ok) => f.addEventListener('load', () => simDe(f).then(ok), { once: true }))
+    f.src = urlSim(p, sim ? { tela: sim.tela, n: sim.n, prop: sim.prop } : { t: rep })
+    if (tocando) tocar() // recomeça junto, na situação nova
+    else marcar()
+  }
+  const mudar = (novo) => {
+    const antes = !!sim
+    sim = novo
+    if (sim && !props(sim.n).some(([id]) => id === sim.prop)) sim.prop = props(sim.n).at(-1)?.[0] ?? (sim.n === 1 ? '16:9' : 'deitada')
+    if (antes !== !!sim) ouvir = sim ? 'sim' : 'ref' // simulando, ouve-se o preset; na original, a referência
+    carregar()
+  }
+
+  palco.addEventListener('click', (e) => {
+    const o = e.target.closest('[data-ouvir]')
+    if (o) {
+      e.stopPropagation()
+      ouvir = o.dataset.ouvir
+      if (tocando) {
+        parar()
+        tocar()
+      } else marcar()
+      return
+    }
+    tocando ? parar() : tocar()
+  })
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tela], [data-n], [data-prop], [data-aprovar-modal], [data-recomendados-modal]')
+    if (!b) return
+    if (b.dataset.tela) {
+      const n0 = ns[0] ?? 1
+      return mudar(b.dataset.tela === 'original' ? null : { tela: b.dataset.tela, n: sim?.n ?? n0, prop: sim?.prop ?? '' })
+    }
+    if (b.dataset.n) return mudar({ ...sim, n: +b.dataset.n, prop: sim.n === +b.dataset.n ? sim.prop : '' })
+    if (b.dataset.prop) return mudar({ ...sim, prop: b.dataset.prop })
+    if (b.hasAttribute('data-recomendados-modal')) return abrirRecomendados()
+    aprovar(p).then(() => {
+      b.classList.toggle('botao-menta', !!p.aprovado)
+      $('span', b).textContent = p.aprovado ? 'Aprovado' : 'Aprovar'
+    })
+  })
+  v.addEventListener('error', () => palco.classList.add('sem-video'))
+  carregar()
 }
 
 /** Os recomendados por situação (§8.16 do 18): os aprovados que valem em cada situação, na ordem; arrastar reordena e a
@@ -478,7 +695,7 @@ async function transicoes(el, resto) {
     const sonsPar = Object.entries(c.sons).sort((a, b) => b[1] - a[1]).map(([s, q]) => `${esc(sons[s] || s)} ×${q}`)
     const favs = o.ids.slice(0, o.favoritas)
     const outras = o.ids.slice(o.favoritas)
-    conteudo = cabeca(`${NOME_GRUPO[de]} → ${NOME_GRUPO[para]}`, c.n ? `${c.n} cortes nas referências · ${sonsPar.length ? `sons: ${sonsPar.join(', ')}` : 'sem som de corte'}` : 'Nenhum corte assim nas referências.') +
+    conteudo = cabeca(`${NOME_GRUPO[de]} → ${NOME_GRUPO[para]}`, '', `<span class="dica uma-linha" title="${esc(sonsPar.join(', '))}">${c.n ? `${c.n} cortes nas referências · ${sonsPar.length ? `sons: ${sonsPar.join(', ')}` : 'sem som de corte'}` : 'Nenhum corte assim nas referências.'}</span>`) +
       `<h4 class="subtitulo">Favoritas do par <span class="dica">· no máximo ${N_FAVORITAS}; a 1ª é o padrão (entra sozinha em cada corte deste par)</span></h4>
       ${favs.length ? `<div class="grade grade-transicoes">${favs.map((id, k) => card(porId[id], { k, nFav: favs.length })).join('')}</div>` : '<p class="dica">Nenhuma favorita: os cortes deste par ficam secos. Marque a estrela de uma transição.</p>'}
       <h4 class="subtitulo">Outras transições</h4>

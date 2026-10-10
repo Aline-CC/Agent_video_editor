@@ -13,9 +13,11 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
   PUT …/<id>/status {revisado} · PUT …/<id>/nome {nome} · PUT …/<id>/favorito {inicio, fim, favorito} · POST
   …/<id>/reanalisar · POST …/<id>/tentar · DELETE /api/referencias/<id>.
 - GET|PUT /api/heuristica: as regras da direção (exemplos/regras.md) e os roteiros de exemplo, com os tempos dos planos.
-- PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
+- GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
+  · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
   · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> · PUT /api/motions/<id>/aprovar.
 """
+import hashlib
 import json
 import os
 import re
@@ -298,6 +300,86 @@ def aprovar_json(pasta: Path, id_: str, aprovado) -> dict:
     return dados
 
 
+def amostras_simulacao() -> dict:
+    """O que a simulação dos presets (render/preset.html) usa de verdade: o ator — o proxy do bruto do projeto mais
+    recente que tem um (de preferência com a pessoa recortada), com o trecho de 8 s em que o rosto aparece melhor (`t0`), o rosto típico nele, já no recorte
+    9:16 (como `ator.rostoDoArquivo`), e a pessoa recortada se houver — e os vídeos do banco (os originais) com a
+    proporção de cada um."""
+    ator = None
+    candidatos = []
+    for p in PROJETOS.iterdir() if PROJETOS.is_dir() else []:
+        ed = ler_json(p / 'edicao.json', {}) or {}
+        bruto = next((f for f in ed.get('fontes', []) if f.get('papel') == 'bruto'), None)
+        proxy = bruto and p / 'midia' / 'proxy' / f'{bruto["id"]}.mp4'
+        if proxy and proxy.is_file():
+            recortado = (p / 'midia' / 'recorte' / f'{bruto["id"]}_pessoa.webm').is_file()
+            candidatos.append(((recortado, proxy.stat().st_mtime), p, bruto, ed))
+    if candidatos:
+        # o mais recente já com a pessoa recortada (no "ator embaixo" a cabeça sai da janela, como na exportação com a
+        # máscara); sem nenhum, o mais recente
+        _, p, bruto, ed = max(candidatos, key=lambda c: c[0])
+        proxy = p / 'midia' / 'proxy' / f'{bruto["id"]}.mp4'
+        rosto = ler_json(p / 'midia' / 'rosto' / f'{bruto["id"]}.json', {}) or {}
+        am = rosto.get('amostras') or []
+        janela = int(8 * (rosto.get('por_segundo') or 6))
+        # o trecho de 8 s (a partir de 1 s) com mais amostras confiáveis
+        t0, melhor = 1.0, -1
+        for i in range(0, max(len(am) - janela, 0), max(janela // 4, 1)):
+            boas = sum(1 for a in am[i:i + janela] if a.get('conf', 0) > 0.5)
+            if am[i]['t'] >= 1 and boas > melhor:
+                t0, melhor = am[i]['t'], boas
+        trecho = [a for a in am if t0 <= a['t'] < t0 + 8 and a.get('conf', 0) > 0] or am
+        med = lambda k: sorted(a[k] for a in trecho)[len(trecho) // 2]  # noqa: E731
+        r = {k: med(k) for k in ('cx', 'cy', 'w', 'h')} if trecho else None
+        L, A = rosto.get('largura') or bruto.get('largura') or 0, rosto.get('altura') or bruto.get('altura') or 0
+        x = (ed.get('enquadramento') or {}).get('x', 0.5)
+        rw = A * 9 / 16 / L if L > A > 0 else 1  # bruto deitado: o rosto vai para o recorte 9:16 em `x`
+        if r and rw < 1:
+            r = {**r, 'cx': (r['cx'] - (1 - rw) * x) / rw, 'w': r['w'] / rw}
+        pessoa = p / 'midia' / 'recorte' / f'{bruto["id"]}_pessoa.webm'  # o recorte da pessoa: a cabeça sai da janela
+        ator = {'projeto': p.name, 'video': f'/projetos/{p.name}/midia/proxy/{bruto["id"]}.mp4', 't0': t0, 'rosto': r, 'deitado': rw < 1, 'x': x,
+                'poster': '/api/presets/ator.jpg', 'arquivo': str(proxy),
+                'pessoa': f'/projetos/{p.name}/midia/recorte/{pessoa.name}' if pessoa.is_file() else None}
+    midias = []
+    for d in sorted((BIBLIOTECA / 'banco').iterdir()) if (BIBLIOTECA / 'banco').is_dir() else []:
+        i = ler_json(d / 'item.json', {}) or {}
+        # (fora as capturas que pegaram a tela de espera do Cloudflare: "Um momento…", toda branca)
+        if i.get('tipo') != 'video' or i.get('pai') or not i.get('largura') or not i.get('altura') or re.match(r'(um momento|just a moment)', i.get('nome') or '', re.I):
+            continue
+        video = i.get('proxy') or i.get('arquivo')
+        if video and (d / video).is_file():
+            midias.append({'id': d.name, 'video': f'/biblioteca/banco/{d.name}/{video}', 'imagem': f'/biblioteca/banco/{d.name}/miniatura.jpg',
+                           'aspecto': round(i['largura'] / i['altura'], 4), 'duracao': i.get('duracao') or 0})
+    return {'ator': ator, 'midias': midias}
+
+
+@rota('GET', '/api/presets/amostras')
+def _amostras(h, q):
+    a = amostras_simulacao()
+    if a['ator']:
+        a['ator'].pop('arquivo')
+    return a
+
+
+def poster_do_ator() -> Path | None:
+    """Um quadro do ator da simulação (1 s depois de `t0`), para a miniatura parada não precisar abrir o vídeo (a página
+    Presets tem uma simulação por card). Feito uma vez por proxy, numa pasta temporária."""
+    ator = amostras_simulacao()['ator']
+    if not ator:
+        return None
+    proxy = Path(ator['arquivo'])
+    chave = hashlib.md5(f'{proxy}|{proxy.stat().st_mtime}|{ator["t0"]}'.encode()).hexdigest()[:12]
+    destino = Path(tempfile.gettempdir()) / f'editor19-ator-{chave}.jpg'
+    with TRAVA_POSTER:  # os cards pedem todos juntos
+        if not destino.is_file():
+            from base import ffmpeg
+            ffmpeg('-ss', f'{ator["t0"] + 1:.3f}', '-i', str(proxy), '-frames:v', '1', '-vf', 'scale=360:-2', '-q:v', '4', str(destino))
+    return destino
+
+
+TRAVA_POSTER = threading.Lock()
+
+
 @rota('PUT', f'/api/presets/{ID}')
 def _aprovar_preset(h, q, id_):
     return aprovar_json(BIBLIOTECA / 'presets', id_, h.corpo().get('aprovado'))
@@ -437,6 +519,16 @@ class Handler(SimpleHTTPRequestHandler):
             corpo = fonte.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', 'font/ttf')
+            self.send_header('Content-Length', str(len(corpo)))
+            self.end_headers()
+            return self.wfile.write(corpo)
+        if url.path == '/api/presets/ator.jpg':
+            arq = poster_do_ator()
+            if not arq:
+                return self.send_error(404)
+            corpo = arq.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/jpeg')
             self.send_header('Content-Length', str(len(corpo)))
             self.end_headers()
             return self.wfile.write(corpo)

@@ -142,13 +142,22 @@ kbd {
 /* ---------- páginas com grade ---------- */
 .pagina { padding: 0 32px 48px; }
 .cabeca-secao {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding: 30px 0 14px;
+  display: flex; align-items: center; gap: 12px; min-height: 34px; padding: 26px 0 14px;
   margin-bottom: 24px; border-bottom: 1px solid var(--linha);
 }
+.cabeca-secao > .botao, .cabeca-secao > .uma-linha { margin-left: auto; }
+.uma-linha { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a explicação da página, na dica de um "?" */
+.ajuda {
+  display: inline-grid; flex: none; place-items: center; width: 20px; height: 20px; border: 1px solid var(--linha-forte);
+  border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--nevoa); cursor: help;
+}
+.ajuda:hover { border-color: var(--creme); color: var(--creme); }
 .grade { display: grid; gap: 28px 20px; }
 .grade-projetos { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); max-width: 1500px; }
 .grade-banco { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.grade-presets, .grade-transicoes { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.grade-transicoes { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.grade-presets { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .grade-motions { grid-template-columns: repeat(auto-fill, 240px); }
 .mini { position: relative; overflow: hidden; border-radius: var(--raio); background: #000; box-shadow: 0 0 0 1px var(--linha); transition: box-shadow 0.2s; }
 .mini-916 { aspect-ratio: 9 / 16; }
@@ -439,8 +448,6 @@ article h3, a h3 { margin-top: 11px; font-size: 15px; font-weight: 600; letter-s
 
 /* ---------- calibragem ---------- */
 .pagina-calibragem { position: relative; min-height: calc(100vh - var(--alto-barra)); }
-.pagina-calibragem .cabeca-secao { align-items: center; }
-.pagina-calibragem .cabeca-secao .dica { flex: 1; max-width: 640px; text-align: right; }
 .numeros { letter-spacing: 0.1em; opacity: 0.8; }
 .card-ref > a { display: block; text-decoration: none; }
 .card-ref:not(.abrivel) .mini img { opacity: 0.75; }
@@ -624,3 +631,38 @@ article h3, a h3 { margin-top: 11px; font-size: 15px; font-weight: 600; letter-s
   body.em-revisao .abas .pilula { padding: 0 9px; }
   body.em-revisao .abas .pilula span { display: none; }
 }
+
+/* ---------- presets: referência | recriação ---------- */
+.filtros-topo { padding-top: 26px; }
+.mini-par { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; aspect-ratio: 9 / 8; background: var(--linha-forte); cursor: pointer; }
+.mini-par .lado { position: relative; overflow: hidden; background: #000; }
+.mini-par .lado > video, .mini-par .lado > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
+.mini-par iframe { pointer-events: none; }
+.rotulo {
+  position: absolute; left: 7px; bottom: 7px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 0;
+  border: 0; background: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #faf7eebf; text-shadow: 0 1px 3px #000;
+}
+.rotulo svg { width: 12px; height: 12px; }
+.mini-par .video-tocar { pointer-events: none; }
+.com-som .lado:first-child .rotulo { color: var(--amarelo); }
+.card-preset .card-titulo { gap: 4px; }
+.card-preset .card-titulo h3 { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-preset .card-titulo h3:hover { color: var(--coral); }
+.card-preset .botao-check { width: 26px; height: 26px; }
+.card-preset .botao-check svg { width: 14px; height: 14px; }
+.card-preset .botao-icone.pequeno { color: var(--nevoa); }
+.n-fav { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px; font-size: 11.5px; font-weight: 700; color: var(--amarelo); }
+.n-fav svg { width: 11px; height: 11px; }
+.janela-preset { width: min(1180px, calc(100vw - 32px)); }
+.preset-detalhe { display: grid; grid-template-columns: auto minmax(240px, 1fr); gap: 24px; padding: 18px; }
+.preset-palco { position: relative; height: min(72vh, 700px); border-radius: var(--raio); overflow: hidden; }
+.preset-palco .rotulo { padding: 3px 9px; border-radius: 999px; background: #0b1714b3; cursor: pointer; text-shadow: none; }
+.preset-palco .rotulo.ativo { color: var(--amarelo); }
+.preset-palco .rotulo:hover { color: var(--creme); }
+.preset-palco.tocando .video-tocar { opacity: 0; }
+.preset-lado { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.desc-preset { font-size: 13px; line-height: 1.6; color: var(--nevoa); }
+.bloco-sim { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--linha); border-radius: 8px; background: var(--poco); }
+.bloco-sim .chips:empty { display: none; }
+.preset-lado .dados { margin: 0; }

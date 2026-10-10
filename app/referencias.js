@@ -1,6 +1,6 @@
 // As páginas que leem as referências da calibragem: a galeria de Referências (todos os planos, para ver como cada tipo
 // foi usado e favoritar os melhores) e a Heurística da direção (as regras e os roteiros de exemplo que o Claude lê).
-import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, aviso, enviar, esc, janela, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, PLANOS, ajuda, aviso, enviar, esc, janela, nomePlano, num, preferencia, seg, tempo, tocarTrecho, urlRef } from './comum.js'
 import { jsons } from './biblioteca.js'
 
 const GRUPOS = [
@@ -343,8 +343,7 @@ export async function abrirHeuristica(tela) {
           <span class="fala-roteiro">${l.fala ? falaComLettering(l.fala) : '<i class="apagado">(sem fala)</i>'}</span></button>`).join('')}</div>
     </details>`
   const desenhar = () => {
-    tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">Heurística da direção</span><span class="salvo" id="salvo-h"></span></div>
-      <p class="explica">O Claude lê esta página inteira antes de dirigir cada vídeo: as regras e, embaixo, os roteiros dos seus vídeos — a fala com a marcação do que aparecia na tela em cada momento. Ele aprende a dirigir olhando os roteiros. As regras você edita aqui (as do criador são obrigatórias; as sugeridas pela IA são guia). Os roteiros vêm da Calibragem: para corrigir uma marcação, abra a revisão do vídeo.</p>
+    tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">Heurística da direção</span>${ajuda('O Claude lê esta página inteira antes de dirigir cada vídeo: as regras e, embaixo, os roteiros dos seus vídeos — a fala com a marcação do que aparecia na tela em cada momento. Ele aprende a dirigir olhando os roteiros. As regras você edita aqui (as do criador são obrigatórias; as sugeridas pela IA são guia). Os roteiros vêm da Calibragem: para corrigir uma marcação, abra a revisão do vídeo.')}<span class="salvo" id="salvo-h"></span></div>
       <section class="bloco-heuristica"><div class="titulo-bloco"><span class="eyebrow">Regras</span>
           <div class="alternar">${['ler', 'editar'].map((m) => `<button class="pilula pequena${modo === m ? ' ativa' : ''}" data-modo="${m}">${m === 'ler' ? 'Ler' : 'Editar'}</button>`).join('')}</div>
           ${modo === 'editar' ? '<span class="dica">Grava ao sair da caixa.</span>' : ''}</div>

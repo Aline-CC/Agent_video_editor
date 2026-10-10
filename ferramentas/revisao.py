@@ -9,8 +9,9 @@
     uv run ferramentas/revisao.py responder <slug> <vN> <id|geral> --status aplicado|respondido|nao_aplicado --resposta "…"
         grava a resposta no comentário (o app mostra embaixo dele); "geral" responde o comentário geral.
     uv run ferramentas/revisao.py clipes [--refazer]
-        recorta das referências do 18 os clipes das galerias da biblioteca: presets/clipes/<id>.mp4 (o trecho da
-        1ª fonte, 480 px, mudo) e transicoes/clipes/<id>.mp4 (1,5 s em volta do corte da 1ª fonte, com som).
+        recorta das referências os clipes das galerias da biblioteca: presets/clipes/<id>.mp4 (o trecho da 1ª fonte,
+        480 px, com som) e transicoes/clipes/<id>.mp4 (1,5 s em volta do corte da 1ª fonte, com som). A referência vem
+        de biblioteca/referencias/ (senão, do 18); as externas, de presets/externas/ (senão, do 18).
 """
 import argparse
 import sys
@@ -123,14 +124,16 @@ def fonte_ref(ref: str) -> Path:
         nome = ref.split(':', 1)[1]
         local = BIBLIOTECA / 'presets' / 'externas' / f'{nome}.mp4'
         return local if local.exists() else DEZOITO / 'presets' / 'externas' / f'{nome}.mp4'
-    return DEZOITO / 'referencias' / ref / 'proxy.mp4'
+    local = BIBLIOTECA / 'referencias' / ref / 'proxy.mp4'
+    return local if local.exists() else DEZOITO / 'referencias' / ref / 'proxy.mp4'
 
 
 def recortar(origem: Path, destino: Path, ini: float, dur: float, som: bool) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_suffix('.tmp.mp4')
-    audio = ['-c:a', 'aac', '-b:a', '96k', '-ac', '2'] if som else ['-an']
-    ffmpeg('-ss', f'{ini:.3f}', '-i', str(origem), '-t', f'{dur:.3f}', '-vf', 'scale=480:-2', '-c:v', 'libx264', '-preset', 'veryfast',
+    # `0:a?`: a referência sem áudio (uma externa muda) sai muda, sem erro
+    audio = ['-map', '0:a:0?', '-c:a', 'aac', '-b:a', '96k', '-ac', '2'] if som else ['-an']
+    ffmpeg('-ss', f'{ini:.3f}', '-i', str(origem), '-t', f'{dur:.3f}', '-map', '0:v:0', '-vf', 'scale=480:-2', '-c:v', 'libx264', '-preset', 'veryfast',
            '-crf', '30', '-g', '12', '-pix_fmt', 'yuv420p', *audio, '-movflags', '+faststart', str(tmp))
     tmp.replace(destino)
 
@@ -149,7 +152,7 @@ def clipes(refazer: bool) -> None:
         if not origem.exists():
             print(f'  sem a referência {f["ref"]} para o preset {p["id"]}')
             continue
-        recortar(origem, destino, f['inicio'], max(f['fim'] - f['inicio'], 0.3), som=False)
+        recortar(origem, destino, f['inicio'], max(f['fim'] - f['inicio'], 0.3), som=True)
         print(f'preset {p["id"]} ({p["nome"]}): {f["ref"]} {tempo(f["inicio"])}')
         feitos += 1
     pares = ler_json(BIBLIOTECA / 'transicoes' / 'pares.json', {}) or {}
