@@ -48,7 +48,10 @@ precisa durar pelo menos a duração do insert. Proporção: horizontal para div
 horizontal, serve).
 Confira o que achou: olhe os quadros (`folha.py <video>` e leia a imagem; imagens, leia direto). Para um vídeo baixado
 cujo conteúdo você não consegue julgar pelos quadros, pergunte ao `gemini.py <video> "<pergunta>"`.
-Se só um trecho do vídeo serve, crie um trecho: `banco.py trecho <id> <ini> <fim>` e use o id do trecho.
+Se só um trecho do vídeo serve, crie um trecho: `banco.py trecho <id> <ini> <fim>` e use o id do trecho. Capturas
+começam em branco enquanto a página carrega: corte o começo branco com um trecho.
+Apague do banco o que você capturou ou baixou e NÃO usou: `banco.py apagar <id…>`.
+Se nada real servir, não monte um mockup seu: diga na nota (quem decide a troca é o editor).
 No fim, grave projetos/<slug>/inserts/<plano>.json = {"plano": "<plano>", "midias": ["<banco_id>", …], "fontes": ["<url>",
 …], "nota": "o que achou, ou por que não achou"} e responda com 2 linhas: os ids e a nota.
 ```
@@ -59,5 +62,15 @@ No fim, grave projetos/<slug>/inserts/<plano>.json = {"plano": "<plano>", "midia
   o plano (motion novo, Full ator) — e então reaplique a direção (`direcao.py aplicar`) com o roteiro ajustado.
 - Comentário + insert + ator: o card do comentário usa o texto do plano; a mídia é o insert por trás dele.
 - O que entrou no banco fica para os próximos vídeos (o banco cresce sozinho).
+
+## Aprendizados (1º vídeo de teste, out/2026)
+
+- Os inserts que já estão no banco voltam em ~20 s; os que pedem busca e captura, em 3 a 11 min.
+- openai.com, claude.com e perplexity.ai bloqueiam a captura (Cloudflare): vá para a doc oficial
+  (developers.openai.com, docs.anthropic.com) ou o blog do produto.
+- Sites com WebGL pesado (esferas 3D) podem sair pretos na captura com a máquina carregada; o vídeo do banco curto demais
+  pode virar câmera lenta (`ffmpeg -vf "setpts=PTS/0.42,minterpolate=fps=30:mi_mode=blend"`) e entrar como mídia nova.
+- Exemplos "do que não fazer" (site genérico, site poluído) são os mais difíceis de achar prontos: prefira descrever na
+  marcação um tipo concreto e achável (ex.: "a galeria de templates do Lovable").
 
 Tempo esperado: 3 a 6 min (em paralelo com Áudio, Legenda e Transições).

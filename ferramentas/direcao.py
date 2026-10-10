@@ -197,6 +197,8 @@ def formatar(marcacao: str) -> dict:
     if not sep:  # "[Full ator]" ou "[Full ator com lettering «X»]": o nome vai até o 1º « ou +
         corte = min([i for i in (marcacao.find('«'), marcacao.find(' +')) if i >= 0], default=len(marcacao))
         nome, resto = marcacao[:corte], marcacao[corte:]
+    no_nome = TEXTO.findall(nome)  # "[Full ator com lettering «X»: —]": o texto do plano veio antes dos dois-pontos
+    nome = TEXTO.sub(' ', nome)
     tipo = tipo_plano(nome)
     if tipo is None:
         raise ValueError(f'plano desconhecido «{nome.strip()}» (use: {" · ".join(PLANOS.values())})')
@@ -205,7 +207,7 @@ def formatar(marcacao: str) -> dict:
     descricao = ELEMENTO.sub(' ', resto)
     texto = None
     if tipo in PLANOS_COM_TEXTO:
-        achados = TEXTO.findall(descricao)
+        achados = no_nome or TEXTO.findall(descricao)
         texto = achados[-1].strip() if achados else None
         descricao = TEXTO.sub(' ', descricao)
     descricao = ' '.join(descricao.split())

@@ -14,6 +14,10 @@ uv run ferramentas/presets.py escolher <slug>     # cada insert com mídia e sem
 `escolher` usa as favoritas que o criador marcou por **situação** (modo de tela × nº de mídias × proporção, em
 `biblioteca/presets/ordem.json`). Ele imprime a escolha de cada insert e o motivo.
 
+**Sempre revise a escolha:** o `escolher` põe o 1º favorito da situação em todos, e quase toda tela dividida com 1 mídia
+cai no mesmo (no 1º teste, 9 de 12 inserts com "Corte seco"). Alterne entre os favoritos da situação (`presets.py listar`
+mostra as situações ★) para os inserts vizinhos não ficarem iguais.
+
 ## Quando trocar à mão
 
 Edite `inserts.pedidos[i].enriquecimento` no `edicao.json`:

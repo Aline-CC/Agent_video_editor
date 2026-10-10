@@ -16,7 +16,8 @@ raiz do repositório.
 
 ## Fluxo 1 — Vídeo novo: do bruto à v1 (sem parar)
 
-Marque a hora de início; a meta é a v1 em até 15 min para 2 min de bruto. Registre o tempo de cada etapa.
+Marque a hora de início; a meta é a v1 em até 15 min para 2 min de bruto (o 1º teste levou 26 min: preparar 1 min,
+cortes e direção 4 min, inserts 13 min, render e autorrevisão 6 min). Registre o tempo de cada etapa.
 
 1. **Preparar** (`etapas/01-preparar.md`): cria o projeto, transcreve, proxy, rosto, voz limpa.
 2. **Cortes** (`etapas/02-cortes.md`): você escolhe as palavras que ficam.

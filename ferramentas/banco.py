@@ -8,6 +8,7 @@
     uv run ferramentas/banco.py adicionar <arquivo> [--nome N] [--descricao D] [--palavras "a,b"] [--fonte url|upload|captura] [--projeto slug]
     uv run ferramentas/banco.py buscar <termos…>          nome, descrição e palavras-chave, sem diferenciar acentos
     uv run ferramentas/banco.py trecho <id> <ini> <fim> [--nome N]   um pedaço de um vídeo (sem arquivo próprio)
+    uv run ferramentas/banco.py apagar <id…>              apaga mídias que não serviram (recusa se alguma está em uso)
     uv run ferramentas/banco.py listar
     uv run ferramentas/banco.py descrever <id>            o Gemini descreve e sugere palavras-chave
 
@@ -115,6 +116,17 @@ def usos() -> dict[str, list[str]]:
             if m.get('banco'):
                 out.setdefault(m['banco'], []).append(f'{arq.parent.name}/{plano} (motion)')
     return out
+
+
+def apagar(bid: str) -> list[str]:
+    """Apaga uma mídia que não serviu (e os trechos dela). Recusa se algum projeto a usa. Devolve os ids apagados."""
+    ids = [bid] + [i['id'] for i in todos() if i.get('pai') == bid]
+    em_uso = {u for i in ids for u in usos().get(i, [])}
+    if em_uso:
+        raise SystemExit(f'{bid} está em uso ({", ".join(sorted(em_uso))}): tire dos inserts antes de apagar.')
+    for i in ids:
+        shutil.rmtree(pasta_item(i), ignore_errors=True)
+    return ids
 
 
 def listar_banco(busca: str = '') -> list[dict]:
@@ -288,6 +300,8 @@ if __name__ == '__main__':
     sub.add_parser('listar')
     d = sub.add_parser('descrever')
     d.add_argument('id')
+    x = sub.add_parser('apagar')
+    x.add_argument('ids', nargs='+')
     args = ap.parse_args()
     if args.cmd == 'adicionar':
         item = adicionar(Path(args.arquivo), args.nome, args.descricao, args.palavras.split(','), args.fonte, args.projeto)
@@ -299,6 +313,9 @@ if __name__ == '__main__':
         print(f'{item["id"]}  trecho {num(item["inicio"], 2)}–{num(item["fim"], 2)} s de {args.id}  {item["nome"]}')
     elif args.cmd == 'listar':
         mostrar(listar_banco())
+    elif args.cmd == 'apagar':
+        for bid in args.ids:
+            print('apagado:', ' '.join(apagar(bid)))
     elif args.cmd == 'descrever':
         item = descrever(args.id)
         print(f'{item["id"]}  {item["nome"]}\nDescrição (IA): {item["descricao_ia"]}\nPalavras-chave: {", ".join(item["palavras"])}')
