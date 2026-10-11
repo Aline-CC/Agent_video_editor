@@ -1037,7 +1037,15 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .chip-plano-mini { padding: 1px 7px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-full); background: transparent; color: var(--color-fog); font-size: 10.5px; font-weight: 600; cursor: pointer; }
 .chip-plano-mini:hover { border-color: var(--color-cream-50); color: var(--color-cream); }
 .lista-audio { grid-template-columns: 1fr; gap: 6px; }
+/* as prévias em pé (refs, motions, presets, transições): 5 por linha */
+.lista-em-pe { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.lista-em-pe .elemento-previa { max-width: none; max-height: none; }
 .elemento-audio { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius-lg); background: var(--color-deeper); overflow: hidden; }
 .elemento-audio .planos-usados { margin-left: 0; }
 .elemento-audio .trilha-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
 .elemento-audio .trilha-barra i { display: block; width: 0; height: 100%; background: var(--color-coral); }
+
+/* o Banco: os chips Tudo · Inserts · Motions; com Tudo, os motions vêm depois das mídias */
+.partes-banco { display: flex; gap: 6px; margin-bottom: 18px; }
+.parte-banco:empty { display: none; }
+.parte-banco + .parte-banco:not(:empty) { margin-top: 40px; }

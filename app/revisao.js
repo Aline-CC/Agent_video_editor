@@ -736,7 +736,7 @@ class Revisao {
       $('.filtro-elementos', el).innerHTML = tipo !== 'refs' ? ''
         : `<div class="alternar">${Object.entries(TELAS_REF).map(([t, n]) => `<button class="pilula${t === tela ? ' ativa' : ''}" data-tela-ref="${t}">${n} <span class="conta">${todos.filter((x) => passa(x, t)).length}</span></button>`).join('')}</div>
           ${[['insert', 'Inserts'], ['motion', 'Motions']].map(([k, n]) => `<label class="caixa"><input type="checkbox" data-tem-ref="${k}"${tem.has(k) ? ' checked' : ''}> ${n}</label>`).join('')}`
-      lista.className = `lista-elementos${tipo === 'audio' ? ' lista-audio' : ''}`
+      lista.className = `lista-elementos${tipo === 'audio' ? ' lista-audio' : tipo === 'banco' ? '' : ' lista-em-pe'}`
       lista.innerHTML = itens.length ? itens.map(tipo === 'audio' ? linhaAudio : card).join('') : `<p class="vazio">Nada de ${ELEMENTOS[tipo].toLowerCase()} nesta versão.</p>`
     }
     const tocar = (k) => {

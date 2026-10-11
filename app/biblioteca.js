@@ -6,6 +6,7 @@ import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirm
 export const PAGINAS_BIBLIOTECA = ['presets', 'transicoes', 'banco', 'motions', 'trilhas']
 
 export async function abrirBiblioteca(tela, aba, resto = []) {
+  if (aba === 'motions') [aba, resto] = ['banco', ['motions']] // os motions moram no Banco (o endereço antigo continua)
   tela.className = `pagina pagina-biblioteca pagina-${aba}`
   tela.innerHTML = '<p class="vazio">Carregando…</p>'
   const sair = await { banco, presets, transicoes, motions, trilhas }[aba](tela, resto)
@@ -45,6 +46,17 @@ const chip = (ativo, html, attrs = '') => `<button class="pilula pequena${ativo 
 
 // ---------- Banco ----------
 
+/** O Banco: as mídias dos inserts e os motions, juntos ou um de cada vez (chips Tudo · Inserts · Motions). */
+const PARTES_BANCO = { tudo: 'Tudo', inserts: 'Inserts', motions: 'Motions' }
+async function banco(el, resto = []) {
+  const parte = PARTES_BANCO[resto[0]] ? resto[0] : 'tudo'
+  el.innerHTML = `<div class="partes-banco">${Object.entries(PARTES_BANCO).map(([k, n]) => `<a class="pilula pequena${k === parte ? ' ativa' : ''}" href="#/banco${k === 'tudo' ? '' : `/${k}`}">${n}</a>`).join('')}</div>
+    <div class="parte-banco" data-parte="inserts"></div><div class="parte-banco" data-parte="motions"></div>`
+  const [a, b] = [$('[data-parte="inserts"]', el), $('[data-parte="motions"]', el)]
+  await Promise.all([parte !== 'motions' && bancoInserts(a), parte !== 'inserts' && motions(b)])
+}
+
+
 function origemDe(o) {
   if (!o) return ''
   if (o.url) {
@@ -55,7 +67,7 @@ function origemDe(o) {
   return esc(o.tipo || '')
 }
 
-async function banco(el) {
+async function bancoInserts(el) {
   const [nomes, cods] = await Promise.all([lista('biblioteca/banco'), codigos()])
   const cod = cods.midia || {}
   const ids = nomes.filter((n) => n.endsWith('/')).map((n) => n.slice(0, -1))
@@ -83,7 +95,7 @@ async function banco(el) {
     (originais.length ? `<div class="grade grade-banco">${cards.join('')}</div>` : '<p class="vazio">O banco está vazio.</p>')
 
   for (const card of $$('.card-banco', el)) {
-    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => banco(el), cod))
+    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => bancoInserts(el), cod))
     const v = $('video', card)
     if (!v) continue
     let trecho = null // [ini, fim] enquanto o mouse está num trecho
