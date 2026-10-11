@@ -150,7 +150,7 @@ kbd {
 .aba-projeto button:hover { opacity: 1; background: rgba(128, 128, 128, 0.2); }
 .aba-projeto button svg { width: 12px; height: 12px; }
 /* o plano sob o cursor e o copiar do código ao lado */
-.plano-linha { display: flex; align-items: center; gap: 4px; }
+.plano-linha { cursor: pointer; display: flex; align-items: center; gap: 4px; }
 
 /* ---------- pílulas, chips e botões ---------- */
 /* a pílula da navegação (PILULA do 18): contorno fino, 12px semibold; a ativa em creme */
@@ -898,7 +898,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .preset-lado .dados { margin: 0; }
 
 /* ---------- códigos (PRE-07, REF-03·p7…): discretos, com o botão copiar ---------- */
-.codigo {
+.codigo { cursor: pointer;
   display: inline-flex; align-items: center; gap: 2px; flex: none; padding: 0 2px 0 7px; height: 20px; border: 1px solid var(--color-line-dark);
   border-radius: var(--radius-full); font: 600 10.5px/1 var(--font-mono); letter-spacing: 0.02em; color: var(--color-fog); white-space: nowrap;
 }

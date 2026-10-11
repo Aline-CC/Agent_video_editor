@@ -547,7 +547,7 @@ class Revisao {
       const q = this.planos[p]
       const cod = q && this.codigoPlano(q)
       $('#plano-atual').innerHTML = q
-        ? `<span class="plano-linha"><span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? `<button type="button" class="copiar-codigo" data-copiar-codigo="${esc(cod.texto)}" title="Copiar “${esc(cod.texto)}”" aria-label="Copiar o código do plano">${ICONE.copiar}</button>` : ''}</span>${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}`
+        ? `<span class="plano-linha" data-chip-copia><span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? `<button type="button" class="copiar-codigo" data-copiar-codigo="${esc(cod.texto)}" title="Copiar “${esc(cod.texto)}”" aria-label="Copiar o código do plano">${ICONE.copiar}</button>` : ''}</span>${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}`
         : '<span class="apagado">—</span>'
       $('#usado').innerHTML = q ? this.htmlUsado(q.id) : ''
       this.carregarMidias(q?.id)

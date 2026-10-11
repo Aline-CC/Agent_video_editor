@@ -183,8 +183,10 @@ async function rotear() {
 }
 
 // o botão copiar dos códigos (comum.chipCodigo), em qualquer página: na captura, antes do clique do card ou do link
+// o chip inteiro copia, não só o botão
+const botaoCopiar = (alvo) => alvo.closest?.('[data-copiar-codigo]') || alvo.closest?.('.codigo, [data-chip-copia]')?.querySelector('[data-copiar-codigo]')
 document.addEventListener('click', (e) => {
-  const b = e.target.closest?.('[data-copiar-codigo]')
+  const b = botaoCopiar(e.target)
   if (!b) return
   e.preventDefault()
   e.stopPropagation()
@@ -198,7 +200,7 @@ document.addEventListener('click', (e) => {
     }, 1400)
   })
 }, true)
-for (const ev of ['pointerdown', 'mousedown']) document.addEventListener(ev, (e) => e.target.closest?.('[data-copiar-codigo]') && e.stopPropagation(), true)
+for (const ev of ['pointerdown', 'mousedown']) document.addEventListener(ev, (e) => botaoCopiar(e.target) && e.stopPropagation(), true)
 
 window.addEventListener('hashchange', rotear)
 rotear()
