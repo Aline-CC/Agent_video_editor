@@ -1,6 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
-import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
+import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, preferencia, tempo } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -351,7 +351,6 @@ class Revisao {
         ${c.geral ? '<span class="chip-tempo estatico">Geral</span>' : `<button class="chip-tempo" data-ir="${c.t}">${quando(c)}</button>`}
         <span class="item-acoes"><button class="botao-icone pequeno" data-editar="${c.id}" title="Editar">${ICONE.lapis}</button>
         <button class="botao-icone pequeno" data-apagar="${c.id}" title="Apagar">${ICONE.lixo}</button></span></header>
-      ${c.fala ? `<p class="fala">“${esc(c.fala)}”</p>` : ''}
       ${c.texto ? `<p class="texto">${esc(c.texto)}</p>` : ''}${this.htmlAnexos(c.anexos, c.id)}
       ${this.htmlResposta(c)}
     </article>`
@@ -400,10 +399,8 @@ class Revisao {
   htmlEditor() {
     const ed = this.editor
     const titulo = ed.responde ? 'Sua resposta' : 'Editar comentário'
-    const fala = ed.responde || ed.geral ? '' : ed.fim != null ? this.falaIntervalo(ed.t, ed.fim) : this.falaPonto(ed.t)
     return `<div class="editor">
       <div class="item-cabeca"><span class="eyebrow">${titulo}</span>${ed.responde ? '' : `<span class="chip-tempo estatico">${quando(ed)}</span>`}</div>
-      ${fala ? `<p class="fala">“${esc(fala)}”</p>` : ''}
       <textarea id="editor-texto" rows="3" placeholder="${ed.responde ? 'Responda a dúvida' : 'O que mudar aqui?'} (⌘V ou arraste para anexar print ou vídeo)">${esc(ed.texto || '')}</textarea>
       ${this.htmlAnexos(ed.anexos, 'editor')}
       <div class="editor-acoes">${clipe('editor')}<span class="dica">Enter salva · Shift+Enter quebra a linha · Esc cancela</span>
@@ -974,6 +971,9 @@ class Revisao {
 
   ligar() {
     const v = this.video
+    // volta ao instante onde o criador estava nesta versão (ao trocar de página e voltar, ou recarregar)
+    const onde = preferencia(`posicao.${this.slug}.v${this.v}`, 0)
+    v.addEventListener('loadedmetadata', () => onde > 0 && this.buscar(onde), { once: true })
     v.addEventListener('loadedmetadata', () => {
       if (isFinite(v.duration) && Math.abs(v.duration - this.dur) > 0.05) {
         this.dur = v.duration
@@ -990,7 +990,10 @@ class Revisao {
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
     window.addEventListener('resize', this.redim)
-    this.saida = () => this.sujo && this.salvar(true)
+    this.saida = () => {
+      this.guardarPosicao()
+      if (this.sujo) this.salvar(true)
+    }
     window.addEventListener('pagehide', this.saida)
 
     // a caixa do comentário novo: escrever prende o instante (e pausa); apagar tudo solta
@@ -999,6 +1002,16 @@ class Revisao {
       if (e.target.value.trim()) this.prenderNova()
       else if (!this.nova.anexos.length && this.nova.fim == null) this.soltarNova()
     })
+    // o rascunho que ficou na caixa ao sair
+    const r = preferencia(`rascunho.${this.slug}.v${this.v}`, null)
+    if (r) {
+      const { texto, ...nova } = r
+      Object.assign(this.nova, nova)
+      $('#nova-texto').value = texto
+      crescer($('#nova-texto'))
+      this.rotuloNova = null
+      this.renderNova()
+    }
     // o botão de clipe
     this.tela.addEventListener('change', (e) => {
       const alvo = e.target.dataset?.anexar
@@ -1164,7 +1177,16 @@ class Revisao {
     }
   }
 
+  /** Ao sair da página: o instante do vídeo e o rascunho da caixa (texto, instante preso, prints) desta versão. */
+  guardarPosicao() {
+    if (!this.video) return
+    preferencia(`posicao.${this.slug}.v${this.v}`, 0, +this.video.currentTime.toFixed(3))
+    const texto = $('#nova-texto')?.value || ''
+    preferencia(`rascunho.${this.slug}.v${this.v}`, null, texto.trim() || this.nova.anexos.length ? { ...this.nova, texto } : null)
+  }
+
   fechar() {
+    this.guardarPosicao()
     this.fechado = true
     if (this.sujo) this.salvar(true)
     clearInterval(this.relogio)
