@@ -144,6 +144,7 @@ async function rotear() {
   tela.className = ''
   velha.replaceWith(tela)
   $('#barra-extra').innerHTML = ''
+  $('#barra-trilha').innerHTML = ''
   const aba = partes[0] === 'p' || !partes[0] ? 'projetos' : partes[0]
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])

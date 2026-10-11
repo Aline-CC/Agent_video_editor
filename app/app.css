@@ -131,6 +131,11 @@ kbd {
 /* o que a página põe na barra (o projeto aberto, a versão, Aprovar e Copiar; a contagem): encolhe antes dos links */
 .barra-extra { display: flex; flex: 0 1 auto; align-items: center; gap: 10px; min-width: 0; }
 .barra-extra:empty { display: none; }
+/* o projeto aberto (voltar, nome, código, versão) logo depois da marca, separado dos links por um fio */
+.barra-trilha { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; }
+.barra-trilha:empty, .barra-trilha:empty + .sep-trilha { display: none; }
+.barra-trilha .trilha-projeto { margin-right: 0; }
+.barra-trilha .nome-projeto { max-width: 280px; }
 
 /* ---------- pílulas, chips e botões ---------- */
 /* a pílula da navegação (PILULA do 18): contorno fino, 12px semibold; a ativa em creme */

@@ -112,10 +112,11 @@ class Revisao {
   // ---------- a tela ----------
 
   montar() {
-    const extra = $('#barra-extra')
-    extra.innerHTML = `<div class="trilha-projeto"><a href="#/" class="botao-icone" title="Projetos">${ICONE.voltar}</a>
+    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><a href="#/" class="botao-icone" title="Projetos">${ICONE.voltar}</a>
         <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span>${chipCodigo(this.codigo, this.proj.nome)}
-        <div class="seletor-versao" id="versoes"></div><span class="aviso-versao" id="aviso-versao"></span></div>
+        <div class="seletor-versao" id="versoes"></div></div>`
+    const extra = $('#barra-extra')
+    extra.innerHTML = `<span class="aviso-versao" id="aviso-versao"></span>
       <span class="salvo" id="salvo"></span>
       <button class="botao" data-acao="aprovar" id="b-aprovar">Aprovar</button>
       <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button>`
@@ -962,7 +963,7 @@ class Revisao {
 
     this.cliques = (e) => this.clique(e)
     this.tela.addEventListener('click', this.cliques)
-    $('#barra-extra').addEventListener('click', this.cliques)
+    $('.barra').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
@@ -1151,7 +1152,7 @@ class Revisao {
     window.removeEventListener('resize', this.redim)
     window.removeEventListener('pagehide', this.saida)
     document.removeEventListener('click', this.foraMenu)
-    $('#barra-extra').removeEventListener('click', this.cliques)
+    $('.barra').removeEventListener('click', this.cliques)
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()

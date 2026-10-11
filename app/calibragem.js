@@ -257,9 +257,9 @@ class RevisaoReferencia {
   }
 
   abrir() {
-    $('#barra-extra').innerHTML = `<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
-        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}${seloOrigem(this.ref.origem, 'selo-linha selo-azul')}<span class="dica">referência · ${mmss(this.dur)}</span></div>
-      <span class="salvo" id="salvo"></span>
+    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
+        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}${seloOrigem(this.ref.origem, 'selo-linha selo-azul')}<span class="dica">referência · ${mmss(this.dur)}</span></div>`
+    $('#barra-extra').innerHTML = `<span class="salvo" id="salvo"></span>
       <button class="botao" data-acao="reanalisar" title="A IA refaz a análise deste vídeo do zero (o proxy e a transcrição ficam)">${ICONE.refazer} Reanalisar</button>
       <button class="botao" data-acao="revisada" id="b-revisada"></button>`
     this.tela.className = 'pagina-revisao'
@@ -751,7 +751,7 @@ class RevisaoReferencia {
 
     this.cliques = (e) => this.clique(e)
     this.tela.addEventListener('click', this.cliques)
-    $('#barra-extra').addEventListener('click', this.cliques)
+    $('.barra').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
@@ -895,7 +895,7 @@ class RevisaoReferencia {
     this.pararTrecho?.()
     window.removeEventListener('keydown', this.teclas)
     window.removeEventListener('resize', this.redim)
-    $('#barra-extra').removeEventListener('click', this.cliques)
+    $('.barra').removeEventListener('click', this.cliques)
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()
