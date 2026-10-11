@@ -947,6 +947,12 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .anexo:hover .anexo-tirar, .anexo-tirar:focus-visible { opacity: 1; }
 .editor.soltando, .caixa-nova.soltando { outline: 2px dashed var(--color-yellow); outline-offset: -4px; }
 .janela-anexo { position: relative; width: auto; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); padding: 0; background: #000; overflow: hidden; }
+.player-trecho { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-ink); }
+.trecho-barra { flex: 1; height: 6px; border-radius: var(--radius-full); background: var(--color-line-dark); cursor: pointer; overflow: hidden; }
+.trecho-barra i { display: block; height: 100%; width: 0; background: var(--color-coral); }
+.trecho-tempo { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--color-fog); white-space: nowrap; }
+.midia-mini .duracao { top: auto; bottom: 8px; right: 8px; }
+.janela-anexo:has(.player-trecho) .anexo-grande { max-height: calc(100vh - 96px); }
 .anexo-grande { display: block; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); object-fit: contain; }
 .anexo-fechar { position: absolute; top: 8px; right: 8px; background: var(--color-ink-85); }
 

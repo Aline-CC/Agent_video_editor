@@ -565,8 +565,9 @@ class Revisao {
       const m = this.midias[id]
       const nome = m?.nome || ''
       const fonte = m?.origem?.url
+      const dur = m ? (m.pai ? m.fim - m.inicio : m.duracao) : null
       return `<div class="midia-usada">
-        <button class="midia-mini" data-ver-midia="${id}" title="Assistir">${m?.tipo === 'imagem' ? '' : `<span class="midia-play">${ICONE.tocar}</span>`}<img src="/biblioteca/banco/${id}/miniatura.jpg" alt="" loading="lazy"></button>
+        <button class="midia-mini" data-ver-midia="${id}" title="Assistir">${m?.tipo === 'imagem' ? '' : `<span class="midia-play">${ICONE.tocar}</span>`}<img src="/biblioteca/banco/${id}/miniatura.jpg" alt="" loading="lazy">${dur ? `<span class="duracao">${tempo(dur)}</span>` : ''}</button>
         <div class="midia-linha"><span class="midia-nome" title="${esc(nome)}">${esc(nome)}</span></div>
         <div class="midia-linha">${chipCodigo(c.midia?.[id], nome || id)}${fonte ? `<a class="midia-fonte" href="${esc(fonte)}" target="_blank" rel="noopener" title="${esc(fonte)}">${esc(new URL(fonte).hostname.replace(/^www\./, ''))} ↗</a>` : ''}</div></div>`
     }).join('')
@@ -584,12 +585,36 @@ class Revisao {
     this.video.pause()
     const pasta = `/biblioteca/banco/${m.pai || id}/`
     const arq = m.proxy || m.arquivo
-    const corpo = m.tipo === 'imagem'
-      ? `<img class="anexo-grande" src="${pasta}${arq}" alt="">`
-      : `<video class="anexo-grande" src="${pasta}${arq}${m.pai ? `#t=${m.inicio}` : ''}" controls autoplay playsinline></video>`
-    const { el } = janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button>${corpo}`, { classe: 'janela-anexo' })
-    const v = $('video', el)
-    if (v && m.pai) v.addEventListener('timeupdate', () => v.currentTime >= m.fim && (v.currentTime = m.inicio))
+    const fechar = `<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button>`
+    if (m.tipo === 'imagem') return janela(`${fechar}<img class="anexo-grande" src="${pasta}${arq}" alt="">`, { classe: 'janela-anexo' })
+    // um player próprio: a barra e o tempo são só do trecho usado (o nativo mostraria o vídeo de origem inteiro)
+    const ini = m.pai ? m.inicio : 0
+    const { el } = janela(`${fechar}<video class="anexo-grande" src="${pasta}${arq}#t=${ini}" autoplay playsinline></video>
+      <div class="player-trecho"><button class="botao-icone pequeno" data-tocar-trecho title="Tocar / pausar (Espaço)">${ICONE.pausar}</button>
+        <div class="trecho-barra"><i></i></div><span class="trecho-tempo">0:00,0</span></div>`, { classe: 'janela-anexo' })
+    const v = $('video', el), bar = $('.trecho-barra', el), b = $('[data-tocar-trecho]', el)
+    const fim = () => (m.pai ? m.fim : v.duration || m.duracao || 0)
+    const dur = () => Math.max(0.01, fim() - ini)
+    const mostrar = () => {
+      const t = Math.min(Math.max(v.currentTime - ini, 0), dur())
+      $('i', bar).style.width = `${(100 * t) / dur()}%`
+      $('.trecho-tempo', el).textContent = `${tempo(t)} / ${tempo(dur())}`
+      b.innerHTML = v.paused ? ICONE.tocar : ICONE.pausar
+    }
+    v.addEventListener('timeupdate', () => {
+      if (v.currentTime >= fim() - 0.02) v.currentTime = ini // em laço
+      mostrar()
+    })
+    for (const ev of ['play', 'pause', 'loadedmetadata']) v.addEventListener(ev, mostrar)
+    const alternar = () => (v.paused ? v.play() : v.pause())
+    b.addEventListener('click', alternar)
+    v.addEventListener('click', alternar)
+    bar.addEventListener('click', (e) => {
+      const r = bar.getBoundingClientRect()
+      v.currentTime = ini + ((e.clientX - r.left) / r.width) * dur()
+    })
+    el.addEventListener('keydown', (e) => e.key === ' ' && (e.preventDefault(), alternar()))
+    b.focus()
   }
 
   /** Busca no banco o nome e a fonte das mídias do plano (uma vez cada) e redesenha o bloco. */
