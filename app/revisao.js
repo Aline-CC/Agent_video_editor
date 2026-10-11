@@ -1,6 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
-import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
+import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo, tocarTrecho, urlRef } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -54,6 +54,17 @@ export async function abrirRevisao(tela, slug, vPedida) {
   return () => r.fechar()
 }
 
+// o que o vídeo usa, nos botões do canto e no modal
+const ELEMENTOS = { banco: 'Banco', motions: 'Motions', presets: 'Presets', transicoes: 'Transições', audio: 'Áudio', refs: 'Refs' }
+const ICONES_EL = {
+  banco: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 11-1.296-1.296a2.4 2.4 0 0 0-3.408 0L11 16"/><path d="M4 8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2"/><circle cx="13" cy="7" r="1" fill="currentColor"/><rect x="8" y="2" width="14" height="14" rx="2"/></svg>',
+  motions: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12.296 3.464 3.02 3.956"/><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m6.18 5.276 3.1 3.899"/></svg>',
+  presets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>',
+  transicoes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15" cy="9" r="7"/><circle cx="9" cy="15" r="7"/></svg>',
+  audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+  refs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>',
+}
+
 class Revisao {
   constructor(tela, proj, v) {
     Object.assign(this, { tela, proj, v, slug: proj.slug })
@@ -88,6 +99,7 @@ class Revisao {
     for (const q of edicao.inserts?.pedidos || []) this.usado[q.plano] = { midias: (q.midias || []).map((m) => m.banco).filter(Boolean), preset: q.enriquecimento?.preset }
     for (const [pl, m] of Object.entries(edicao.motions || {})) (this.usado[pl] ||= {}).motion = m
     this.midias = {} // os itens do banco já buscados (nome, fonte, vídeo)
+    this.edicao = edicao
     this.palavras = listaDe(palavras, 'palavras').slice().sort((a, b) => a.ini - b.ini)
     this.planos = listaDe(planos, 'planos')
     this.notas = listaDe(notas, 'notas')
@@ -126,6 +138,8 @@ class Revisao {
         <div class="lado lado-esq">
           <div class="bloco"><span class="eyebrow">Plano agora</span><div id="plano-atual" class="plano-atual"></div></div>
           <div class="bloco"><span class="eyebrow">Fala</span><p id="fala-atual" class="fala-atual"></p></div>
+          <div class="elementos-projeto"><span class="eyebrow">No vídeo</span>
+            <div class="grade-elementos">${Object.entries(ELEMENTOS).map(([k, nome]) => `<button class="botao-elemento" data-elementos="${k}" title="O que o vídeo usa: ${nome.toLowerCase()}">${ICONES_EL[k]}<span>${nome}</span></button>`).join('')}</div></div>
         </div>
         <div class="video-caixa"><video id="video" src="${this.base}proxy.mp4" preload="auto" playsinline></video>
           <button class="video-tocar" data-acao="tocar" aria-label="Tocar">${ICONE.tocar}</button></div>
@@ -617,6 +631,170 @@ class Revisao {
     b.focus()
   }
 
+  /** O que o vídeo usa, por tipo, a partir do edicao.json desta versão: [{id, nome, codigo, planos, …}]. */
+  async elementos(tipo) {
+    const ed = this.edicao || {}, c = this.cods || {}
+    const juntar = (pares) => {
+      const m = new Map()
+      for (const [id, pl, extra] of pares) if (id) (m.get(id) || m.set(id, { id, planos: [], ...extra }).get(id)).planos.push(pl)
+      return [...m.values()]
+    }
+    const pedidos = ed.inserts?.pedidos || []
+    const durPlano = (pl) => { const q = this.planos.find((x) => x.id === pl); return q ? q.fim - q.ini : 3 }
+    const transicoes = async () => Promise.all(juntar(Object.entries(ed.transicoes || {}).map(([pl, t]) => [t.id, pl])).map(async (t) => ({ ...t, ...(await json(`/biblioteca/transicoes/${t.id}.json`, {})), codigo: c.transicao?.[t.id] })))
+    const presets = async () => Promise.all(juntar(pedidos.map((q) => [q.enriquecimento?.preset, q.plano])).map(async (p) => ({ ...p, ...(await json(`/biblioteca/presets/${p.id}.json`, {})), codigo: c.preset?.[p.id] })))
+    const motions = async () => Promise.all(juntar(Object.entries(ed.motions || {}).map(([pl, m]) => [m.preset, pl, { nome: m.nome, formato: m.formato, valores: m.valores, fundo: m.fundo, dur: durPlano(pl) }])).map(async (m) => {
+      const html = await fetch(`/biblioteca/motions/presets/${m.preset || m.id}.html`).then((r) => (r.ok ? r.text() : ''), () => '')
+      let info = {}
+      try { info = JSON.parse(html.match(/id="preset">([\s\S]*?)<\/script>/)?.[1] || '{}') } catch {}
+      return { ...m, sons: Object.values(info.sons || {}).map((x) => x.som), codigo: c.motion?.[m.id] }
+    }))
+    if (tipo === 'banco') {
+      const l = juntar(pedidos.flatMap((q) => (q.midias || []).map((x) => [x.banco, q.plano])))
+      await Promise.all(l.filter((m) => !(m.id in this.midias)).map(async (m) => (this.midias[m.id] = (await json(`/api/banco/${m.id}`, null))?.item || null)))
+      return l.map((m) => ({ ...m, ...(this.midias[m.id] || {}), id: m.id, codigo: c.midia?.[m.id] }))
+    }
+    if (tipo === 'motions') return motions()
+    if (tipo === 'presets') return presets()
+    if (tipo === 'transicoes') return transicoes()
+    if (tipo === 'audio') {
+      const [cat, sons, ts, ms] = await Promise.all([json('/biblioteca/trilhas/catalogo.json', {}), json('/biblioteca/sons/catalogo.json', []), transicoes(), motions()])
+      const faixas = cat?.faixas || (Array.isArray(cat) ? cat : [])
+      const f = faixas.find((x) => x.id === ed.audio?.fundo)
+      const nomes = Object.fromEntries((sons || []).map((x) => [x.id, x]))
+      const usos = juntar([...ts.flatMap((t) => t.planos.map((pl) => [t.som?.som, pl])), ...ms.flatMap((m) => m.sons.flatMap((x) => m.planos.map((pl) => [x, pl])))])
+      return [
+        ...(f && !ed.audio?.fundo_mudo ? [{ id: f.id, nome: f.nome, sub: `trilha de fundo · ${f.clima || ''}`, src: `/biblioteca/trilhas/${f.arquivo || `${f.id}.m4a`}`, codigo: c.trilha?.[f.id], planos: [] }] : []),
+        ...usos.map((u) => ({ ...u, nome: nomes[u.id]?.nome || u.id, sub: nomes[u.id]?.familia || 'som', src: `/biblioteca/sons/${u.id}.m4a`, codigo: c.som?.[u.id] })),
+      ]
+    }
+    if (tipo === 'refs') {
+      // as referências de onde saíram os presets e as transições deste vídeo (o trecho que cada um recriou)
+      const [ps, ts] = await Promise.all([presets(), transicoes()])
+      const m = new Map()
+      for (const x of [...ps.map((p) => [p, 'preset']), ...ts.map((t) => [t, 'transição'])])
+        for (const f of x[0].fontes || []) {
+          if (!f.ref || m.get(f.ref)?.trechos.some((t) => t.de === x[0].nome)) continue
+          const r = m.get(f.ref) || m.set(f.ref, { id: f.ref, trechos: [], planos: [] }).get(f.ref)
+          r.trechos.push({ ini: f.inicio ?? Math.max(0, f.t - 0.6), fim: f.fim ?? f.t + 0.9, de: x[0].nome, tipo: x[1] })
+          for (const pl of x[0].planos) if (!r.planos.includes(pl)) r.planos.push(pl)
+        }
+      return Promise.all([...m.values()].map(async (r) => ({ ...r, nome: (await json(urlRef(r.id, 'referencia.json'), {}))?.nome || r.id, codigo: c.referencia?.[r.id] })))
+    }
+    return []
+  }
+
+  /** O motion como ele entrou no vídeo: o formato, os valores e a duração do plano, tocando em laço. */
+  qMotion(x) {
+    return new URLSearchParams({ preset: x.id, formato: x.formato || 'vertical', tocar: '1', duracao: String(x.dur || 3), valores: JSON.stringify(x.valores || {}), ...(x.fundo ? { fundo: x.fundo } : {}) })
+  }
+
+  /** Um modal com o que o vídeo usa (banco, motions, presets, transições, áudio, refs): tocar e copiar os códigos. */
+  async abrirElementos(tipo) {
+    this.video.pause()
+    const { el, fechar } = janela(`<div class="janela-cabeca"><div class="alternar">${Object.entries(ELEMENTOS).map(([k, n]) => `<button class="pilula" data-tipo="${k}">${ICONES_EL[k]}${n}</button>`).join('')}</div>
+        <button class="botao pequeno" data-copiar-todos>${ICONE.copiar} Copiar códigos</button>
+        <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></div>
+      <div class="lista-elementos"></div>`, { classe: 'janela-elementos', aoFechar: () => parar() })
+    let itens = [], parar = () => {}
+    const pararTudo = () => {
+      parar()
+      parar = () => {}
+      for (const m of $$('video, audio', el)) m.pause()
+      if (tipo !== 'motions') for (const f of $$('iframe', el)) f.remove()
+      for (const b of $$('[data-tocar-el]', el)) b.innerHTML = ICONE.tocar
+      for (const c of $$('.tocando', el)) c.classList.remove('tocando')
+    }
+    const planos = (l) => l.map((pl) => `<button class="chip-plano-mini" data-ir-plano="${esc(pl)}" title="Ir ao plano">${esc(pl)}</button>`).join('')
+    const card = (x, k) => {
+      const previa = tipo === 'banco' ? `<img src="/biblioteca/banco/${x.id}/miniatura.jpg" alt="" loading="lazy">`
+        : tipo === 'refs' ? `<img src="${urlRef(x.id, 'miniatura.jpg')}" alt="" loading="lazy" onerror="this.remove()">`
+        : tipo === 'motions' ? `<iframe src="/render/motion.html?${this.qMotion(x)}" loading="lazy" tabindex="-1"></iframe>`
+        : tipo === 'transicoes' ? `<video playsinline preload="metadata" src="/biblioteca/transicoes/clipes/${x.id}.mp4#t=1.4"></video>`
+        : tipo === 'presets' ? `<video playsinline preload="metadata" src="/biblioteca/presets/clipes/${x.id}.mp4#t=0.5"></video>` : ''
+      const dur = tipo === 'banco' ? (x.pai ? x.fim - x.inicio : x.duracao) : null
+      const sub = tipo === 'refs' ? x.trechos.map((t) => `${t.tipo} ${t.de}`).join(' · ') : tipo === 'presets' || tipo === 'transicoes' ? x.descricao : tipo === 'banco' ? x.origem?.url && new URL(x.origem.url).hostname.replace(/^www\./, '') : ''
+      return `<article class="item-uso uso-${tipo}" data-k="${k}">
+        <div class="elemento-previa fundo-${esc(x.fundo || 'escuro')}">${previa}<button class="video-tocar" data-tocar-el="${k}" aria-label="Tocar">${ICONE.tocar}</button>${dur ? `<span class="uso-dur">${tempo(dur)}</span>` : ''}</div>
+        <div class="elemento-info"><b title="${esc(x.nome || x.id)}">${esc(x.nome || x.id)}</b>${sub ? `<span class="dica" title="${esc(sub)}">${esc(sub)}</span>` : ''}
+          <div class="midia-linha">${chipCodigo(x.codigo, x.nome || x.id)}<span class="planos-usados">${planos(x.planos)}</span></div></div></article>`
+    }
+    const linhaAudio = (x, k) => `<div class="elemento-audio" data-k="${k}"><button class="botao-icone uso-ouvir" data-tocar-el="${k}" aria-label="Ouvir">${ICONE.tocar}</button>
+      <div class="elemento-info"><b>${esc(x.nome)}</b><span class="dica">${esc(x.sub)}</span></div><span class="planos-usados">${planos(x.planos)}</span>${chipCodigo(x.codigo, x.nome)}<div class="trilha-barra"><i></i></div></div>`
+    const desenhar = async () => {
+      pararTudo()
+      for (const b of $$('[data-tipo]', el)) b.classList.toggle('ativa', b.dataset.tipo === tipo)
+      const lista = $('.lista-elementos', el)
+      lista.innerHTML = '<p class="vazio">Carregando…</p>'
+      const minha = tipo
+      itens = await this.elementos(tipo)
+      if (minha !== tipo) return
+      lista.className = `lista-elementos${tipo === 'audio' ? ' lista-audio' : ''}`
+      lista.innerHTML = itens.length ? itens.map(tipo === 'audio' ? linhaAudio : card).join('') : `<p class="vazio">Nada de ${ELEMENTOS[tipo].toLowerCase()} nesta versão.</p>`
+    }
+    const tocar = (k) => {
+      const x = itens[k], caixa = $(`[data-k="${k}"]`, el), b = $('[data-tocar-el]', caixa)
+      const tocando = b.innerHTML === ICONE.pausar
+      pararTudo()
+      if (tocando) return
+      b.innerHTML = ICONE.pausar
+      if (tipo === 'audio') {
+        const a = $('audio', caixa) || caixa.appendChild(Object.assign(document.createElement('audio'), { src: x.src }))
+        a.currentTime = 0
+        a.ontimeupdate = () => ($('.trilha-barra i', caixa).style.width = `${(a.currentTime / (a.duration || 1)) * 100}%`)
+        a.onended = () => (b.innerHTML = ICONE.tocar)
+        return a.play().catch(() => {})
+      }
+      const previa = $('.elemento-previa', caixa)
+      previa.classList.add('tocando')
+      if (tipo === 'motions') {
+        $('iframe', previa)?.remove() // o motion recomeça do início
+        return previa.insertAdjacentHTML('afterbegin', `<iframe src="/render/motion.html?${this.qMotion(x)}" tabindex="-1"></iframe>`)
+      }
+      let v = $('video', previa)
+      if (!v) previa.prepend((v = Object.assign(document.createElement('video'), { playsInline: true })))
+      if (tipo === 'transicoes' || tipo === 'presets') { // o trecho da referência, com som
+        v.currentTime = 0
+        v.loop = true
+        return v.play().catch(() => {})
+      }
+      if (tipo === 'banco') {
+        if (x.tipo === 'imagem') return (b.innerHTML = ICONE.tocar)
+        v.src = `/biblioteca/banco/${x.pai || x.id}/${x.proxy || x.arquivo}`
+        parar = tocarTrecho(v, x.pai ? x.inicio : 0, x.pai ? x.fim : x.duracao || 9999)
+        return
+      }
+      if (tipo === 'refs') {
+        v.src = urlRef(x.id, 'proxy.mp4')
+        // os trechos recriados, um depois do outro, em laço
+        let i = 0
+        const proximo = () => {
+          const t = x.trechos[i++ % x.trechos.length]
+          parar = tocarTrecho(v, t.ini, t.fim, { loop: false })
+          v.onpause = () => v.currentTime >= t.fim - 0.05 && proximo()
+        }
+        proximo()
+      }
+    }
+    el.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-tipo]')
+      if (t) return (tipo = t.dataset.tipo), desenhar()
+      const b = e.target.closest('[data-tocar-el]')
+      if (b) return tocar(+b.dataset.tocarEl)
+      const pl = e.target.closest('[data-ir-plano]')
+      if (pl) {
+        const q = this.planos.find((x) => x.id === pl.dataset.irPlano)
+        fechar()
+        return q && this.buscar(q.ini + 0.01)
+      }
+      if (e.target.closest('[data-copiar-todos]')) {
+        const texto = itens.map((x) => `${x.codigo || x.id} · ${x.nome || x.id}${x.planos.length ? ` (${x.planos.join(', ')})` : ''}`).join('\n')
+        copiar(texto).then(() => aviso(`Copiado · ${itens.length} ${ELEMENTOS[tipo].toLowerCase()}`))
+      }
+    })
+    desenhar()
+  }
+
   /** Busca no banco o nome e a fonte das mídias do plano (uma vez cada) e redesenha o bloco. */
   async carregarMidias(pl) {
     const faltam = (this.usado[pl]?.midias || []).filter((id) => !(id in this.midias))
@@ -1080,6 +1258,7 @@ class Revisao {
     }
     if (d.ampliar) return this.ampliar(d.ampliar)
     if (d.verMidia) return this.verMidia(d.verMidia)
+    if (d.elementos) return this.abrirElementos(d.elementos)
     if (d.tirarAnexo) {
       const k = d.tirarAnexo.indexOf('|')
       return this.tirarAnexo(d.tirarAnexo.slice(0, k), d.tirarAnexo.slice(k + 1))

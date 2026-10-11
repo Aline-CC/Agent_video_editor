@@ -992,3 +992,45 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .anexo-play { position: absolute; inset: 0; display: grid; place-items: center; color: var(--color-cream); pointer-events: none; }
 .anexo-play svg { width: 18px; height: 18px; filter: drop-shadow(0 1px 3px #000c); }
 .io-ponto i { left: 5px; }
+
+/* o que o vídeo usa: os botões no pé da coluna da esquerda e o modal (cards com prévia; o áudio em linhas) */
+.lado-esq { height: 100%; }
+.elementos-projeto { display: flex; flex-direction: column; gap: 8px; align-self: flex-start; margin-top: auto; text-align: left; }
+.grade-elementos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.botao-elemento {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 84px; height: 64px; padding: 0;
+  border: 1px solid var(--color-line-dark); border-radius: var(--radius-xl); background: rgba(250, 247, 238, 0.02); color: var(--color-fog);
+  font-size: 11.5px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: background-color 0.25s, color 0.25s, border-color 0.25s, transform 0.25s var(--ease-otto);
+}
+.botao-elemento svg { width: 18px; height: 18px; opacity: 0.85; }
+.botao-elemento:hover { border-color: var(--color-cream-50); background: var(--color-cream-10); color: var(--color-cream); transform: translateY(-2px); }
+.janela-elementos .alternar .pilula svg { width: 13px; height: 13px; }
+.janela-elementos { width: min(1180px, calc(100vw - 32px)); min-height: min(560px, calc(100vh - 48px)); }
+.janela-elementos .janela-cabeca { padding-bottom: 12px; }
+.janela-elementos .janela-cabeca .botao { margin-left: auto; }
+.janela-elementos .janela-cabeca [data-fechar] { margin-left: 0; }
+.lista-elementos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; padding: 8px 20px 24px; }
+.lista-elementos > .vazio { grid-column: 1 / -1; }
+.item-uso { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.elemento-previa { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius-xl); background: #000; box-shadow: 0 0 0 1px var(--color-line-dark); }
+.uso-motions .elemento-previa, .uso-presets .elemento-previa, .uso-transicoes .elemento-previa { aspect-ratio: 9 / 16; max-height: 380px; margin: 0 auto; width: 100%; max-width: 214px; }
+.elemento-previa img, .elemento-previa video, .elemento-previa iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border: 0; }
+.elemento-previa video { z-index: 1; }
+.elemento-previa iframe { z-index: 1; pointer-events: none; }
+.elemento-previa .video-tocar { z-index: 2; }
+.uso-dur { position: absolute; right: 8px; bottom: 8px; z-index: 2; padding: 2px 7px; border-radius: var(--radius-full); background: rgba(0, 0, 0, 0.7); color: var(--color-cream); font-size: 11px; font-variant-numeric: tabular-nums; }
+.uso-motions .elemento-previa .video-tocar { opacity: 0; }
+.uso-motions .elemento-previa:hover .video-tocar { opacity: 1; }
+.uso-ouvir { border-color: var(--color-line-dark); color: var(--color-cream); }
+.uso-ouvir svg { width: 14px; height: 14px; }
+.elemento-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.elemento-info b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elemento-info .dica { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planos-usados { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.chip-plano-mini { padding: 1px 7px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-full); background: transparent; color: var(--color-fog); font-size: 10.5px; font-weight: 600; cursor: pointer; }
+.chip-plano-mini:hover { border-color: var(--color-cream-50); color: var(--color-cream); }
+.lista-audio { grid-template-columns: 1fr; gap: 6px; }
+.elemento-audio { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius-lg); background: var(--color-deeper); overflow: hidden; }
+.elemento-audio .planos-usados { margin-left: 0; }
+.elemento-audio .trilha-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
+.elemento-audio .trilha-barra i { display: block; width: 0; height: 100%; background: var(--color-coral); }
