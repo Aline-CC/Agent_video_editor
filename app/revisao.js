@@ -113,7 +113,7 @@ class Revisao {
 
   montar() {
     $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><a href="#/" class="botao-icone" title="Projetos">${ICONE.voltar}</a>
-        <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span>${chipCodigo(this.codigo, this.proj.nome)}
+        <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span>
         <div class="seletor-versao" id="versoes"></div></div>`
     const extra = $('#barra-extra')
     extra.innerHTML = `<span class="aviso-versao" id="aviso-versao"></span>
