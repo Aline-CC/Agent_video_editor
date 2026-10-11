@@ -126,6 +126,9 @@ kbd {
 .abas::-webkit-scrollbar { display: none; }
 .abas-grupo { display: flex; flex: none; align-items: center; gap: 6px; }
 .abas-treino { margin-left: auto; padding-left: 12px; }
+/* Calibragem, Heurística e Aprendizados: só o ícone (o nome na dica); na própria aba, o nome inteiro */
+.abas .so-icone:not(.ativa) { width: var(--alto-pilula); padding: 0; justify-content: center; }
+.abas .so-icone:not(.ativa) span { display: none; }
 
 /* os projetos abertos como abas (o AbaDeProjeto do 18): até 40% da barra; primeiro encolhem, depois rolam */
 .abas-projetos { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; max-width: 40%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
