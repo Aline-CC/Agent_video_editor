@@ -443,7 +443,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .atalhos kbd { font-size: 10px; }
 .lado-dir { padding-bottom: 4px; }
 .atalhos dt { white-space: nowrap; }
-.atalhos dd { margin: 0; }
+.atalhos dd { margin: 0; white-space: nowrap; }
 .resumo-versao { font-size: 13px; color: var(--color-cream); }
 
 .controles {
@@ -995,7 +995,8 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 
 /* o que o vídeo usa: os botões no pé da coluna da esquerda e o modal (cards com prévia; o áudio em linhas) */
 .lado-esq { height: 100%; }
-.elementos-projeto { display: flex; flex-direction: column; gap: 8px; align-self: flex-start; margin-top: auto; text-align: left; }
+/* espelha os atalhos da coluna da direita: no pé da coluna, encostado no vídeo */
+.elementos-projeto { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; margin-top: auto; }
 .grade-elementos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .botao-elemento {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 84px; height: 64px; padding: 0;

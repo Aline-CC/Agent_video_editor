@@ -147,7 +147,7 @@ class Revisao {
           <div class="bloco" id="usado"></div>
           ${this.info.resumo ? `<div class="bloco"><span class="eyebrow">O que mudou na v${this.v}</span><p class="resumo-versao">${esc(this.info.resumo)}</p></div>` : ''}
           <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar</dd><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>quadro · <kbd>Shift</kbd> 1 s</dd>
-            <dt><kbd>I</kbd><kbd>O</kbd></dt><dd>trecho</dd><dt><kbd>C</kbd></dt><dd>sem tempo (geral)</dd>
+            <dt><kbd>I</kbd><kbd>O</kbd></dt><dd>trecho</dd><dt><kbd>C</kbd></dt><dd>geral</dd>
             <dt><kbd>⌘V</kbd></dt><dd>anexar print</dd><dt><kbd>Esc</kbd></dt><dd>sair</dd></dl>
         </div>
       </section>
