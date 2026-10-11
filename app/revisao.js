@@ -71,15 +71,22 @@ class Revisao {
   }
 
   async abrir() {
-    const [palavras, planos, notas, info, rev, cods] = await Promise.all([
+    const [palavras, planos, notas, info, rev, cods, edicao] = await Promise.all([
       json(this.base + 'palavras.json', []),
       json(this.base + 'planos.json', []),
       json(this.base + 'notas.json', []),
       json(this.base + 'info.json', {}),
       json(this.urlRevisao, null),
       codigos(),
+      json(this.base + 'edicao.json', {}),
     ])
     this.codigo = cods.projeto?.[this.slug]
+    this.cods = cods
+    // o que entrou em cada plano nesta versão: as mídias do banco, o preset do enriquecimento e o motion
+    this.usado = {}
+    for (const q of edicao.inserts?.pedidos || []) this.usado[q.plano] = { midias: (q.midias || []).map((m) => m.banco).filter(Boolean), preset: q.enriquecimento?.preset }
+    for (const [pl, m] of Object.entries(edicao.motions || {})) (this.usado[pl] ||= {}).motion = m
+    this.midias = {} // os itens do banco já buscados (nome, fonte, vídeo)
     this.palavras = listaDe(palavras, 'palavras').slice().sort((a, b) => a.ini - b.ini)
     this.planos = listaDe(planos, 'planos')
     this.notas = listaDe(notas, 'notas')
@@ -545,9 +552,40 @@ class Revisao {
       const q = this.planos[p]
       const cod = q && this.codigoPlano(q)
       $('#plano-atual').innerHTML = q
-        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}${q.descricao ? `<p class="plano-desc">${esc(q.descricao)}</p>` : ''}`
+        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}${q.descricao ? `<p class="plano-desc">${esc(q.descricao)}</p>` : ''}${this.htmlUsado(q.id)}`
         : '<span class="apagado">—</span>'
+      this.carregarMidias(q?.id)
     }
+  }
+
+  /** O que entrou no plano: as mídias do banco (miniatura, código, fonte), o motion e o preset. */
+  htmlUsado(pl) {
+    const u = this.usado[pl]
+    if (!u) return ''
+    const c = this.cods || {}
+    const midias = u.midias?.map((id) => {
+      const m = this.midias[id]
+      const nome = m?.nome || id
+      const fonte = m?.origem?.url
+      const video = m && (m.pai ? `/biblioteca/banco/${m.pai}/${m.proxy || m.arquivo}#t=${m.inicio},${m.fim}` : `/biblioteca/banco/${id}/${m.proxy || m.arquivo}`)
+      return `<div class="midia-usada">
+        <a class="midia-mini"${video ? ` href="${esc(video)}" target="_blank" rel="noopener"` : ''} title="Abrir a mídia"><img src="/biblioteca/banco/${id}/miniatura.jpg" alt="" loading="lazy"></a>
+        <div class="midia-info"><span class="midia-nome" title="${esc(nome)}">${esc(nome)}</span>${chipCodigo(c.midia?.[id], nome)}
+          ${fonte ? `<a class="midia-fonte" href="${esc(fonte)}" target="_blank" rel="noopener" title="${esc(fonte)}">${esc(new URL(fonte).hostname.replace(/^www\./, ''))} ↗</a>` : ''}</div></div>`
+    }).join('') || ''
+    const motion = u.motion ? `<p class="usado-linha">Motion · ${esc(u.motion.nome || u.motion.preset || 'novo')} ${chipCodigo(c.motion?.[u.motion.preset], u.motion.nome || u.motion.preset)}</p>` : ''
+    const preset = u.preset ? `<p class="usado-linha">Preset ${chipCodigo(c.preset?.[u.preset], u.preset)}</p>` : ''
+    return midias || motion || preset ? `<div class="usado"><span class="eyebrow">Mídia usada</span>${midias}${motion}${preset}</div>` : ''
+  }
+
+  /** Busca no banco o nome e a fonte das mídias do plano (uma vez cada) e redesenha o bloco. */
+  async carregarMidias(pl) {
+    const faltam = (this.usado[pl]?.midias || []).filter((id) => !(id in this.midias))
+    if (!faltam.length) return
+    await Promise.all(faltam.map(async (id) => (this.midias[id] = (await json(`/api/banco/${id}`, null))?.item || null)))
+    if (this.fechado || this.planos[this.iPlano]?.id !== pl) return
+    this.iPlano = -2 // força o redesenho do plano atual
+    this.atualizar()
   }
 
   laco() {
