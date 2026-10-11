@@ -129,15 +129,11 @@ class Revisao {
         <div class="video-caixa"><video id="video" src="${this.base}proxy.mp4" preload="auto" playsinline></video>
           <button class="video-tocar" data-acao="tocar" aria-label="Tocar">${ICONE.tocar}</button></div>
         <div class="lado lado-dir">
-          <div class="bloco"><span class="eyebrow">Atalhos</span>
-            <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar / pausar</dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>1 quadro</dd>
-            <dt><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>1 segundo</dd>
-            <dt>escrever na caixa</dt><dd>comentar o instante (pausa o vídeo)</dd>
-            <dt><kbd>I</kbd> <kbd>O</kbd></dt><dd>entrada e saída de um trecho</dd>
-            <dt><kbd>Enter</kbd></dt><dd>grava · <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha</dd>
-            <dt><kbd>⌘V</kbd></dt><dd>cola um print ou vídeo na caixa</dd>
-            <dt><kbd>C</kbd></dt><dd>liga/desliga o tempo (desligado = comentário geral)</dd><dt><kbd>Esc</kbd></dt><dd>sair da caixa / cancelar</dd></dl></div>
+          <div class="bloco" id="usado"></div>
           ${this.info.resumo ? `<div class="bloco"><span class="eyebrow">O que mudou na v${this.v}</span><p class="resumo-versao">${esc(this.info.resumo)}</p></div>` : ''}
+          <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar</dd><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>quadro · <kbd>Shift</kbd> 1 s</dd>
+            <dt><kbd>I</kbd><kbd>O</kbd></dt><dd>trecho</dd><dt><kbd>C</kbd></dt><dd>sem tempo (geral)</dd>
+            <dt><kbd>⌘V</kbd></dt><dd>anexar print</dd><dt><kbd>Esc</kbd></dt><dd>sair</dd></dl>
         </div>
       </section>
       <div class="controles">
@@ -552,30 +548,47 @@ class Revisao {
       const q = this.planos[p]
       const cod = q && this.codigoPlano(q)
       $('#plano-atual').innerHTML = q
-        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}${q.descricao ? `<p class="plano-desc">${esc(q.descricao)}</p>` : ''}${this.htmlUsado(q.id)}`
+        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}`
         : '<span class="apagado">—</span>'
+      $('#usado').innerHTML = q ? this.htmlUsado(q.id) : ''
       this.carregarMidias(q?.id)
     }
   }
 
-  /** O que entrou no plano: as mídias do banco (miniatura, código, fonte), o motion e o preset. */
+  /** O que entrou no plano: as mídias do banco (miniatura que abre o vídeo, código, fonte), o motion e o preset. */
   htmlUsado(pl) {
     const u = this.usado[pl]
     if (!u) return ''
     const c = this.cods || {}
-    const midias = u.midias?.map((id) => {
+    const midias = (u.midias || []).map((id) => {
       const m = this.midias[id]
-      const nome = m?.nome || id
+      const nome = m?.nome || ''
       const fonte = m?.origem?.url
-      const video = m && (m.pai ? `/biblioteca/banco/${m.pai}/${m.proxy || m.arquivo}#t=${m.inicio},${m.fim}` : `/biblioteca/banco/${id}/${m.proxy || m.arquivo}`)
       return `<div class="midia-usada">
-        <a class="midia-mini"${video ? ` href="${esc(video)}" target="_blank" rel="noopener"` : ''} title="Abrir a mídia"><img src="/biblioteca/banco/${id}/miniatura.jpg" alt="" loading="lazy"></a>
-        <div class="midia-info"><span class="midia-nome" title="${esc(nome)}">${esc(nome)}</span>${chipCodigo(c.midia?.[id], nome)}
-          ${fonte ? `<a class="midia-fonte" href="${esc(fonte)}" target="_blank" rel="noopener" title="${esc(fonte)}">${esc(new URL(fonte).hostname.replace(/^www\./, ''))} ↗</a>` : ''}</div></div>`
-    }).join('') || ''
-    const motion = u.motion ? `<p class="usado-linha">Motion · ${esc(u.motion.nome || u.motion.preset || 'novo')} ${chipCodigo(c.motion?.[u.motion.preset], u.motion.nome || u.motion.preset)}</p>` : ''
-    const preset = u.preset ? `<p class="usado-linha">Preset ${chipCodigo(c.preset?.[u.preset], u.preset)}</p>` : ''
-    return midias || motion || preset ? `<div class="usado"><span class="eyebrow">Mídia usada</span>${midias}${motion}${preset}</div>` : ''
+        <button class="midia-mini" data-ver-midia="${id}" title="Assistir">${m?.tipo === 'imagem' ? '' : `<span class="midia-play">${ICONE.tocar}</span>`}<img src="/biblioteca/banco/${id}/miniatura.jpg" alt="" loading="lazy"></button>
+        <div class="midia-linha"><span class="midia-nome" title="${esc(nome)}">${esc(nome)}</span></div>
+        <div class="midia-linha">${chipCodigo(c.midia?.[id], nome || id)}${fonte ? `<a class="midia-fonte" href="${esc(fonte)}" target="_blank" rel="noopener" title="${esc(fonte)}">${esc(new URL(fonte).hostname.replace(/^www\./, ''))} ↗</a>` : ''}</div></div>`
+    }).join('')
+    const linhas = [
+      u.motion && `<div class="midia-linha"><span>Motion · ${esc(u.motion.nome || u.motion.preset || 'novo')}</span>${chipCodigo(c.motion?.[u.motion.preset], u.motion.nome || u.motion.preset)}</div>`,
+      u.preset && `<div class="midia-linha"><span>Preset</span>${chipCodigo(c.preset?.[u.preset], u.preset)}</div>`,
+    ].filter(Boolean).join('')
+    return midias || linhas ? `<span class="eyebrow">No plano</span>${midias}${linhas}` : ''
+  }
+
+  /** A mídia do banco num modal (um trecho toca só o pedaço usado, em laço). */
+  verMidia(id) {
+    const m = this.midias[id]
+    if (!m) return
+    this.video.pause()
+    const pasta = `/biblioteca/banco/${m.pai || id}/`
+    const arq = m.proxy || m.arquivo
+    const corpo = m.tipo === 'imagem'
+      ? `<img class="anexo-grande" src="${pasta}${arq}" alt="">`
+      : `<video class="anexo-grande" src="${pasta}${arq}${m.pai ? `#t=${m.inicio}` : ''}" controls autoplay playsinline></video>`
+    const { el } = janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button>${corpo}`, { classe: 'janela-anexo' })
+    const v = $('video', el)
+    if (v && m.pai) v.addEventListener('timeupdate', () => v.currentTime >= m.fim && (v.currentTime = m.inicio))
   }
 
   /** Busca no banco o nome e a fonte das mídias do plano (uma vez cada) e redesenha o bloco. */
@@ -1040,6 +1053,7 @@ class Revisao {
       return
     }
     if (d.ampliar) return this.ampliar(d.ampliar)
+    if (d.verMidia) return this.verMidia(d.verMidia)
     if (d.tirarAnexo) {
       const k = d.tirarAnexo.indexOf('|')
       return this.tirarAnexo(d.tirarAnexo.slice(0, k), d.tirarAnexo.slice(k + 1))
