@@ -1,6 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
-import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo, tocarTrecho } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -65,6 +65,11 @@ const ICONES_EL = {
   refs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>',
 }
 
+// as refs por tela e pelo que entra nela (o comentário + insert + ator conta como full ator com insert)
+const TELAS_REF = { dividida: 'Tela dividida', cheia: 'Tela cheia', ator: 'Full ator' }
+const telaDo = (t) => (t.startsWith('tela_dividida') ? 'dividida' : t.endsWith('tela_cheia') ? 'cheia' : 'ator')
+const conteudoDo = (t) => (t.includes('motion') ? 'motion' : t.includes('insert') ? 'insert' : null)
+
 class Revisao {
   constructor(tela, proj, v) {
     Object.assign(this, { tela, proj, v, slug: proj.slug })
@@ -126,12 +131,6 @@ class Revisao {
 
   montar() {
     abrirAba(this.slug, this.proj.nome) // o nome do projeto fica na aba; aqui, só a versão
-    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><div class="seletor-versao" id="versoes"></div></div>`
-    const extra = $('#barra-extra')
-    extra.innerHTML = `<span class="aviso-versao" id="aviso-versao"></span>
-      <span class="salvo" id="salvo"></span>
-      <button class="botao" data-acao="aprovar" id="b-aprovar">Aprovar</button>
-      <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button>`
     this.tela.className = 'pagina-revisao'
     this.tela.innerHTML = `<div class="revisao">
       <section class="palco">
@@ -179,6 +178,10 @@ class Revisao {
         </div></div>
       </section>
       <aside class="painel">
+        <div class="painel-acoes"><div class="seletor-versao" id="versoes"></div><span class="salvo" id="salvo"></span>
+          <button class="botao" data-acao="aprovar" id="b-aprovar">Aprovar</button>
+          <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button>
+          <span class="aviso-versao" id="aviso-versao"></span></div>
         <div class="painel-cabeca"><span class="eyebrow">Comentários · v${this.v}</span><span class="resumo" id="resumo"></span></div>
         <div id="estado"></div>
         <div class="lista" id="lista"></div>
@@ -669,17 +672,12 @@ class Revisao {
       ]
     }
     if (tipo === 'refs') {
-      // as referências de onde saíram os presets e as transições deste vídeo (o trecho que cada um recriou)
-      const [ps, ts] = await Promise.all([presets(), transicoes()])
-      const m = new Map()
-      for (const x of [...ps.map((p) => [p, 'preset']), ...ts.map((t) => [t, 'transição'])])
-        for (const f of x[0].fontes || []) {
-          if (!f.ref || m.get(f.ref)?.trechos.some((t) => t.de === x[0].nome)) continue
-          const r = m.get(f.ref) || m.set(f.ref, { id: f.ref, trechos: [], planos: [] }).get(f.ref)
-          r.trechos.push({ ini: f.inicio ?? Math.max(0, f.t - 0.6), fim: f.fim ?? f.t + 0.9, de: x[0].nome, tipo: x[1] })
-          for (const pl of x[0].planos) if (!r.planos.includes(pl)) r.planos.push(pl)
-        }
-      return Promise.all([...m.values()].map(async (r) => ({ ...r, nome: (await json(urlRef(r.id, 'referencia.json'), {}))?.nome || r.id, codigo: c.referencia?.[r.id] })))
+      // os clipes da página Referências (os planos das referências) dos tipos de plano que este vídeo usa
+      this.clipes ||= (await json('/api/referencias/clipes', {}))?.clipes || []
+      return this.clipes.slice()
+        .sort((x, y) => (y.favorito ? 1 : 0) - (x.favorito ? 1 : 0) || x.ref_nome.localeCompare(y.ref_nome, 'pt-BR') || x.inicio - y.inicio)
+        .map((x) => ({ id: `${x.ref}/${x.id}`, nome: `${x.ref_nome} · ${x.id}`, descricao: x.fala ? `“${x.fala}”` : x.descricao, tipoPlano: x.tipo, favorito: x.favorito,
+          miniatura: x.miniatura, video: x.video, ini: x.inicio, fim: x.fim, codigo: c.referencia?.[x.ref] ? `${c.referencia[x.ref]}·${x.id}` : null, planos: [] }))
     }
     return []
   }
@@ -695,8 +693,11 @@ class Revisao {
     const { el, fechar } = janela(`<div class="janela-cabeca"><div class="alternar">${Object.entries(ELEMENTOS).map(([k, n]) => `<button class="pilula" data-tipo="${k}">${ICONES_EL[k]}${n}</button>`).join('')}</div>
         <button class="botao pequeno" data-copiar-todos>${ICONE.copiar} Copiar códigos</button>
         <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></div>
-      <div class="lista-elementos"></div>`, { classe: 'janela-elementos', aoFechar: () => parar() })
-    let itens = [], parar = () => {}
+      <div class="filtro-elementos"></div><div class="lista-elementos"></div>`, { classe: 'janela-elementos', aoFechar: () => parar() })
+    let itens = [], todos = [], parar = () => {}, atual = null // atual: o item que está tocando (ou pausado)
+    // o filtro das refs: a tela (dividida, cheia, full ator; começa na do plano atual) e o que entra nela (inserts, motions)
+    let tela = telaDo(this.planos[this.iPlano]?.tipo || 'full_ator')
+    const tem = new Set(['insert', 'motion'])
     const pararTudo = () => {
       parar()
       parar = () => {}
@@ -704,16 +705,17 @@ class Revisao {
       if (tipo !== 'motions') for (const f of $$('iframe', el)) f.remove()
       for (const b of $$('[data-tocar-el]', el)) b.innerHTML = ICONE.tocar
       for (const c of $$('.tocando', el)) c.classList.remove('tocando')
+      atual = null
     }
     const planos = (l) => l.map((pl) => `<button class="chip-plano-mini" data-ir-plano="${esc(pl)}" title="Ir ao plano">${esc(pl)}</button>`).join('')
     const card = (x, k) => {
       const previa = tipo === 'banco' ? `<img src="/biblioteca/banco/${x.id}/miniatura.jpg" alt="" loading="lazy">`
-        : tipo === 'refs' ? `<img src="${urlRef(x.id, 'miniatura.jpg')}" alt="" loading="lazy" onerror="this.remove()">`
+        : tipo === 'refs' ? `<img src="${esc(x.miniatura)}" alt="" loading="lazy" onerror="this.remove()">${x.favorito ? `<span class="uso-fav">${ESTRELA_CHEIA}</span>` : ''}`
         : tipo === 'motions' ? `<iframe src="/render/motion.html?${this.qMotion(x)}" loading="lazy" tabindex="-1"></iframe>`
         : tipo === 'transicoes' ? `<video playsinline preload="metadata" src="/biblioteca/transicoes/clipes/${x.id}.mp4#t=1.4"></video>`
         : tipo === 'presets' ? `<video playsinline preload="metadata" src="/biblioteca/presets/clipes/${x.id}.mp4#t=0.5"></video>` : ''
-      const dur = tipo === 'banco' ? (x.pai ? x.fim - x.inicio : x.duracao) : null
-      const sub = tipo === 'refs' ? x.trechos.map((t) => `${t.tipo} ${t.de}`).join(' · ') : tipo === 'presets' || tipo === 'transicoes' ? x.descricao : tipo === 'banco' ? x.origem?.url && new URL(x.origem.url).hostname.replace(/^www\./, '') : ''
+      const dur = tipo === 'banco' ? (x.pai ? x.fim - x.inicio : x.duracao) : tipo === 'refs' ? x.fim - x.ini : null
+      const sub = tipo === 'presets' || tipo === 'transicoes' || tipo === 'refs' ? x.descricao : tipo === 'banco' ? x.origem?.url && new URL(x.origem.url).hostname.replace(/^www\./, '') : ''
       return `<article class="item-uso uso-${tipo}" data-k="${k}">
         <div class="elemento-previa fundo-${esc(x.fundo || 'escuro')}">${previa}<button class="video-tocar" data-tocar-el="${k}" aria-label="Tocar">${ICONE.tocar}</button>${dur ? `<span class="uso-dur">${tempo(dur)}</span>` : ''}</div>
         <div class="elemento-info"><b title="${esc(x.nome || x.id)}">${esc(x.nome || x.id)}</b>${sub ? `<span class="dica" title="${esc(sub)}">${esc(sub)}</span>` : ''}
@@ -727,22 +729,35 @@ class Revisao {
       const lista = $('.lista-elementos', el)
       lista.innerHTML = '<p class="vazio">Carregando…</p>'
       const minha = tipo
-      itens = await this.elementos(tipo)
+      todos = await this.elementos(tipo)
       if (minha !== tipo) return
+      const passa = (x, t = tela) => telaDo(x.tipoPlano) === t && (!conteudoDo(x.tipoPlano) || tem.has(conteudoDo(x.tipoPlano)))
+      itens = tipo === 'refs' ? todos.filter((x) => passa(x)) : todos
+      $('.filtro-elementos', el).innerHTML = tipo !== 'refs' ? ''
+        : `<div class="alternar">${Object.entries(TELAS_REF).map(([t, n]) => `<button class="pilula${t === tela ? ' ativa' : ''}" data-tela-ref="${t}">${n} <span class="conta">${todos.filter((x) => passa(x, t)).length}</span></button>`).join('')}</div>
+          ${[['insert', 'Inserts'], ['motion', 'Motions']].map(([k, n]) => `<label class="caixa"><input type="checkbox" data-tem-ref="${k}"${tem.has(k) ? ' checked' : ''}> ${n}</label>`).join('')}`
       lista.className = `lista-elementos${tipo === 'audio' ? ' lista-audio' : ''}`
       lista.innerHTML = itens.length ? itens.map(tipo === 'audio' ? linhaAudio : card).join('') : `<p class="vazio">Nada de ${ELEMENTOS[tipo].toLowerCase()} nesta versão.</p>`
     }
     const tocar = (k) => {
       const x = itens[k], caixa = $(`[data-k="${k}"]`, el), b = $('[data-tocar-el]', caixa)
-      const tocando = b.innerHTML === ICONE.pausar
+      // o mesmo item: pausa ou continua de onde parou (o motion, que é uma página, recomeça)
+      const m = atual === k && ($('audio', caixa) || $('.elemento-previa video', caixa))
+      if (m) {
+        if (m.paused) m.play().catch(() => {})
+        else m.pause()
+        b.innerHTML = m.paused ? ICONE.tocar : ICONE.pausar
+        $('.elemento-previa', caixa)?.classList.toggle('tocando', !m.paused)
+        return
+      }
       pararTudo()
-      if (tocando) return
+      atual = k
       b.innerHTML = ICONE.pausar
       if (tipo === 'audio') {
         const a = $('audio', caixa) || caixa.appendChild(Object.assign(document.createElement('audio'), { src: x.src }))
         a.currentTime = 0
         a.ontimeupdate = () => ($('.trilha-barra i', caixa).style.width = `${(a.currentTime / (a.duration || 1)) * 100}%`)
-        a.onended = () => (b.innerHTML = ICONE.tocar)
+        a.onended = () => ((b.innerHTML = ICONE.tocar), (atual = null))
         return a.play().catch(() => {})
       }
       const previa = $('.elemento-previa', caixa)
@@ -765,21 +780,23 @@ class Revisao {
         return
       }
       if (tipo === 'refs') {
-        v.src = urlRef(x.id, 'proxy.mp4')
-        // os trechos recriados, um depois do outro, em laço
-        let i = 0
-        const proximo = () => {
-          const t = x.trechos[i++ % x.trechos.length]
-          parar = tocarTrecho(v, t.ini, t.fim, { loop: false })
-          v.onpause = () => v.currentTime >= t.fim - 0.05 && proximo()
-        }
-        proximo()
+        v.src = x.video
+        parar = tocarTrecho(v, x.ini, x.fim)
       }
     }
+    el.addEventListener('change', (e) => {
+      const k = e.target.dataset?.temRef
+      if (!k) return
+      if (e.target.checked) tem.add(k)
+      else tem.delete(k)
+      desenhar()
+    })
     el.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tipo]')
       if (t) return (tipo = t.dataset.tipo), desenhar()
-      const b = e.target.closest('[data-tocar-el]')
+      const f = e.target.closest('[data-tela-ref]')
+      if (f) return (tela = f.dataset.telaRef), desenhar()
+      const b = e.target.closest('[data-tocar-el]') || $('[data-tocar-el]', e.target.closest('.elemento-previa') || document.createElement('i'))
       if (b) return tocar(+b.dataset.tocarEl)
       const pl = e.target.closest('[data-ir-plano]')
       if (pl) {
@@ -1166,7 +1183,6 @@ class Revisao {
 
     this.cliques = (e) => this.clique(e)
     this.tela.addEventListener('click', this.cliques)
-    $('.barra').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
@@ -1356,7 +1372,6 @@ class Revisao {
     window.removeEventListener('resize', this.redim)
     window.removeEventListener('pagehide', this.saida)
     document.removeEventListener('click', this.foraMenu)
-    $('.barra').removeEventListener('click', this.cliques)
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()

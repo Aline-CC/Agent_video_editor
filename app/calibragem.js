@@ -257,11 +257,6 @@ class RevisaoReferencia {
   }
 
   abrir() {
-    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
-        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}${seloOrigem(this.ref.origem, 'selo-linha selo-azul')}<span class="dica">referência · ${mmss(this.dur)}</span></div>`
-    $('#barra-extra').innerHTML = `<span class="salvo" id="salvo"></span>
-      <button class="botao" data-acao="reanalisar" title="A IA refaz a análise deste vídeo do zero (o proxy e a transcrição ficam)">${ICONE.refazer} Reanalisar</button>
-      <button class="botao" data-acao="revisada" id="b-revisada"></button>`
     this.tela.className = 'pagina-revisao'
     this.tela.innerHTML = `<div class="revisao revisao-ref">
       <section class="palco">
@@ -306,7 +301,10 @@ class RevisaoReferencia {
           <div class="cabeca" id="cabeca"></div>
         </div></div>
       </section>
-      <aside class="painel"><div id="detalhe" class="detalhe"></div></aside>
+      <aside class="painel"><div class="painel-acoes painel-acoes-ref">${`<div class="trilha-projeto"><a href="#/calibragem" class="botao-icone" title="Calibragem">${ICONE.voltar}</a>
+        <span class="nome-projeto">${esc(this.ref.nome)}</span>${chipCodigo(this.codigo, this.ref.nome)}${seloOrigem(this.ref.origem, 'selo-linha selo-azul')}<span class="dica">referência · ${mmss(this.dur)}</span></div>`}<div class="acoes-ref">${`<span class="salvo" id="salvo"></span>
+      <button class="botao" data-acao="reanalisar" title="A IA refaz a análise deste vídeo do zero (o proxy e a transcrição ficam)">${ICONE.refazer} Reanalisar</button>
+      <button class="botao" data-acao="revisada" id="b-revisada"></button>`}</div></div><div id="detalhe" class="detalhe"></div></aside>
     </div>`
     this.video = $('#video')
     this.renderBotoes()
@@ -751,7 +749,6 @@ class RevisaoReferencia {
 
     this.cliques = (e) => this.clique(e)
     this.tela.addEventListener('click', this.cliques)
-    $('.barra').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
@@ -895,7 +892,6 @@ class RevisaoReferencia {
     this.pararTrecho?.()
     window.removeEventListener('keydown', this.teclas)
     window.removeEventListener('resize', this.redim)
-    $('.barra').removeEventListener('click', this.cliques)
     this.video.pause()
     this.video.removeAttribute('src')
     this.video.load()

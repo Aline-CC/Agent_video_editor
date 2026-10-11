@@ -77,12 +77,11 @@ export async function abrirReferencias(tela) {
     }[ordem])
     const chip = (id, html, classe = '') => `<button class="pilula pequena${classe}${filtro === id ? ' ativa' : ''}" data-filtro="${id}">${html}</button>`
     const icone = (id) => ICONE[ICONE_GRUPO[id]] || ''
-    $('#barra-extra').innerHTML = `<span class="contagem">${visiveis.length} ${visiveis.length === 1 ? 'clipe' : 'clipes'}</span>`
     tela.innerHTML = `<div class="filtros filtros-ref">
         ${chip('favoritos', `${filtro === 'favoritos' ? ESTRELA_CHEIA : ICONE.estrela} Favoritos <span class="conta">${nFav}</span>`, ' chip-favoritos')}
         ${chip('todos', `${icone('todos')} Todos <span class="conta">${l.length}</span>`)}
         ${ativos.map(([id, nome, tipos]) => chip(id, `${icone(id)} ${esc(nome)} <span class="conta">${contar(tipos)}</span>`)).join('')}
-        <span class="filtros-dir">
+        <span class="filtros-dir"><span class="contagem">${visiveis.length} ${visiveis.length === 1 ? 'clipe' : 'clipes'}</span>
           <label class="caixa"><input type="checkbox" data-sem-ator ${semAtor ? 'checked' : ''}> Ignorar Full ator</label>
           <label class="caixa"><input type="checkbox" data-revisadas ${soRevisadas ? 'checked' : ''}> Só revisadas</label>
           <label class="caixa">Ordenar <select data-ordem>${Object.entries(ORDENS).map(([k, n]) => `<option value="${k}"${k === ordem ? ' selected' : ''}>${n}</option>`).join('')}</select></label></span></div>

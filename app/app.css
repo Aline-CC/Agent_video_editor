@@ -120,28 +120,18 @@ kbd {
 .marca-otto i:nth-child(3) { rotate: -90deg; }
 .marca-otto i:nth-child(4) { rotate: 180deg; }
 .barra-sep { flex: none; width: 1px; height: 20px; background: var(--color-line-dark); }
-/* os links: o dia a dia à esquerda e, à direita, o que treina e regula o app. Os rótulos somem pelo espaço que sobra
-   para os links (container query), não pela largura da janela: primeiro os da direita, depois todos */
+/* os links: o dia a dia à esquerda e, à direita, o que treina e regula o app. Sempre com os rótulos, em qualquer tela
+   (o criador pediu a barra igual em todas): sem espaço, a faixa rola de lado */
 .abas { display: flex; flex: 1 0 460px; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; container: links / inline-size; }
 .abas::-webkit-scrollbar { display: none; }
 .abas-grupo { display: flex; flex: none; align-items: center; gap: 6px; }
 .abas-treino { margin-left: auto; padding-left: 12px; }
-@container links (max-width: 1180px) { .abas-treino .pilula span { display: none; } }
-@container links (max-width: 790px) { .abas .pilula span { display: none; } .abas .pilula { padding: 0 11px; } }
-/* o que a página põe na barra (o projeto aberto, a versão, Aprovar e Copiar; a contagem): encolhe antes dos links */
-.barra-extra { display: flex; flex: 0 1 auto; align-items: center; gap: 10px; min-width: 0; }
-.barra-extra:empty { display: none; }
-/* o projeto aberto (voltar, nome, código, versão) logo depois da marca, separado dos links por um fio */
-.barra-trilha { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; }
-.barra-trilha:empty, .barra-trilha:empty + .sep-trilha { display: none; }
-.barra-trilha .trilha-projeto { margin-right: 0; }
-.barra-trilha .nome-projeto { max-width: 280px; }
+
 /* os projetos abertos como abas (o AbaDeProjeto do 18): até 40% da barra; primeiro encolhem, depois rolam */
 .abas-projetos { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; max-width: 40%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .abas-projetos::-webkit-scrollbar { display: none; }
 .abas-projetos:empty { display: none; }
-.abas-projetos:empty ~ .barra-trilha:empty + .sep-trilha { display: none; }
-.abas-projetos:not(:empty) ~ .barra-trilha:empty + .sep-trilha { display: block; }
+.abas-projetos:empty + .sep-trilha { display: none; }
 .aba-projeto {
   display: flex; flex: 0 1 auto; align-items: center; gap: 2px; min-width: 120px; max-width: 230px; height: var(--alto-pilula);
   padding: 0 3px 0 14px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-full); color: var(--color-fog);
@@ -515,6 +505,15 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 
 /* painel de comentários */
 .painel { grid-area: 1 / 2 / 4 / 3; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--color-line-dark); background: var(--color-deep); }
+.painel-acoes { display: flex; flex-wrap: wrap; align-items: center; row-gap: 6px; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--color-line-dark); }
+.painel-acoes .salvo { flex: 1; min-width: 0; }
+.painel-acoes .botao-coral { height: var(--alto-chip); gap: 10px; padding: 0 14px; border-radius: var(--radius-sm); }
+.painel-acoes .aviso-versao:empty { display: none; }
+.painel-acoes .aviso-versao { flex-basis: 100%; }
+.painel-acoes .menu-versoes { right: auto; left: 0; }
+.painel-acoes-ref { flex-direction: column; align-items: stretch; }
+.painel-acoes-ref .acoes-ref { display: flex; align-items: center; gap: 8px; }
+.painel-acoes-ref .acoes-ref .salvo { margin-right: auto; }
 .painel-cabeca { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px 12px; border-bottom: 1px solid var(--color-line-dark); }
 .resumo { font-size: 12px; color: var(--color-fog); }
 .resumo b { font-weight: 600; }
@@ -1012,9 +1011,13 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .janela-elementos .janela-cabeca [data-fechar] { margin-left: 0; }
 .lista-elementos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; padding: 8px 20px 24px; }
 .lista-elementos > .vazio { grid-column: 1 / -1; }
+.filtro-elementos { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 0 20px 8px; font-size: 12px; color: var(--color-fog); }
+.filtro-elementos:empty { display: none; }
+.uso-fav { position: absolute; left: 8px; top: 8px; z-index: 2; width: 16px; height: 16px; color: var(--color-yellow); }
+.uso-fav svg { width: 100%; height: 100%; }
 .item-uso { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .elemento-previa { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius-xl); background: #000; box-shadow: 0 0 0 1px var(--color-line-dark); }
-.uso-motions .elemento-previa, .uso-presets .elemento-previa, .uso-transicoes .elemento-previa { aspect-ratio: 9 / 16; max-height: 380px; margin: 0 auto; width: 100%; max-width: 214px; }
+.uso-motions .elemento-previa, .uso-presets .elemento-previa, .uso-transicoes .elemento-previa, .uso-refs .elemento-previa { aspect-ratio: 9 / 16; max-height: 380px; margin: 0 auto; width: 100%; max-width: 214px; }
 .elemento-previa img, .elemento-previa video, .elemento-previa iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border: 0; }
 .elemento-previa video { z-index: 1; }
 .elemento-previa iframe { z-index: 1; pointer-events: none; }
