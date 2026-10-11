@@ -167,7 +167,7 @@ async function rotear() {
   tela.className = ''
   velha.replaceWith(tela)
   desenharAbas()
-  const aba = !partes[0] ? 'projetos' : partes[0] === 'motions' ? 'banco' : partes[0] // num projeto, quem acende é a aba dele
+  const aba = partes[0] === 'motions' ? 'banco' : partes[0] // os projetos abrem pela marca; num projeto, acende a aba dele
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
   let s
