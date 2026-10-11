@@ -215,6 +215,23 @@ export function preferencia(chave, padrao, valor) {
   }
 }
 
+/** Os projetos abertos como abas na barra de cima (como no 18), guardados neste navegador: [{slug, nome}]. */
+export const abasAbertas = () => {
+  const l = preferencia('abas', [])
+  return Array.isArray(l) ? l.filter((a) => a && typeof a.slug === 'string') : []
+}
+const gravarAbas = (l) => {
+  preferencia('abas', [], l)
+  window.dispatchEvent(new Event('abas-projetos'))
+}
+export function abrirAba(slug, nome) {
+  const l = abasAbertas()
+  const a = l.find((x) => x.slug === slug)
+  if (a?.nome === nome) return window.dispatchEvent(new Event('abas-projetos'))
+  gravarAbas(a ? l.map((x) => (x.slug === slug ? { slug, nome } : x)) : [...l, { slug, nome }])
+}
+export const fecharAba = (slug) => gravarAbas(abasAbertas().filter((x) => x.slug !== slug))
+
 /** Um Markdown pequeno (títulos, listas — com as linhas recuadas continuando o item —, parágrafos, negrito, itálico,
  *  código, links e imagens), o bastante para as regras e os aprendizados. `imagem(src)` dá o endereço de uma imagem
  *  (null: fica o texto); clicar numa imagem (`data-ampliar`) é com quem chama. */

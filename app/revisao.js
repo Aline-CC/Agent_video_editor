@@ -1,6 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
-import { $, $$, ICONE, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
+import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, tempo } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -44,6 +44,7 @@ export async function abrirRevisao(tela, slug, vPedida) {
   const projetos = await json('/api/projetos', [])
   const proj = projetos.find((p) => p.slug === slug)
   if (!proj) {
+    fecharAba(slug)
     tela.className = 'pagina'
     tela.innerHTML = `<p class="vazio">O projeto <b>${esc(slug)}</b> não existe ou ainda não tem versão. <a href="#/">Voltar aos projetos</a></p>`
     return null
@@ -112,9 +113,8 @@ class Revisao {
   // ---------- a tela ----------
 
   montar() {
-    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><a href="#/" class="botao-icone" title="Projetos">${ICONE.voltar}</a>
-        <span class="nome-projeto" title="${esc(this.slug)}">${esc(this.proj.nome)}</span>
-        <div class="seletor-versao" id="versoes"></div></div>`
+    abrirAba(this.slug, this.proj.nome) // o nome do projeto fica na aba; aqui, só a versão
+    $('#barra-trilha').innerHTML = `<div class="trilha-projeto"><div class="seletor-versao" id="versoes"></div></div>`
     const extra = $('#barra-extra')
     extra.innerHTML = `<span class="aviso-versao" id="aviso-versao"></span>
       <span class="salvo" id="salvo"></span>
@@ -549,7 +549,7 @@ class Revisao {
       const q = this.planos[p]
       const cod = q && this.codigoPlano(q)
       $('#plano-atual').innerHTML = q
-        ? `<span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? chipCodigo(cod.codigo, cod.texto.slice(cod.codigo.length + 3)) : ''}${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}`
+        ? `<span class="plano-linha"><span class="chip-plano tipo-${esc(q.tipo)}"><b>${esc(q.id)}</b> ${esc(nomePlano(q.tipo))}</span>${cod ? `<button type="button" class="copiar-codigo" data-copiar-codigo="${esc(cod.texto)}" title="Copiar “${esc(cod.texto)}”" aria-label="Copiar o código do plano">${ICONE.copiar}</button>` : ''}</span>${q.texto ? `<p class="plano-texto">“${esc(q.texto)}”</p>` : ''}`
         : '<span class="apagado">—</span>'
       $('#usado').innerHTML = q ? this.htmlUsado(q.id) : ''
       this.carregarMidias(q?.id)

@@ -1,7 +1,7 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
 // revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica, #/aprendizados[/<área>] e as da biblioteca
 // (#/presets, #/transicoes[/<de>><para>], #/banco, #/motions, #/trilhas).
-import { $, $$, ICONE, aviso, chipCodigo, codigos, confirmar, copiar, enviar, esc, json, mmss } from './comum.js'
+import { $, $$, ICONE, abasAbertas, aviso, chipCodigo, codigos, confirmar, copiar, enviar, esc, fecharAba, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
 import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
@@ -121,6 +121,7 @@ async function inicio(tela) {
     if (!ok) return
     try {
       await enviar('DELETE', `/api/projetos/${encodeURIComponent(p.slug)}`)
+      fecharAba(p.slug)
       projetos.splice(projetos.indexOf(p), 1)
       desenhar()
       $('.cabeca-secao .eyebrow', tela).textContent = `Projetos · ${String(projetos.length).padStart(2, '0')}`
@@ -130,6 +131,28 @@ async function inicio(tela) {
     }
   })
 }
+
+// os projetos abertos, como abas logo depois da marca (× fecha; fechar a aberta volta aos projetos)
+function desenharAbas() {
+  const el = $('#abas-projetos')
+  const aberto = location.hash.match(/^#\/p\/([^/]+)/)?.[1]
+  el.innerHTML = abasAbertas().map((a) => {
+    const ativa = aberto && decodeURIComponent(aberto) === a.slug
+    return `<div class="aba-projeto${ativa ? ' ativa' : ''}" data-slug="${esc(a.slug)}" title="${esc(a.nome)}">
+      <a href="#/p/${encodeURIComponent(a.slug)}"><i></i><span>${esc(a.nome)}</span></a>
+      <button type="button" data-fechar-aba title="Fechar a aba" aria-label="Fechar ${esc(a.nome)}">${ICONE.fechar}</button></div>`
+  }).join('')
+  $('.aba-projeto.ativa', el)?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+}
+window.addEventListener('abas-projetos', desenharAbas)
+window.addEventListener('storage', desenharAbas)
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('[data-fechar-aba]')
+  if (!b) return
+  const aba = b.closest('.aba-projeto')
+  fecharAba(aba.dataset.slug)
+  if (aba.classList.contains('ativa')) location.hash = '#/'
+})
 
 let sair = null
 let vez = 0
@@ -145,6 +168,7 @@ async function rotear() {
   velha.replaceWith(tela)
   $('#barra-extra').innerHTML = ''
   $('#barra-trilha').innerHTML = ''
+  desenharAbas()
   const aba = partes[0] === 'p' || !partes[0] ? 'projetos' : partes[0]
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
