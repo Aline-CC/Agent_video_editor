@@ -931,8 +931,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 
 /* a caixa do comentário novo, sempre embaixo da lista (como no frame.io) */
 .caixa-nova { padding: 12px 16px; border-top: 1px solid var(--color-line-dark); background: var(--color-ink); }
-.caixa-nova textarea { min-height: 84px; }
-.caixa-nova textarea { min-height: 164px; }
+.caixa-nova textarea { min-height: 114px; }
 .caixa-nova.presa .chip-tempo { background: var(--color-coral); border-color: var(--color-coral); color: var(--color-cream); }
 .caixa-nova.presa textarea { border-color: var(--color-coral); }
 .caixa-nova .chip-alternar { cursor: pointer; }
