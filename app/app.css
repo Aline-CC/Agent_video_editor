@@ -79,6 +79,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* o atributo vale mesmo nos botões com display próprio */
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--color-deep);
@@ -209,6 +210,14 @@ kbd {
   font-size: 10px; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums;
 }
 .card-banco .duracao { top: auto; bottom: 10px; }
+.chip-formato {
+  position: absolute; left: 10px; bottom: 10px; z-index: 2; padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-ink-85);
+  font-size: 11px; font-weight: 600; line-height: 1.5;
+}
+/* os projetos: a ordem no topo e os grupos por data */
+.ordens { display: flex; gap: 6px; margin-left: auto; }
+.grupo-data { margin: 0 0 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-fog); }
+.grade-projetos + .grupo-data { margin-top: 36px; }
 .card-banco .selo-dir { text-transform: none; letter-spacing: 0; }
 
 /* aviso */
@@ -509,16 +518,14 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .resposta-nao-aplicado .status { color: var(--color-coral); }
 .editor { padding: 12px 14px; border: 1px solid var(--color-coral); border-radius: var(--radius-2xl); background: var(--color-deep); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
 .item .editor { margin-top: 10px; }
-.editor textarea, .geral textarea, .caixa-nova textarea {
+.editor textarea, .caixa-nova textarea {
   width: 100%; margin-top: 8px; min-height: 64px; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-xl); background: var(--color-deeper);
   color: var(--color-cream); font: 13px/1.5 var(--font-sans); resize: vertical; transition: border-color 0.2s;
 }
-.editor textarea::placeholder, .geral textarea::placeholder, .caixa-nova textarea::placeholder { color: rgba(185, 198, 186, 0.7); }
-.editor textarea:focus, .geral textarea:focus, .caixa-nova textarea:focus { outline: none; border-color: var(--color-cream-50); }
+.editor textarea::placeholder, .caixa-nova textarea::placeholder { color: rgba(185, 198, 186, 0.7); }
+.editor textarea:focus, .caixa-nova textarea:focus { outline: none; border-color: var(--color-cream-50); }
 .editor-acoes { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
 .editor-acoes .dica { margin-right: auto; font-size: 11px; }
-.geral { padding: 12px 16px 16px; border-top: 1px solid var(--color-line-dark); }
-.geral textarea { margin-top: 6px; }
 
 @media (max-width: 1400px) {
   .revisao { grid-template-columns: minmax(0, 1fr) 340px; }
@@ -917,7 +924,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 }
 .anexo-tirar svg { width: 10px; height: 10px; }
 .anexo:hover .anexo-tirar, .anexo-tirar:focus-visible { opacity: 1; }
-.editor.soltando, .geral.soltando, .caixa-nova.soltando { outline: 2px dashed var(--color-yellow); outline-offset: -4px; }
+.editor.soltando, .caixa-nova.soltando { outline: 2px dashed var(--color-yellow); outline-offset: -4px; }
 .janela-anexo { position: relative; width: auto; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); padding: 0; background: #000; overflow: hidden; }
 .anexo-grande { display: block; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); object-fit: contain; }
 .anexo-fechar { position: absolute; top: 8px; right: 8px; background: var(--color-ink-85); }
@@ -925,12 +932,12 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 /* a caixa do comentário novo, sempre embaixo da lista (como no frame.io) */
 .caixa-nova { padding: 12px 16px; border-top: 1px solid var(--color-line-dark); background: var(--color-ink); }
 .caixa-nova textarea { min-height: 84px; }
-.caixa-nova .fala { margin-top: 4px; font-size: 12px; color: var(--color-fog); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.caixa-nova .fala:empty { display: none; }
+.caixa-nova textarea { min-height: 164px; }
 .caixa-nova.presa .chip-tempo { background: var(--color-coral); border-color: var(--color-coral); color: var(--color-cream); }
 .caixa-nova.presa textarea { border-color: var(--color-coral); }
-.geral .editor-acoes { margin-top: 4px; }
-.geral label kbd { margin-left: 4px; }
+.caixa-nova .chip-alternar { cursor: pointer; }
+.caixa-nova .chip-alternar.desligado { color: var(--color-fog); border-style: dashed; }
+.caixa-nova .chip-alternar.desligado s { opacity: 0.6; margin-right: 4px; }
 .botao-clipe { cursor: pointer; color: var(--color-fog); border: 1px solid var(--color-line-dark); }
 .botao-clipe:hover { color: var(--color-cream); }
 .anexo-img video { display: block; width: 76px; height: 56px; object-fit: cover; }

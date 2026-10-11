@@ -85,7 +85,8 @@ def projetos() -> list[dict]:
         rev = ler_json(p / 'revisoes' / f'v{ultima}.json', {}) or {}
         info = ler_json(p / 'versoes' / f'v{ultima}' / 'info.json', {}) or {}
         estado = 'aprovado' if rev.get('aprovado') else 'enviada' if rev.get('enviado_em') else 'em_revisao'
-        lista.append({'slug': p.name, 'nome': (ler_json(p / 'edicao.json', {}) or {}).get('nome') or p.name,
+        ed = ler_json(p / 'edicao.json', {}) or {}
+        lista.append({'slug': p.name, 'nome': ed.get('nome') or p.name, 'formato': ed.get('formato') or 'reels',
                       'versoes': vs, 'ultima': ultima, 'duracao': info.get('duracao'), 'estado': estado,
                       'comentarios': len(rev.get('comentarios', [])),
                       'atualizado': (p / 'versoes' / f'v{ultima}' / 'proxy.mp4').stat().st_mtime})

@@ -75,6 +75,8 @@ projetos/<slug>/
 
 ## Regras
 
+- **`formato`**: o tipo do conteúdo, `reels` (o único por enquanto), `ad`, `youtube`, `vsl` ou `aula`. O app mostra no
+  card do projeto (📱 💰 🎥 📺 📚).
 - **Tudo depois dos cortes fica preso às palavras** (`palavra_ini`/`palavra_fim` + `off_ini`/`off_fim` em s). Os tempos no
   vídeo final nunca são a fonte de verdade: são calculados (cortes + velocidade). `inicio`/`duracao` dos pedidos são cache.
 - **Ids dos planos** `p1, p2…` na ordem; elementos `e1, e2…`. Pedidos de insert usam o id do plano. Transições usam o id

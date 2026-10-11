@@ -7,7 +7,7 @@
         a revisão (a da última versão, se não disser) no mesmo texto do "Copiar revisão" do app e, para cada
         comentário, o id, a âncora (palavras), o plano sob ele e os prints anexados (abra com o Read antes de aplicar).
     uv run ferramentas/revisao.py responder <slug> <vN> <id|geral> --status aplicado|respondido|nao_aplicado --resposta "…"
-        grava a resposta no comentário (o app mostra embaixo dele); "geral" responde o comentário geral.
+        grava a resposta no comentário (o app mostra embaixo dele); "geral" responde o geral de revisões antigas.
     uv run ferramentas/revisao.py clipes [--refazer]
         recorta das referências os clipes das galerias da biblioteca: presets/clipes/<id>.mp4 (o trecho da 1ª fonte,
         480 px, com som) e transicoes/clipes/<id>.mp4 (1,5 s em volta do corte da 1ª fonte, com som). A referência vem
@@ -31,7 +31,14 @@ def tempo(t: float) -> str:
 
 
 def quando(c: dict) -> str:
+    if c.get('geral'):
+        return 'Geral'
     return f'{tempo(c["t"])}–{tempo(c["fim"])}' if c.get('fim') is not None else tempo(c['t'])
+
+
+def ordem(c: dict) -> float:
+    """Os comentários gerais (sem tempo) primeiro, depois pelo tempo."""
+    return -1 if c.get('geral') else c['t']
 
 
 def uma_linha(s: str) -> str:
@@ -53,13 +60,13 @@ def linha_anexos(slug: str, anexos: list[str]) -> str:
 def texto(slug: str, v: int, rev: dict) -> str:
     """O texto do botão "Copiar revisão" (app/revisao.js, `texto()`): mude os dois juntos."""
     linhas = [f'Revisão · {slug} · v{v}']
-    for c in sorted((c for c in rev.get('comentarios', []) if tem_conteudo(c)), key=lambda c: c['t']):
+    for c in sorted((c for c in rev.get('comentarios', []) if tem_conteudo(c)), key=ordem):
         ancora = f'↳ dúvida do Claude {tempo(c["t"])}' if c.get('responde') else quando(c)
         fala = f'"{c["fala"]}" — ' if c.get('fala') else ''
         linhas.append(f'[{ancora}] {fala}{uma_linha(c.get("texto") or "") or "(ver o print)"}')
         if c.get('anexos'):
             linhas.append(linha_anexos(slug, c['anexos']))
-    if (rev.get('geral') or '').strip() or rev.get('anexos_geral'):
+    if (rev.get('geral') or '').strip() or rev.get('anexos_geral'):  # revisões antigas (o app de agora grava comentários gerais)
         linhas.append(f'Geral: {uma_linha(rev.get("geral") or "") or "(ver o print)"}')
         if rev.get('anexos_geral'):
             linhas.append(linha_anexos(slug, rev['anexos_geral']))
@@ -96,14 +103,17 @@ def ler(slug: str, v: str | None) -> None:
     print(texto(slug, n, rev))
     estado = 'APROVADA' if rev.get('aprovado') else f'enviada em {rev["enviado_em"]}' if rev.get('enviado_em') else 'ainda não enviada'
     print(f'\nEstado: {estado}. Para cada um: revisao.py responder {slug} v{n} <id> --status … --resposta "…"')
-    for c in sorted(rev.get('comentarios', []), key=lambda c: c['t']):
+    for c in sorted(rev.get('comentarios', []), key=ordem):
         if not tem_conteudo(c):
             continue
         fim = c.get('fim')
-        w1 = palavra_em(fim) if fim is not None else None
-        ancora = f'palavra {c.get("palavra")}' if w1 is None or w1['id'] == c.get('palavra') else f'palavras {c.get("palavra")}–{w1["id"]}'
-        ps = ', '.join(f'{q["id"]} {q["tipo"]} ({tempo(q["ini"])}–{tempo(q["fim"])})' for q in planos_em(c['t'], fim if fim is not None else c['t']))
-        print(f'\n- {c["id"]} · {quando(c)} · {ancora} · plano {ps or "—"} · {c.get("status", "pendente")}')
+        if c.get('geral'):
+            print(f'\n- {c["id"]} · geral (o vídeo todo) · {c.get("status", "pendente")}')
+        else:
+            w1 = palavra_em(fim) if fim is not None else None
+            ancora = f'palavra {c.get("palavra")}' if w1 is None or w1['id'] == c.get('palavra') else f'palavras {c.get("palavra")}–{w1["id"]}'
+            ps = ', '.join(f'{q["id"]} {q["tipo"]} ({tempo(q["ini"])}–{tempo(q["fim"])})' for q in planos_em(c['t'], fim if fim is not None else c['t']))
+            print(f'\n- {c["id"]} · {quando(c)} · {ancora} · plano {ps or "—"} · {c.get("status", "pendente")}')
         if c.get('responde'):
             nota = notas.get(c['responde'], {})
             print(f'  responde à dúvida {c["responde"]}: {nota.get("texto", "?")}')
