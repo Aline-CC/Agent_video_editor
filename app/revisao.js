@@ -113,7 +113,8 @@ class Revisao {
   // ---------- a tela ----------
 
   montar() {
-    abrirAba(this.slug, this.proj.nome) // o nome do projeto fica na aba; aqui, só a versão
+    abrirAba(this.slug, this.proj.nome) // o nome do projeto fica na aba; a versão, logo ao lado dela na barra
+    $('#barra-versao').innerHTML = '<div class="seletor-versao" id="versoes"></div><span class="aviso-versao" id="aviso-versao"></span>'
     this.tela.className = 'pagina-revisao'
     this.tela.innerHTML = `<div class="revisao">
       <section class="palco">
@@ -159,11 +160,9 @@ class Revisao {
         </div></div>
       </section>
       <aside class="painel">
-        <div class="painel-acoes"><div class="seletor-versao" id="versoes"></div><span class="salvo" id="salvo"></span>
+        <div class="painel-cabeca"><div class="painel-titulo"><span class="eyebrow">Comentários · v${this.v}</span><span class="resumo" id="resumo"></span><span class="salvo" id="salvo"></span></div>
           <button class="botao" data-acao="aprovar" id="b-aprovar">Aprovar</button>
-          <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button>
-          <span class="aviso-versao" id="aviso-versao"></span></div>
-        <div class="painel-cabeca"><span class="eyebrow">Comentários · v${this.v}</span><span class="resumo" id="resumo"></span></div>
+          <button class="botao botao-coral" data-acao="copiar">Copiar revisão <span class="seta">${ICONE.seta}</span></button></div>
         <div id="estado"></div>
         <div class="lista" id="lista"></div>
         <div class="caixa-nova" id="caixa-nova">
@@ -986,6 +985,7 @@ class Revisao {
 
     this.cliques = (e) => this.clique(e)
     this.tela.addEventListener('click', this.cliques)
+    $('#barra-versao').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
     this.redim = () => this.ajustar && this.renderLinha()
@@ -1186,6 +1186,7 @@ class Revisao {
   }
 
   fechar() {
+    $('#barra-versao').removeEventListener('click', this.cliques)
     this.guardarPosicao()
     this.fechado = true
     if (this.sujo) this.salvar(true)

@@ -166,6 +166,7 @@ async function rotear() {
   const tela = velha.cloneNode(false) // uma tela nova a cada página: nenhum ouvinte da anterior fica para trás
   tela.className = ''
   velha.replaceWith(tela)
+  $('#barra-versao').innerHTML = ''
   desenharAbas()
   const aba = partes[0] === 'motions' ? 'banco' : partes[0] // os projetos abrem pela marca; num projeto, acende a aba dele
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
