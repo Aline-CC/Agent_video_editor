@@ -1,7 +1,7 @@
 // Os CTAs: trechos finais de vídeos já editados, que entram inteiros no fim de um orgânico e dão as saídas do projeto
 // (📱 Reels ManyChat, 💰 Ad LP, 💰 Ad VSL…). Aqui o criador sobe os vídeos, marca onde o CTA começa e termina, escolhe a
 // categoria e o favorito de cada uma (o que entra por padrão).
-import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, enviar, esc, json, tempo, tocarTrecho } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, enviar, esc, janela, json, tempo, tocarTrecho } from './comum.js'
 import { marcarTrechos } from './trechos.js'
 
 export async function abrirCtas(tela) {
@@ -15,6 +15,9 @@ export async function abrirCtas(tela) {
         <div class="mini mini-916"><img src="/biblioteca/ctas/${c.id}/miniatura.jpg?${encodeURIComponent(c.inicio)}" alt="" loading="lazy">
           <video muted playsinline preload="none" data-src="/biblioteca/ctas/${c.id}/proxy.mp4"></video>
           ${cat ? `<span class="selo selo-amarelo">${esc(cat.emoji)} ${esc(cat.saida)}</span>` : '<span class="selo selo-coral">Sem categoria</span>'}
+          <button class="video-tocar" data-som title="Assistir o CTA com som">${ICONE.tocar}</button>
+          <button class="botao-icone pequeno cta-expandir" data-expandir title="Abrir grande, com som">${ICONE.expandir}</button>
+          <div class="cta-barra"><i></i></div>
           <span class="duracao">${tempo(c.fim - c.inicio)}</span>
           <button class="estrela${c.favorito ? ' ligada' : ''}" data-favorito title="${c.favorito ? 'Favorito da categoria (entra por padrão)' : 'Tornar o favorito da categoria'}">${c.favorito ? ESTRELA_CHEIA : ICONE.estrela}</button></div>
         <div class="card-titulo"><h3 title="${esc(c.fonte || '')}">${esc(c.nome)}</h3>${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
@@ -33,20 +36,65 @@ export async function abrirCtas(tela) {
       ${grupos.length ? `<div class="grade grade-ctas">${grupos.flatMap(([, l]) => l).map(card).join('')}</div>`
         : '<p class="vazio">Nenhum CTA ainda. Suba um vídeo editado (ou arraste para esta página) e marque onde o CTA começa.</p>'}`
     const porId = Object.fromEntries(d.ctas.map((c) => [c.id, c]))
-    // a prévia: toca só o trecho do CTA com o mouse em cima
+    // a prévia: com o mouse em cima, o trecho do CTA mudo; o ▶ toca com som (um card por vez; clique de novo pausa)
+    let comSom = null
+    const pararSom = () => {
+      if (!comSom) return
+      comSom.parar()
+      comSom.card.classList.remove('com-som', 'tocando')
+      $('[data-som]', comSom.card).innerHTML = ICONE.tocar
+      comSom = null
+    }
+    const barra = (c, v, x) => {
+      const r = () => {
+        if (!c.classList.contains('tocando')) return
+        $('.cta-barra i', c).style.width = `${Math.min(100, Math.max(0, ((v.currentTime - x.inicio) / (x.fim - x.inicio)) * 100))}%`
+        requestAnimationFrame(r)
+      }
+      requestAnimationFrame(r)
+    }
     for (const c of $$('.card-cta', tela)) {
       const v = $('video', c)
+      const x = porId[c.dataset.id]
       let parar = null
-      c.querySelector('.mini').addEventListener('mouseenter', () => {
+      $('.mini', c).addEventListener('mouseenter', () => {
+        if (comSom?.card === c) return
         if (!v.src) v.src = v.dataset.src
-        const x = porId[c.dataset.id]
+        v.muted = true
         parar = tocarTrecho(v, x.inicio, x.fim)
         c.classList.add('tocando')
+        barra(c, v, x)
       })
-      c.querySelector('.mini').addEventListener('mouseleave', () => {
+      $('.mini', c).addEventListener('mouseleave', () => {
+        if (comSom?.card === c) return
         parar?.()
         v.pause()
         c.classList.remove('tocando')
+      })
+      $('[data-expandir]', c).addEventListener('click', (e) => {
+        e.stopPropagation()
+        pararSom()
+        parar?.()
+        v.pause()
+        c.classList.remove('tocando')
+        assistir(x)
+      })
+      $('[data-som]', c).addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (comSom?.card === c) {
+          if (v.paused) v.play().catch(() => {})
+          else v.pause()
+          $('[data-som]', c).innerHTML = v.paused ? ICONE.tocar : ICONE.pausar
+          return
+        }
+        pararSom()
+        parar?.()
+        if (!v.src) v.src = v.dataset.src
+        v.muted = false
+        comSom = { card: c, parar: tocarTrecho(v, x.inicio, x.fim) }
+        c.classList.add('tocando', 'com-som')
+        $('[data-som]', c).innerHTML = ICONE.pausar
+        barra(c, v, x)
       })
     }
     tela.onchange = async (e) => {
@@ -72,6 +120,33 @@ export async function abrirCtas(tela) {
         desenhar()
       }
     }
+  }
+  /** O CTA num modal, com som: só o trecho dele, em laço, com a barra e o tempo do trecho (clique na barra pula). */
+  const assistir = (x) => {
+    const dur = x.fim - x.inicio
+    const { el } = janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button>
+      <video class="anexo-grande" src="/biblioteca/ctas/${x.id}/proxy.mp4#t=${x.inicio}" playsinline></video>
+      <div class="player-trecho"><button class="botao-icone pequeno" data-p title="Tocar / pausar (Espaço)">${ICONE.pausar}</button>
+        <div class="trecho-barra"><i></i></div><span class="trecho-tempo">0:00,0 / ${tempo(dur)}</span></div>`, { classe: 'janela-anexo' })
+    const v = $('video', el), b = $('[data-p]', el), bar = $('.trecho-barra', el)
+    const mostrar = () => {
+      const t = Math.min(Math.max(v.currentTime - x.inicio, 0), dur)
+      $('i', bar).style.width = `${(100 * t) / dur}%`
+      $('.trecho-tempo', el).textContent = `${tempo(t)} / ${tempo(dur)}`
+      b.innerHTML = v.paused ? ICONE.tocar : ICONE.pausar
+    }
+    tocarTrecho(v, x.inicio, x.fim)
+    v.addEventListener('timeupdate', mostrar)
+    for (const ev of ['play', 'pause']) v.addEventListener(ev, mostrar)
+    const alternar = () => (v.paused ? v.play() : v.pause())
+    b.addEventListener('click', alternar)
+    v.addEventListener('click', alternar)
+    bar.addEventListener('click', (e) => {
+      const r = bar.getBoundingClientRect()
+      v.currentTime = x.inicio + ((e.clientX - r.left) / r.width) * dur
+    })
+    el.addEventListener('keydown', (e) => e.key === ' ' && (e.preventDefault(), alternar()))
+    b.focus()
   }
   const salvar = async (id, dados) => {
     try {
