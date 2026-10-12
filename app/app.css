@@ -1138,3 +1138,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .produtos-acoes { display: flex; justify-content: space-between; align-items: center; padding: 4px 20px 20px; }
 
 .card-cta .mini { cursor: pointer; }
+
+.cta-titulo { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cta-titulo .cta-nome { flex: 1; min-width: 0; }
+.cta-titulo .codigo { flex: none; }

@@ -27,7 +27,7 @@ export async function abrirCtas(tela) {
             <button data-expandir title="Abrir grande, com som">${ICONE.expandir}</button>
             <button data-apagar title="Apagar (vai para biblioteca/ctas/_lixeira/)">${ICONE.lixo}</button></div></div>
         <div class="cta-corpo">
-          <input class="cta-nome" value="${esc(c.nome)}" data-nome maxlength="200" spellcheck="false" aria-label="Nome do CTA" title="${esc(c.nome)}${c.fonte ? ` · ${esc(c.fonte)}` : ''}">
+          <div class="cta-titulo"><input class="cta-nome" value="${esc(c.nome)}" data-nome maxlength="200" spellcheck="false" aria-label="Nome do CTA" title="${esc(c.nome)}${c.fonte ? ` · ${esc(c.fonte)}` : ''}">${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
           <div class="cta-meta">
             <label class="cta-categoria cta-produto${prods[c.produto] ? '' : ' vazia'}" title="Produto">${prods[c.produto] ? esc(prods[c.produto].emoji) : ''}<span>${prods[c.produto] ? esc(prods[c.produto].nome) : 'Produto'}</span>${ICONE.seta_baixo}
               <select data-produto aria-label="Produto"><option value="">Sem produto</option>
@@ -36,7 +36,6 @@ export async function abrirCtas(tela) {
               <select data-categoria aria-label="Categoria"><option value="">Sem categoria</option>
                 ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)} → ${esc(k.saida)}</option>`).join('')}</select></label>
             </div>
-          <div class="cta-rodape">${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
         </div>
       </article>`
     }
