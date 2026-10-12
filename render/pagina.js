@@ -1005,6 +1005,7 @@
   var MINIMO = 0.12;
   var SOBRA = 0.07;
   var FRASE = { palavras: 3, letras: 18, pausa: 0.3 };
+  var ALTURA_DEITADA = 0.76;
   var MEIA = ESTILO.tamanho * 1.15 / 2;
   var FOLGA = 0.015;
   var limpar = (t) => t.replace(/[,;:]+$/, "");
@@ -1018,7 +1019,9 @@
         const texto = c.texto ?? x.texto ?? "";
         card = { y: noQuadro(c, texto).y / 100, h: alturaDoComentario(texto, c.escala) };
       }
-      return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card };
+      const as = x.formato !== "dividida" && x.midias.length ? aspectosDe(x.midias, banco) : [];
+      const deitada = as.length > 0 && as.every((a) => a >= 1.2);
+      return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada };
     });
   }
   function alturaDaLegenda(tipo, z) {
@@ -1029,6 +1032,7 @@
       const g = z?.ator ?? { modo: "janela", s: 0.55, tx: 0.225, ty: 0.45 };
       y = g.modo === "canto" ? topoDoAtor(g) - MEIA - FOLGA : g.ty + ALTURA_POR_PLANO.full_ator * g.s;
     } else if (tipo === "tela_dividida_motion") y = 0.5;
+    else if (tipo === "insert_tela_cheia" && z?.deitada) y = ALTURA_DEITADA;
     return z?.card ? desviar(y, z.card) : y;
   }
   function desviar(y, c) {

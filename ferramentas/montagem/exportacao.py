@@ -173,11 +173,11 @@ def _ator_na_geometria(partes: list[str], divisoes: list[tuple[float, float, dic
       com os cantos redondos; `recortado`: só a pessoa (a máscara). Na janela, a pessoa recortada sai por cima dela.
     Cada trecho por cima é um pedaço recortado do ator (só aqueles quadros são escalados). Acrescenta os filtros de baixo
     em `partes` (saída [base]) e devolve os de cima, de [topo_in] a [topo]."""
-    quando = lambda a, b: f'between(t,{a:.4f},{b - 0.5 / fps:.4f})'  # noqa: E731
-    # o ator embaixo (metade): cada quadro (t = n/fps) cai em exatamente um trecho, o do instante mais perto. Com o
-    # `quando`, um quadro a menos de meio quadro do fim de um trecho ficava fora dos dois (a troca no meio de um quadro)
-    # e o ator saía sem o enquadramento por um quadro (mvi-0717 v2, c6: o rosto some e aparece o notebook)
-    na_faixa = lambda a, b: f'gte(t,{a - 0.5 / fps:.5f})*lt(t,{b - 0.5 / fps:.5f})'  # noqa: E731
+    quando = lambda a, b: f'gte(t,{a - 1e-4:.5f})*lt(t,{b - 1e-4:.5f})'  # noqa: E731  (a ≤ t < b, como `quadros`)
+    # o ator embaixo (metade): o quadro n (t = n/fps) é do trecho em que ele cai, a ≤ t < b — a mesma regra das camadas de
+    # cima (o 1º quadro de um trecho é o ceil(a·fps)). Com o `quando`, um quadro a menos de meio quadro do fim ficava fora
+    # dos dois trechos e o ator saía sem o enquadramento (mvi-0717 v2 c6, v3 c1: o rosto some e aparece o notebook)
+    na_faixa = lambda a, b: f'gte(t,{a - 1e-4:.5f})*lt(t,{b - 1e-4:.5f})'  # noqa: E731
     metades = [(a, b, d['ator']) for a, b, d in divisoes if (d.get('ator') or {}).get('modo') == 'metade']
     sobre = [(a, b, d['ator']) for a, b, d in divisoes if (d.get('ator') or {}).get('modo') in ('janela', 'canto', 'recortado')]
     # sem a máscara (o recorte do ator não ficou pronto), o recortado vira o ator inteiro num canto

@@ -57,7 +57,7 @@ def palavras_na_saida(palavras: list[dict], clipes: list[dict]) -> list[dict]:
         for c, base in posicoes:
             if w['inicio'] < c['fim'] and w['fim'] > c['inicio']:
                 v = c.get('vel', 1)
-                out.append({**w, 'clipe': (c.get('id'), c['inicio']), 'saida_ini': round(base + (max(w['inicio'], c['inicio']) - c['inicio']) / v, 3),
+                out.append({**w, 'clipe': (c.get('id'), c['inicio']), 'clipe_saida': round(base, 3), 'saida_ini': round(base + (max(w['inicio'], c['inicio']) - c['inicio']) / v, 3),
                             'saida_fim': round(base + (min(w['fim'], c['fim']) - c['inicio']) / v, 3)})
                 break
     return out
@@ -221,9 +221,10 @@ TROCA_MIN = 0.06  # s de pausa entre duas palavras para uma troca de plano não 
 
 def _folga(saida: list[dict], k: int, antes: bool, maximo: float) -> float:
     """Metade da pausa antes (ou depois) da palavra k, limitada a `maximo`: para a troca cair no silêncio.
-    Nunca atravessa uma emenda (a palavra vizinha em outro trecho): aí a folga é zero."""
+    Nunca atravessa uma emenda (a palavra vizinha em outro trecho): no começo de um trecho, a troca cai no próprio corte
+    (o ar antes da 1ª palavra é do trecho novo: com folga zero, o ator pulava no corte um quadro antes do plano trocar)."""
     if 'clipe' in saida[k] and (k if antes else k + 1) in range(1, len(saida)) and saida[k]['clipe'] != saida[k - 1 if antes else k + 1]['clipe']:
-        return 0.0
+        return round(max(saida[k]['saida_ini'] - saida[k].get('clipe_saida', saida[k]['saida_ini']), 0.0), 3) if antes else 0.0
     if antes:
         gap = saida[k]['saida_ini'] - saida[k - 1]['saida_fim'] if k else 0.0
     else:

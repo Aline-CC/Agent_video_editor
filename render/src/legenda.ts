@@ -3,7 +3,7 @@ import type { ItemBanco, ItemRef } from './tipos'
 import { comentarioDe } from './comentario'
 import type { PalavraSaida } from './direcaoProjeto'
 import { geometriaDoAtor, topoDoAtor, type Geometria } from './ator'
-import { alturaDoComentario, divisaoDe, lugarDoComentario, noQuadro, type Divisao } from './divisao'
+import { alturaDoComentario, aspectosDe, divisaoDe, lugarDoComentario, noQuadro, type Divisao } from './divisao'
 import type { PedidoNoTempo as Pedido } from './inserts'
 import type { Preset } from './presets'
 
@@ -56,6 +56,10 @@ const SOBRA = 0.07 // depois do fim (antecipado) da última palavra: sai ~0,1 s 
 /** Frase curta: escolhido (não medido) — até 3 palavras e 18 letras, quebrando na pontuação e nas pausas de 0,3 s
  *  (três referências usam frases, com mediana de 2 a 3 palavras). */
 const FRASE = { palavras: 3, letras: 18, pausa: 0.3 }
+/** A legenda num insert de tela cheia com mídia deitada: abaixo do card centrado (o 16:9 na largura toda vai de ~34%
+ *  a ~66% da altura; mvi-0717 v3 c3: a legenda caía em cima do vídeo). */
+const ALTURA_DEITADA = 0.76
+
 /** Meia altura da linha (a fonte com a entrelinha) e a folga até um card que a legenda contorna. */
 const MEIA = (ESTILO.tamanho * 1.15) / 2
 const FOLGA = 0.015
@@ -66,7 +70,7 @@ const limpar = (t: string) => t.replace(/[,;:]+$/, '')
 /** O que há na tela num trecho (um insert) e muda a altura da legenda: a divisão da tela (onde fica a costura), o ator
  *  no "ator embaixo" (a geometria, `ator/ator.ts`; sem o rosto, que só muda o x) e o card do comentário (`y`: o
  *  centro, `h`: a altura, frações do quadro). */
-export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null }
+export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null; deitada?: boolean }
 
 export function zonasDaLegenda(pedidos: Pedido[], banco: Map<string, ItemBanco> | null | undefined, presets: Preset[] | null | undefined): Zona[] {
   return pedidos.map((x) => {
@@ -78,7 +82,10 @@ export function zonasDaLegenda(pedidos: Pedido[], banco: Map<string, ItemBanco> 
       const texto = c.texto ?? x.texto ?? ''
       card = { y: noQuadro(c, texto).y / 100, h: alturaDoComentario(texto, c.escala) } // onde ele aparece (inteiro no quadro)
     }
-    return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card }
+    // um insert em tela cheia só com mídias deitadas: o card fica no meio do quadro, e a legenda desce para baixo dele
+    const as = x.formato !== 'dividida' && x.midias.length ? aspectosDe(x.midias, banco) : []
+    const deitada = as.length > 0 && as.every((a) => a >= 1.2)
+    return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada }
   })
 }
 
@@ -97,6 +104,7 @@ function alturaDaLegenda(tipo: string | undefined, z: Zona | null): number {
     y = g.modo === 'canto' ? topoDoAtor(g) - MEIA - FOLGA : g.ty + ALTURA_POR_PLANO.full_ator * g.s
   }
   else if (tipo === 'tela_dividida_motion') y = 0.5
+  else if (tipo === 'insert_tela_cheia' && z?.deitada) y = ALTURA_DEITADA
   return z?.card ? desviar(y, z.card) : y
 }
 
