@@ -157,8 +157,8 @@ def usos_aprovados() -> tuple[dict[str, list[dict]], dict[str, list[dict]], set[
 
 def estados() -> dict[str, dict]:
     """O selo de cada mídia (originais e trechos): `usado` (entrou num vídeo aprovado: ela ou um trecho dela),
-    `aprovado` (marcada à mão, ou subida pelo criador no app: `do_criador`), `recusado` (marcada à mão, ou de um projeto já aprovado e que
-    ficou de fora) ou None (de um projeto ainda em edição). Com os usos aprovados de cada uma."""
+    `aprovado` (marcada à mão, ou subida pelo criador no app: `do_criador`), `recusado` (marcada à mão, de um projeto já aprovado e que
+    ficou de fora, ou de um projeto que não existe mais) ou None (de um projeto ainda em edição). Com os usos aprovados de cada uma."""
     midias, _, aprovados = usos_aprovados()
     itens = todos()
     por_pai: dict[str, list[dict]] = {}
@@ -176,8 +176,10 @@ def estados() -> dict[str, dict]:
             estado = i['estado']
         elif i.get('do_criador') or (i.get('pai') and existe(i['pai']) and ler_item(i['pai']).get('do_criador')):
             estado = 'aprovado'
-        elif (i.get('projeto') or (ler_item(i['pai']).get('projeto') if i.get('pai') and existe(i['pai']) else None)) in aprovados:
+        elif (prj := i.get('projeto') or (ler_item(i['pai']).get('projeto') if i.get('pai') and existe(i['pai']) else None)) in aprovados:
             estado = 'recusado'
+        elif not prj or not (PROJETOS / prj / 'edicao.json').exists():
+            estado = 'recusado'  # o projeto dela não existe mais (foi para a lixeira) ou ela veio sem projeto
         else:
             estado = None
         out[i['id']] = {'estado': estado, 'usos': us}
