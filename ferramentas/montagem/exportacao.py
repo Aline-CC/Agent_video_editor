@@ -79,20 +79,32 @@ def _ator(clipes: list[dict], horizontal: bool, enquadramento_x: float, w: int, 
     partes = [f'[0:v]split={n}' + ''.join(f'[v{k}]' for k in range(n)), f'[0:a]asplit={n}' + ''.join(f'[a{k}]' for k in range(n))]
     if usa_mascara:
         partes.append(f'[1:v]split={n}' + ''.join(f'[m{k}]' for k in range(n)))
-    pares, masc = '', ''
+    videos, audios, masc = '', '', ''
+    acc = 0.0  # o começo do clipe no vídeo final
     for k, c in enumerate(clipes):
         ini, fim = c['inicio'], c['fim']
-        dur = dur_saida(c)
+        dur, vel = dur_saida(c), c.get('vel', 1)
         # acelerado (`vel`, a aceleração do ator): o vídeo com os tempos divididos e o áudio no atempo (mantém o tom)
-        setpts, atempo = acelerar(c.get('vel', 1))
-        partes.append(f'[v{k}]trim=start={ini:.4f}:end={fim:.4f},{setpts}[cv{k}]')
+        setpts, atempo = acelerar(vel)
+        # o vídeo do clipe ocupa exatamente os quadros do vídeo final que começam dentro dele (a ≤ t < b, a regra de
+        # `quadros` e das camadas de cima), cada um com o quadro do bruto daquele instante. Antes, o clipe saía com os
+        # quadros inteiros do bruto (23,976/s) e o concat cobria a sobra repetindo o último quadro do clipe anterior: um
+        # quadro "perdido" do ator na pose de antes logo depois de cada corte (mvi-0717 v5 c1–c3)
+        q0, q1 = math.ceil(acc * fps - 1e-9), math.ceil((acc + dur) * fps - 1e-9)
+        ini_v = ini + (q0 / fps - acc) * vel
+        no_grid = f'{setpts},fps={fps},tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame={q1 - q0},setpts=PTS-STARTPTS'
+        partes.append(f'[v{k}]trim=start={ini_v:.4f}:end={fim:.4f},{no_grid}[cv{k}]')
         partes.append(f'[a{k}]atrim=start={ini:.4f}:end={fim:.4f},asetpts=PTS-STARTPTS,{atempo}'
                       f'afade=t=in:d={FADE},afade=t=out:st={max(dur - FADE, 0):.4f}:d={FADE}[ca{k}]')
-        pares += f'[cv{k}][ca{k}]'
+        videos += f'[cv{k}]'
+        audios += f'[ca{k}]'
         if usa_mascara:
-            partes.append(f'[m{k}]trim=start={ini:.4f}:end={fim:.4f},{setpts}[cm{k}]')
+            partes.append(f'[m{k}]trim=start={ini_v:.4f}:end={fim:.4f},{no_grid}[cm{k}]')
             masc += f'[cm{k}]'
-    partes.append(f'{pares}concat=n={n}:v=1:a=1[vc][ac]')
+        acc += dur
+    # o vídeo e o áudio emendados cada um por si: o vídeo em quadros exatos do vídeo final, o áudio no tempo exato
+    partes.append(f'{videos}concat=n={n}:v=1:a=0[vc]')
+    partes.append(f'{audios}concat=n={n}:v=0:a=1[ac]')
     recorte = f"crop=w=trunc(ih*9/16/2)*2:h=ih:x=(iw-ow)*{enquadramento_x:.4f}," if horizontal else ''
     rotulo = 'ator_cru' if com_look else 'ator'
     partes.append(f'[vc]{recorte}scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},setsar=1,fps={fps}[{'ator_mv' if movimentos else rotulo}]')
