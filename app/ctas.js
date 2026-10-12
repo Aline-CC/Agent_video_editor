@@ -16,16 +16,21 @@ export async function abrirCtas(tela) {
           <video muted playsinline preload="none" data-src="/biblioteca/ctas/${c.id}/proxy.mp4"></video>
           ${cat ? `<span class="selo selo-amarelo">${esc(cat.emoji)} ${esc(cat.saida)}</span>` : '<span class="selo selo-coral">Sem categoria</span>'}
           <button class="video-tocar" data-som title="Assistir o CTA com som">${ICONE.tocar}</button>
-          <button class="botao-icone pequeno cta-expandir" data-expandir title="Abrir grande, com som">${ICONE.expandir}</button>
           <div class="cta-barra"><i></i></div>
           <span class="duracao">${tempo(c.fim - c.inicio)}</span>
-          <button class="estrela${c.favorito ? ' ligada' : ''}" data-favorito title="${c.favorito ? 'Favorito da categoria (entra por padrão)' : 'Tornar o favorito da categoria'}">${c.favorito ? ESTRELA_CHEIA : ICONE.estrela}</button></div>
-        <h3 class="cta-nome" title="${esc(c.nome)}${c.fonte ? `\n${esc(c.fonte)}` : ''}">${esc(c.nome)}</h3>
-        <div class="cta-info">${chipCodigo(cods.cta?.[c.id], c.nome)}
-          <select class="select-cta" data-categoria aria-label="Categoria"><option value="">Categoria…</option>
-            ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)}</option>`).join('')}</select></div>
-        <div class="acoes-pe"><button class="botao pequeno" data-marcar title="Marque na linha do tempo onde o CTA começa e termina">${ICONE.tesoura} Marcar o CTA</button>
-          <button class="botao-icone pequeno" data-apagar title="Apagar (vai para biblioteca/ctas/_lixeira/)">${ICONE.lixo}</button></div>
+          <button class="estrela${c.favorito ? ' ligada' : ''}" data-favorito title="${c.favorito ? 'Favorito da categoria (entra por padrão)' : 'Tornar o favorito da categoria'}">${c.favorito ? ESTRELA_CHEIA : ICONE.estrela}</button>
+          <div class="cta-ferramentas">
+            <button data-marcar title="Marcar onde o CTA começa e termina">${ICONE.tesoura}</button>
+            <button data-expandir title="Abrir grande, com som">${ICONE.expandir}</button>
+            <button data-apagar title="Apagar (vai para biblioteca/ctas/_lixeira/)">${ICONE.lixo}</button></div></div>
+        <div class="cta-corpo">
+          <input class="cta-nome" value="${esc(c.nome)}" data-nome maxlength="200" spellcheck="false" aria-label="Nome do CTA" title="${esc(c.nome)}${c.fonte ? ` · ${esc(c.fonte)}` : ''}">
+          <div class="cta-meta">
+            <label class="cta-categoria${cat ? '' : ' vazia'}">${cat ? esc(cat.emoji) : ''}<span>${cat ? esc(cat.nome) : 'Sem categoria'}</span>${ICONE.seta_baixo}
+              <select data-categoria aria-label="Categoria"><option value="">Sem categoria</option>
+                ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)} → ${esc(k.saida)}</option>`).join('')}</select></label>
+            ${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
+        </div>
       </article>`
     }
     // numa grade só, na ordem das categorias (as sem categoria primeiro, para o criador organizar); o selo diz a categoria
@@ -96,6 +101,21 @@ export async function abrirCtas(tela) {
         c.classList.add('tocando', 'com-som')
         $('[data-som]', c).innerHTML = ICONE.pausar
         barra(c, v, x)
+      })
+    }
+    for (const inp of $$('[data-nome]', tela)) {
+      const orig = inp.value
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') inp.blur()
+        if (e.key === 'Escape') {
+          inp.value = orig
+          inp.blur()
+        }
+      })
+      inp.addEventListener('blur', () => {
+        const v = inp.value.trim()
+        if (!v) inp.value = orig
+        else if (v !== orig) salvar(inp.closest('.card-cta').dataset.id, { nome: v }).then(() => aviso('Nome salvo'))
       })
     }
     tela.onchange = async (e) => {
