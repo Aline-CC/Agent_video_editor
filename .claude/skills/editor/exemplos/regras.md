@@ -7,6 +7,7 @@ As Regras do criador são obrigatórias. As sugeridas pela IA são guia; o criad
 - Se o vídeo começa com o apresentador lendo uma pergunta (de um comentário ou de uma caixinha), é um vídeo de dúvida: comece com comentário + insert + ator, com a pergunta no texto do comentário.
 - Comece mostrando algo: o gancho visual nos primeiros segundos é importantíssimo.
 - Nunca deixe o apresentador em tela cheia (full ator) por mais de 3 a 4 segundos seguidos.
+- Toda troca de plano (de uma tela para outra: full ator → tela dividida, tela dividida → outra tela dividida…) cai num final de frase ou numa pausa entre duas palavras, nunca no meio de uma palavra nem entre palavras coladas na fala. A troca sincronizada com a fala dá sofisticação à edição.
 
 ### Inserts
 - Na marcação de cada insert, conte o que acontece, em ordem: qual material aparece (o site, a página, a ferramenta, concretos), como entra, zooms (em quê), destaques, trocas de um material para outro.

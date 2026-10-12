@@ -174,6 +174,10 @@ def _ator_na_geometria(partes: list[str], divisoes: list[tuple[float, float, dic
     Cada trecho por cima é um pedaço recortado do ator (só aqueles quadros são escalados). Acrescenta os filtros de baixo
     em `partes` (saída [base]) e devolve os de cima, de [topo_in] a [topo]."""
     quando = lambda a, b: f'between(t,{a:.4f},{b - 0.5 / fps:.4f})'  # noqa: E731
+    # o ator embaixo (metade): cada quadro (t = n/fps) cai em exatamente um trecho, o do instante mais perto. Com o
+    # `quando`, um quadro a menos de meio quadro do fim de um trecho ficava fora dos dois (a troca no meio de um quadro)
+    # e o ator saía sem o enquadramento por um quadro (mvi-0717 v2, c6: o rosto some e aparece o notebook)
+    na_faixa = lambda a, b: f'gte(t,{a - 0.5 / fps:.5f})*lt(t,{b - 0.5 / fps:.5f})'  # noqa: E731
     metades = [(a, b, d['ator']) for a, b, d in divisoes if (d.get('ator') or {}).get('modo') == 'metade']
     sobre = [(a, b, d['ator']) for a, b, d in divisoes if (d.get('ator') or {}).get('modo') in ('janela', 'canto', 'recortado')]
     # sem a máscara (o recorte do ator não ficou pronto), o recortado vira o ator inteiro num canto
@@ -185,9 +189,9 @@ def _ator_na_geometria(partes: list[str], divisoes: list[tuple[float, float, dic
     partes.append(f'[ator]split={usos}[ator0]' + ''.join(f'[aq{i}]' for i in range(len(quadros))) + ('[ator2]' if pessoas else ''))
     partes.append(f'color=c=black:s={w}x{h}:r={fps}:d={duracao:.4f}[tela]')
     # a tela dividida: escala e posição por trecho (fora dos trechos, o ator como foi gravado)
-    escala = '+'.join(f"{quando(a, b)}*{g['s'] - 1:.5f}" for a, b, g in metades if abs(g['s'] - 1) > 1e-4)
-    x = '+'.join(f"{quando(a, b)}*{g['tx']:.5f}*W" for a, b, g in metades if abs(g['tx']) > 1e-5) or '0'
-    y = '+'.join(f"{quando(a, b)}*{g['ty']:.5f}*H" for a, b, g in metades if abs(g['ty']) > 1e-5) or '0'
+    escala = '+'.join(f"{na_faixa(a, b)}*{g['s'] - 1:.5f}" for a, b, g in metades if abs(g['s'] - 1) > 1e-4)
+    x = '+'.join(f"{na_faixa(a, b)}*{g['tx']:.5f}*W" for a, b, g in metades if abs(g['tx']) > 1e-5) or '0'
+    y = '+'.join(f"{na_faixa(a, b)}*{g['ty']:.5f}*H" for a, b, g in metades if abs(g['ty']) > 1e-5) or '0'
     ator0 = 'ator0'
     if escala:
         partes.append(f"[ator0]scale=w='trunc(iw*(1+{escala})/2)*2':h='trunc(ih*(1+{escala})/2)*2':eval=frame[ator0s]")

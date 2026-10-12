@@ -216,6 +216,9 @@ def formatar(marcacao: str) -> dict:
 
 # ---------------------------------------------------------------- montagem (do 18, igual)
 
+TROCA_MIN = 0.06  # s de pausa entre duas palavras para uma troca de plano não cair colada na fala
+
+
 def _folga(saida: list[dict], k: int, antes: bool, maximo: float) -> float:
     """Metade da pausa antes (ou depois) da palavra k, limitada a `maximo`: para a troca cair no silêncio.
     Nunca atravessa uma emenda (a palavra vizinha em outro trecho): aí a folga é zero."""
@@ -403,6 +406,15 @@ def aplicar(slug: str, arquivo: str) -> None:
         print(f'Removidos (o plano não existe mais): {", ".join(removidos)}')
     for a in avisos:
         print(f'Aviso: {a}')
+    # regra do criador: a troca de plano cai num fim de frase ou numa pausa, nunca entre palavras coladas
+    idx = {w['id']: k for k, w in enumerate(saida)}
+    for i in itens:
+        k = idx[i['palavra_ini']]
+        if i['camada'] != 'plano' or not k or saida[k].get('clipe') != saida[k - 1].get('clipe'):
+            continue
+        if saida[k]['saida_ini'] - saida[k - 1]['saida_fim'] < TROCA_MIN and not saida[k - 1]['texto'].rstrip('"”»').endswith(('.', '!', '?', ';', ':')):
+            print(f'Aviso: {i["id"]} começa colado na fala ("{saida[k - 1]["texto"]} | {saida[k]["texto"]}", '
+                  f'{num(saida[k]["saida_ini"] - saida[k - 1]["saida_fim"], 2)} s de pausa): troque num fim de frase ou numa pausa')
 
 
 if __name__ == '__main__':
