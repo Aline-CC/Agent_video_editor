@@ -5,8 +5,10 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-_Nenhum ainda._
+- **[gosto] Trilha só instrumental.** Qualquer voz na música (fala, sussurro, vocal sampleado) compete com a fala do
+  ator. Antes de usar uma trilha, confirme que ela não tem voz em nenhum trecho (ouça, ou pergunte ao `gemini.py`). _mvi-0717 · 2026-10-12_
 
 ## Técnicos (do editor)
 
-_Nenhum ainda._
+- **[técnica] Som junto da ação.** Som de apoio (tecla, clique) começa quando a ação aparece na tela, nunca antes: a
+  digitação soa só enquanto as letras aparecem. _mvi-0717 · 2026-10-12_

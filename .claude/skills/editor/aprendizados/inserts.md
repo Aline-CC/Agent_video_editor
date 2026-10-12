@@ -5,10 +5,27 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-_Nenhum ainda._
+- **[gosto] Legível no celular, antes de tudo.** O Reels é visto num celular: se o texto da mídia não dá para ler nesse
+  tamanho, ela não serve. Recorte e amplie só a parte que importa (a janela, a linha do terminal, o trecho da página). _mvi-0717 · 2026-10-12_
+- **[gosto] Uma cor de fundo só.** Muitos vídeos oficiais mostram uma janela pequena sobre um fundo colorido: recorte
+  só a janela. A janela pequena sobre outra cor, dentro do nosso layout, fica com cara de amador. _mvi-0717 · 2026-10-12_
+- **[gosto] O produto em ação vale mais que a página.** Alguém usando o app, o terminal rodando, o resultado
+  aparecendo convencem mais que documentação, landing page ou tabela. Página só quando a fala cita a própria página
+  (um anúncio, uma data, um preço). _mvi-0717 · 2026-10-12_
+- **[gosto] Material atual.** Mostre a versão e as telas da geração atual do produto. Versão antiga (outro nome de
+  modelo, interface velha) só se não houver outra, e com nota para o criador. _mvi-0717 · 2026-10-12_
 
 ## Técnicos (do editor)
 
+- **[técnica] Conferir o trecho inteiro.** Antes de entregar, olhe começo, meio e fim do trecho usado: nada de troca
+  de cena, câmera indo para outra coisa, sobreposição do vídeo original (cronômetro, marca d'água, legenda) ou borda do
+  fundo aparecendo. _mvi-0717 · 2026-10-12_
+- **[técnica] Resolução sobrando.** Baixe sempre a maior resolução disponível e nunca amplie além do que a fonte
+  tem. Julgue a nitidez no vídeo final em 4K, em tamanho real — a prévia de 720p esconde o borrado. Se a melhor fonte
+  ainda fica borrada, grave a sua própria: rode a ferramenta de verdade (ex.: uma sessão real do terminal) e
+  renderize em alta resolução. _mvi-0717 · 2026-10-12_
+- **[técnica] O detalhe citado aparece grande.** Se a fala cita um detalhe (uma data, um preço, um número), o insert
+  termina nesse detalhe, ampliado e legível. _mvi-0717 · 2026-10-12_
 - Os inserts que já estão no banco voltam em ~20 s; os que pedem busca e captura, em 3 a 11 min. _1º teste · 2026-10-10_
 - openai.com, claude.com, perplexity.ai, Gamma e Canva bloqueiam a captura (Cloudflare, "Um momento…"): vá para a doc
   oficial (developers.openai.com, docs.anthropic.com), o blog ou o model card do produto. _1º teste_

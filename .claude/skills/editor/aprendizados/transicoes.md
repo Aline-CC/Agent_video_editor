@@ -5,7 +5,9 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-_Nenhum ainda._
+- **[gosto] Sem som de zoom.** Sons de riser e whoosh (nas transições e nos presets) cansam e soam amadores. As trocas
+  de plano são cortes (seco, com clique ou com câmera); um efeito visual de transição, só na virada principal do vídeo,
+  e sem riser. _mvi-0717 · 2026-10-12_
 
 ## Técnicos (do editor)
 
