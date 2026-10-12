@@ -1,6 +1,9 @@
 # 12 · Vídeo final
 
-O criador aprovou uma versão no app ("Aprovado · <slug> · vN").
+O criador aprovou uma versão no app ("Aprovado · <slug> · vN") ou por mensagem. Se foi por mensagem, marque a versão como
+aprovada no app, igual ao botão: `aprovado: true` em `projetos/<slug>/revisoes/vN.json` (crie o arquivo com
+`{"projeto", "versao", "aprovado": true, "enviado_em": null, "comentarios": []}` se não existir). Os selos "Usado em
+vídeo" do banco e dos motions saem da versão aprovada.
 
 ```bash
 uv run ferramentas/render.py <slug> --final

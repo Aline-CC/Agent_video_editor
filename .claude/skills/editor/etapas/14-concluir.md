@@ -54,9 +54,11 @@ criador corrigiu num vídeo não pode se repetir no próximo.
 
 1. Liste o que entrou no banco por causa deste vídeo: `uv run ferramentas/banco.py listar` (cada item mostra o projeto
    de origem e onde é usado).
-2. **Apague** o que **você** capturou ou baixou para este projeto e não está na versão aprovada:
-   `uv run ferramentas/banco.py apagar <id…>` (ele recusa se a mídia está em uso). **Nunca** apague o que o criador subiu
-   nem o que já estava no banco antes do vídeo.
+2. **Não apague.** Com o vídeo aprovado, os selos do banco se resolvem sozinhos (`banco.estados`, a partir da versão
+   aprovada): o que entrou no vídeo vira **Usado em vídeo** (com o chip do projeto e do plano), e o que você trouxe para
+   este projeto e ficou de fora vira **Recusado**. As recusadas só saem quando o criador clica em "Limpar recusados" no
+   Banco do app (vão para `biblioteca/banco/_lixeira/`, recuperável); antes disso ele pode promover qualquer uma a
+   **Aprovado** (boa, mesmo sem uso). Os motions usados no vídeo ganham o mesmo selo de uso.
 3. **Melhore a descrição** das que ficaram, para servirem de novo: nome claro, descrição do que aparece e do que ela
    ilustrou ("home da Anthropic, título serifado em fundo creme; usada como exemplo de 'clichê de site de IA'"),
    palavras-chave pelos assuntos em que ela serve (edite o `item.json`, ou `banco.py descrever <id>` para a IA sugerir e

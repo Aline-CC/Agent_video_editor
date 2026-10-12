@@ -11,6 +11,9 @@ até o corte); curvas suaves, nunca lineares.
 
 ### Os presets (`biblioteca/motions/presets/<id>.html`)
 
+Na página Banco › Motions do app, os que entraram em vídeos aprovados têm o selo **Usado em vídeo** e o chip do projeto e
+do plano (`curl -s localhost:8719/api/estados` → `motions`): prefira-os, e use-os como modelo de estilo para os novos.
+
 | id | nome | campos | fundo sugerido |
 |---|---|---|---|
 | `claude-code` | Janela do Claude Code | `prompt` (o que é digitado) | `verde_claro` |

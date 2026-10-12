@@ -118,6 +118,92 @@ def usos() -> dict[str, list[str]]:
     return out
 
 
+def versao_aprovada(projeto: Path) -> int | None:
+    """A última versão aprovada de um projeto (`revisoes/vN.json` com `aprovado`), ou None."""
+    vs = []
+    for r in (projeto / 'revisoes').glob('v*.json'):
+        m = re.fullmatch(r'v(\d+)\.json', r.name)
+        if m and (ler_json(r, {}) or {}).get('aprovado') and (projeto / 'versoes' / f'v{m.group(1)}' / 'edicao.json').exists():
+            vs.append(int(m.group(1)))
+    return max(vs) if vs else None
+
+
+def usos_aprovados() -> tuple[dict[str, list[dict]], dict[str, list[dict]], set[str]]:
+    """O que entrou nos vídeos aprovados (a última versão aprovada de cada projeto): `{banco_id: [uso]}` das mídias,
+    `{preset_do_motion: [uso]}` dos motions e os projetos aprovados. Cada uso: projeto, versão, plano e o instante do plano."""
+    midias: dict[str, list[dict]] = {}
+    motions: dict[str, list[dict]] = {}
+    aprovados: set[str] = set()
+    for p in sorted(PROJETOS.iterdir()):
+        v = versao_aprovada(p) if p.is_dir() and not p.name.startswith('_') else None
+        if v is None:
+            continue
+        aprovados.add(p.name)
+        e = ler_json(p / 'versoes' / f'v{v}' / 'edicao.json', {}) or {}
+        pl = ler_json(p / 'versoes' / f'v{v}' / 'planos.json', []) or []
+        ini = {x.get('id'): x.get('ini') for x in (pl if isinstance(pl, list) else pl.get('planos', []))}
+        uso = lambda plano: {'projeto': p.name, 'versao': v, 'plano': plano, 't': ini.get(plano)}  # noqa: E731
+        for x in (e.get('inserts') or {}).get('pedidos') or []:
+            for m in x.get('midias') or []:
+                if m.get('banco'):
+                    midias.setdefault(m['banco'], []).append(uso(x.get('plano') or x.get('id')))
+        for plano, m in (e.get('motions') or {}).items():
+            if m.get('banco'):
+                midias.setdefault(m['banco'], []).append(uso(plano))
+            if m.get('preset'):
+                motions.setdefault(m['preset'], []).append(uso(plano))
+    return midias, motions, aprovados
+
+
+def estados() -> dict[str, dict]:
+    """O selo de cada mídia (originais e trechos): `usado` (entrou num vídeo aprovado: ela ou um trecho dela),
+    `aprovado` (marcada à mão, ou subida pelo criador no app: `do_criador`), `recusado` (marcada à mão, ou de um projeto já aprovado e que
+    ficou de fora) ou None (de um projeto ainda em edição). Com os usos aprovados de cada uma."""
+    midias, _, aprovados = usos_aprovados()
+    itens = todos()
+    por_pai: dict[str, list[dict]] = {}
+    for i in itens:
+        if i.get('pai'):
+            por_pai.setdefault(i['pai'], []).append(i)
+    out = {}
+    for i in itens:
+        us = list(midias.get(i['id'], []))
+        if not i.get('pai'):
+            us += [u for t in por_pai.get(i['id'], []) for u in midias.get(t['id'], [])]
+        if us:
+            estado = 'usado'
+        elif i.get('estado') in ('aprovado', 'recusado'):
+            estado = i['estado']
+        elif i.get('do_criador'):
+            estado = 'aprovado'
+        elif (i.get('projeto') or (ler_item(i['pai']).get('projeto') if i.get('pai') and existe(i['pai']) else None)) in aprovados:
+            estado = 'recusado'
+        else:
+            estado = None
+        out[i['id']] = {'estado': estado, 'usos': us}
+    return out
+
+
+def limpar_recusados() -> list[str]:
+    """Leva para a lixeira do banco (`banco/_lixeira/<id>-<data>`) os originais recusados, com os trechos: nunca o que o
+    criador subiu, nem o que algum projeto ainda usa. Devolve os ids levados."""
+    est, em_uso = estados(), usos()
+    lixeira = RAIZ / '_lixeira'
+    levados = []
+    for i in todos():
+        if i.get('pai') or est.get(i['id'], {}).get('estado') != 'recusado' or i.get('do_criador'):
+            continue
+        ids = [i['id']] + [t['id'] for t in todos() if t.get('pai') == i['id']]
+        if any(em_uso.get(x) for x in ids):
+            continue
+        lixeira.mkdir(exist_ok=True)
+        carimbo = datetime.now().strftime('%Y%m%d-%H%M%S')
+        for x in ids:
+            shutil.move(str(pasta_item(x)), str(lixeira / f'{x}-{carimbo}'))
+        levados += ids
+    return levados
+
+
 def apagar(bid: str) -> list[str]:
     """Apaga uma mídia que não serviu (e os trechos dela). Recusa se algum projeto a usa. Devolve os ids apagados."""
     ids = [bid] + [i['id'] for i in todos() if i.get('pai') == bid]
@@ -260,24 +346,29 @@ def num(x: float, casas: int = 1) -> str:
     return f'{x:.{casas}f}'.replace('.', ',')
 
 
-def linha(i: dict, onde: dict[str, list[str]]) -> str:
+SELO = {'usado': '★ usado em vídeo aprovado', 'aprovado': '✓ aprovado', 'recusado': '✗ recusado'}
+
+
+def linha(i: dict, onde: dict[str, list[str]], est: dict | None = None) -> str:
     dur = f'{num(i.get("duracao") or 0)} s' if i.get('tipo') == 'video' else '—'
     desc = ' '.join((i.get('descricao') or '').split())
     desc = desc[:90] + '…' if len(desc) > 90 else desc
     usado = f'  [em {", ".join(onde[i["id"]])}]' if onde.get(i['id']) else ''
-    return f'{i["id"]}  {i.get("tipo", "?"):<6} {i.get("formato", "?"):<5} {dur:>7}  {i.get("nome")}{" — " + desc if desc else ""}{usado}'
+    selo = f'  ({SELO[e]})' if (e := (est or {}).get(i['id'], {}).get('estado')) else ''
+    return f'{i["id"]}  {i.get("tipo", "?"):<6} {i.get("formato", "?"):<5} {dur:>7}  {i.get("nome")}{" — " + desc if desc else ""}{usado}{selo}'
 
 
 def mostrar(itens: list[dict]) -> None:
     if not itens:
         print('Nada no banco com esses termos.')
         return
-    onde = usos()
+    onde, est = usos(), estados()
     for i in itens:
-        print(linha(i, onde))
+        print(linha(i, onde, est))
         for t in i.get('trechos') or []:
             u = f'  [em {", ".join(onde[t["id"]])}]' if onde.get(t['id']) else ''
-            print(f'  └ {t["id"]}  trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s ({num(t["duracao"])} s)  {t.get("nome")}{u}')
+            e = est.get(t['id'], {}).get('estado')
+            print(f'  └ {t["id"]}  trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s ({num(t["duracao"])} s)  {t.get("nome")}{u}{f"  ({SELO[e]})" if e else ""}')
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 // A biblioteca: presets (aprovar e os recomendados por situação), transições (as favoritas de cada par de grupos),
 // banco de inserts (corrigir nome, descrição e palavras-chave; apagar), motions (aprovar os novos) e trilhas.
 // O Claude é quem cria; aqui o criador vê, aprova e marca os melhores.
-import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, seg, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, preferencia, seg, tocarTrecho, urlRef } from './comum.js'
 
 export const PAGINAS_BIBLIOTECA = ['presets', 'transicoes', 'banco', 'motions', 'trilhas']
 
@@ -67,8 +67,20 @@ function origemDe(o) {
   return esc(o.tipo || '')
 }
 
+/** Os selos do banco e dos motions (o que entrou num vídeo aprovado, o aprovado à mão, o recusado). */
+const SELOS = { usado: ['Usado em vídeo', 'selo-menta'], aprovado: ['Aprovado', 'selo-azul'], recusado: ['Recusado', 'selo-coral'] }
+const FILTROS_BANCO = { todos: 'Todos', usado: 'Usados', aprovado: 'Aprovados', recusado: 'Recusados', sem: 'Sem selo' }
+/** Os chips de onde a peça entrou nos vídeos aprovados ("PRJ-05·p3"): abrem a revisão da versão aprovada naquele plano. */
+const chipsDeUso = (usos, cods) => (usos || []).map((u) => {
+  const prj = cods.projeto?.[u.projeto] || u.projeto
+  const t = u.t != null ? `/t${(+u.t + 0.05).toFixed(2)}` : ''
+  return `<a class="chip-uso" href="#/p/${encodeURIComponent(u.projeto)}/v${u.versao}${t}" title="Abrir a v${u.versao} de ${esc(u.projeto)} no plano ${esc(u.plano)}">${esc(prj)}·${esc(u.plano)}</a>`
+}).join('')
+
 async function bancoInserts(el) {
-  const [nomes, cods] = await Promise.all([lista('biblioteca/banco'), codigos()])
+  const [nomes, cods, est] = await Promise.all([lista('biblioteca/banco'), codigos(), json('/api/estados', { midias: {} })])
+  const estados = est?.midias || {}
+  let filtro = FILTROS_BANCO[preferencia('banco.filtro', 'todos')] ? preferencia('banco.filtro', 'todos') : 'todos'
   const cod = cods.midia || {}
   const ids = nomes.filter((n) => n.endsWith('/')).map((n) => n.slice(0, -1))
   const itens = (await Promise.all(ids.map((id) => json(`/biblioteca/banco/${id}/item.json`).then((it) => it && { ...it, id: it.id || id })))).filter(Boolean)
@@ -77,7 +89,10 @@ async function bancoInserts(el) {
   for (const t of itens.filter((i) => i.pai)) (trechos[t.pai] ||= []).push(t)
   for (const l of Object.values(trechos)) l.sort((a, b) => a.inicio - b.inicio)
 
-  const cards = originais.map((it) => {
+  const estadoDe = (it) => estados[it.id]?.estado || 'sem'
+  const cards = originais.filter((it) => filtro === 'todos' || estadoDe(it) === filtro).map((it) => {
+    const e = estados[it.id] || {}
+    const [rotulo, cor] = SELOS[e.estado] || []
     const base = `/biblioteca/banco/${it.id}/`
     const video = it.tipo === 'video'
     const ts = trechos[it.id] || []
@@ -88,14 +103,35 @@ async function bancoInserts(el) {
         ${video && it.duracao ? `<span class="duracao">${seg(it.duracao)}</span>` : ''}
         ${ts.length ? `<span class="selo selo-coral selo-dir">${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}</span>` : ''}</div>
       <div class="card-titulo"><h3 title="${esc([it.descricao, it.fonte].filter(Boolean).join('\n'))}">${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
+      ${rotulo ? `<div class="estado-banco"><span class="selo-linha ${cor}">${rotulo}</span>${chipsDeUso(e.usos, cods)}</div>` : ''}
       ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)}</span></li>`).join('')}</ul>` : ''}
     </article>`
   })
-  el.innerHTML = cabeca(`Banco · ${dois(originais.length)} mídias`, 'Os vídeos e imagens dos inserts, de todos os projetos. Passe o mouse para tocar; clique para corrigir o nome, a descrição e as palavras-chave.') +
-    (originais.length ? `<div class="grade grade-banco">${cards.join('')}</div>` : '<p class="vazio">O banco está vazio.</p>')
+  const conta = (k) => (k === 'todos' ? originais.length : originais.filter((it) => estadoDe(it) === k).length)
+  const nRecusados = conta('recusado')
+  el.innerHTML = cabeca(`Banco · ${dois(originais.length)} mídias`, 'Os vídeos e imagens dos inserts, de todos os projetos. Usado em vídeo: entrou num vídeo aprovado (o chip abre o plano). Aprovado: bom, mesmo sem uso. Recusado: ficou de fora de um vídeo aprovado. Passe o mouse para tocar; clique para editar ou mudar o selo.') +
+    `<div class="filtros-banco">${Object.entries(FILTROS_BANCO).map(([k, n]) => chip(k === filtro, `${n} <span class="conta">${conta(k)}</span>`, `data-filtro-banco="${k}"`)).join('')}
+      ${nRecusados ? `<button class="botao pequeno botao-perigo-contorno" data-limpar-recusados title="Leva os recusados para a lixeira do banco (biblioteca/banco/_lixeira/), de onde dá para recuperar">${ICONE.lixo} Limpar recusados (${nRecusados})</button>` : ''}</div>` +
+    (originais.length ? (cards.length ? `<div class="grade grade-banco">${cards.join('')}</div>` : '<p class="vazio">Nenhuma mídia com esse selo.</p>') : '<p class="vazio">O banco está vazio.</p>')
+  for (const b of $$('[data-filtro-banco]', el)) b.addEventListener('click', () => {
+    preferencia('banco.filtro', 'todos', b.dataset.filtroBanco)
+    bancoInserts(el)
+  })
+  $('[data-limpar-recusados]', el)?.addEventListener('click', async () => {
+    const ok = await confirmar({ titulo: `Limpar ${nRecusados} ${nRecusados === 1 ? 'mídia recusada' : 'mídias recusadas'}?`,
+      texto: 'Vão para a lixeira do banco (biblioteca/banco/_lixeira/), com os trechos, e dá para recuperar de lá. O que você subiu e o que um projeto ainda usa ficam.', ok: 'Limpar', perigo: true })
+    if (!ok) return
+    try {
+      const r = await enviar('POST', '/api/limpar-recusados')
+      aviso(`${r.levados.length} ${r.levados.length === 1 ? 'mídia foi' : 'mídias foram'} para a lixeira`)
+      bancoInserts(el)
+    } catch (x) {
+      aviso(x.message, 'erro')
+    }
+  })
 
   for (const card of $$('.card-banco', el)) {
-    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => bancoInserts(el), cod))
+    card.addEventListener('click', (e) => !e.target.closest('a') && detalheBanco(card.dataset.id, () => bancoInserts(el), cod, estados[card.dataset.id], cods))
     const v = $('video', card)
     if (!v) continue
     let trecho = null // [ini, fim] enquanto o mouse está num trecho
@@ -130,7 +166,7 @@ async function bancoInserts(el) {
 }
 
 /** O detalhe de uma mídia: corrigir nome, descrição e palavras-chave, ver onde é usada e apagar. */
-async function detalheBanco(id, recarregar, cod = {}) {
+async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
   let d
   try {
     d = await enviar('GET', `/api/banco/${id}`)
@@ -156,6 +192,12 @@ async function detalheBanco(id, recarregar, cod = {}) {
         <label class="campo"><span class="eyebrow">Descrição</span><textarea name="descricao" rows="5">${esc(it.descricao || '')}</textarea></label>
         <label class="campo"><span class="eyebrow">Palavras-chave <span class="apagado">· separadas por vírgula</span></span><input name="palavras" value="${esc((it.palavras || []).join(', '))}"></label>
         ${it.descricao_ia && it.descricao_ia !== it.descricao ? `<p class="dica"><b>A IA descreveu:</b> ${esc(it.descricao_ia)}</p>` : ''}
+        <div class="bloco-lista"><span class="eyebrow">Selo</span>
+          <div class="acoes-linha">${est?.estado ? `<span class="selo-linha ${SELOS[est.estado][1]}">${SELOS[est.estado][0]}</span>` : '<span class="dica">Sem selo (o projeto dela ainda está em edição)</span>'}
+            ${est?.estado === 'usado' ? '' : `<button class="botao pequeno" type="button" data-selo="aprovado" title="Boa, mesmo sem ter sido usada">${ICONE.check} Aprovar</button>
+            <button class="botao pequeno" type="button" data-selo="recusado">Recusar</button>
+            ${it.estado ? '<button class="botao pequeno" type="button" data-selo="">Automático</button>' : ''}`}</div>
+          ${est?.usos?.length ? `<div class="estado-banco">${chipsDeUso(est.usos, cods)}</div>` : ''}</div>
         <div class="acoes-linha"><button class="botao botao-coral" type="submit" disabled>Salvar</button>
           <button class="botao botao-perigo-contorno" type="button" data-apagar>${ICONE.lixo} Apagar do banco</button></div>
         <p class="erro-linha" hidden></p>
@@ -180,6 +222,16 @@ async function detalheBanco(id, recarregar, cod = {}) {
     } catch (x) {
       erro.hidden = false
       erro.textContent = x.message
+    }
+  })
+  for (const b of $$('[data-selo]', el)) b.addEventListener('click', async () => {
+    try {
+      await enviar('PUT', `/api/banco/${id}`, { estado: b.dataset.selo || null })
+      aviso(b.dataset.selo ? `Marcada como ${SELOS[b.dataset.selo][0].toLowerCase()}` : 'O selo volta a ser automático')
+      fechar()
+      recarregar()
+    } catch (x) {
+      aviso(x.message, 'erro')
     }
   })
   $('[data-apagar]', el).addEventListener('click', async () => {
@@ -852,7 +904,8 @@ async function motions(el) {
     }
     return { id: n.replace(/\.html$/, ''), ...(dado('preset') || {}), campos: dado('campos') || {} }
   }
-  const [ms, cods] = await Promise.all([Promise.all(nomes.map(ler)), codigos()])
+  const [ms, cods, est] = await Promise.all([Promise.all(nomes.map(ler)), codigos(), json('/api/estados', { motions: {} })])
+  const usosM = est?.motions || {}
   ms.sort((a, b) => (b.a_revisar ? 1 : 0) - (a.a_revisar ? 1 : 0) || (a.nome || a.id).localeCompare(b.nome || b.id, 'pt-BR'))
   const sons = await nomesDosSons()
   const nRevisar = ms.filter((m) => m.a_revisar).length
@@ -866,6 +919,7 @@ async function motions(el) {
     return `<article class="card-motion" data-id="${esc(m.id)}">
       <div class="mini mini-916 fundo-${esc(m.fundo || 'escuro')}">${previa}${m.a_revisar ? '<span class="selo selo-coral">A revisar</span>' : ''}</div>
       <div class="card-titulo"><h3 title="${esc(dica)}">${esc(m.nome || m.id)}</h3>${m.duracao ? `<span class="apagado">${seg(m.duracao)}</span>` : ''}</div>
+      ${usosM[m.id]?.length ? `<div class="estado-banco"><span class="selo-linha ${SELOS.usado[1]}">${SELOS.usado[0]}</span>${chipsDeUso(usosM[m.id], cods)}</div>` : ''}
       <div class="card-pe">${chipCodigo(cods.motion?.[m.id], m.nome || m.id)}${m.a_revisar ? `<span class="acoes-pe"><button class="botao pequeno" data-aprovar title="Tira a marca “a revisar”">${ICONE.check} Aprovar</button>
         <button class="botao pequeno botao-perigo-contorno" data-recusar title="Recusa a sugestão (vai para motions/presets/_recusados/)">${ICONE.fechar} Recusar</button></span>` : ''}</div>
     </article>`

@@ -1010,3 +1010,11 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .partes-banco { display: flex; gap: 6px; margin-bottom: 18px; }
 .parte-banco:empty { display: none; }
 .parte-banco + .parte-banco:not(:empty) { margin-top: 40px; }
+
+/* o selo do banco e dos motions (usado · aprovado · recusado) e os chips de onde entrou nos vídeos aprovados */
+.estado-banco { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.chip-uso { padding: 2px 8px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-full); color: var(--color-fog);
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; font-weight: 600; text-decoration: none; }
+.chip-uso:hover { border-color: var(--color-cream-50); color: var(--color-cream); }
+.filtros-banco { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 18px; }
+.filtros-banco [data-limpar-recusados] { margin-left: auto; }

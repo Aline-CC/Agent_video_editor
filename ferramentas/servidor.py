@@ -17,7 +17,8 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
   aprendizados/<área>.md) · GET /api/aprendizados/imagens/<nome> (as imagens que os .md mostram).
 - GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
   · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
-  · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> · PUT /api/motions/<id>/aprovar.
+  · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> ({estado} marca o selo à mão) · GET /api/estados (selos do banco e usos dos motions nos
+  vídeos aprovados) · POST /api/limpar-recusados · PUT /api/motions/<id>/aprovar.
 - Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
   e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
   ordem.json e os inserts que o usavam voltam ao 1º favorito da situação (presets.py escolher).
@@ -586,6 +587,19 @@ def _midia(h, q, id_):
     return {'item': item, 'usos': usos.get(id_, []), 'trechos': [{**t, 'usos': usos.get(t['id'], [])} for t in trechos]}
 
 
+@rota('GET', '/api/estados')
+def _estados(h, q):
+    """Os selos do banco (usado · aprovado · recusado, com os usos nos vídeos aprovados) e os usos aprovados dos motions."""
+    b = _banco()
+    _, motions, _ = b.usos_aprovados()
+    return {'midias': b.estados(), 'motions': motions}
+
+
+@rota('POST', '/api/limpar-recusados')
+def _limpar_recusados(h, q):
+    return {'levados': _banco().limpar_recusados()}
+
+
 @rota('PUT', r'/api/banco/(\w+)')
 def _editar_midia(h, q, id_):
     b = _banco()
@@ -599,6 +613,11 @@ def _editar_midia(h, q, id_):
         item['descricao'] = str(c['descricao'] or '').strip()
     if 'palavras' in c and not item.get('pai'):
         item['palavras'] = [str(p).strip() for p in c['palavras'] or [] if str(p).strip()][:30]
+    if 'estado' in c:  # o selo à mão: aprovado, recusado ou None (volta ao automático)
+        if c['estado'] in ('aprovado', 'recusado'):
+            item['estado'] = c['estado']
+        else:
+            item.pop('estado', None)
     b.salvar_item(item)
     return {'item': b.ler_item(id_)}
 

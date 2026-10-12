@@ -1,7 +1,7 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
 // revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica, #/aprendizados[/<área>] e as da biblioteca
 // (#/presets, #/transicoes[/<de>><para>], #/banco[/inserts|/motions], #/trilhas).
-import { $, $$, ICONE, abasAbertas, aviso, chipCodigo, codigos, confirmar, copiar, enviar, esc, fecharAba, json, mmss } from './comum.js'
+import { $, $$, ICONE, abasAbertas, aviso, preferencia, chipCodigo, codigos, confirmar, copiar, enviar, esc, fecharAba, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirBiblioteca, PAGINAS_BIBLIOTECA } from './biblioteca.js'
 import { abrirCalibragem, abrirRevisaoReferencia } from './calibragem.js'
@@ -172,6 +172,11 @@ async function rotear() {
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
   let s
+  // #/p/<slug>/vN/t12.3 (o chip "usado em" do Banco e dos Motions): a revisão abre naquele instante
+  if (partes[0] === 'p' && partes[1] && /^v\d+$/.test(partes[2] || '') && /^t[\d.]+$/.test(partes[3] || '')) {
+    preferencia(`posicao.${partes[1]}.${partes[2]}`, 0, +partes[3].slice(1))
+    history.replaceState(null, '', `#/p/${encodeURIComponent(partes[1])}/${partes[2]}`)
+  }
   if (partes[0] === 'p' && partes[1]) s = await abrirRevisao(tela, partes[1], partes[2] ? parseInt(partes[2].replace(/^v/, ''), 10) : null)
   else if (partes[0] === 'calibragem') s = await (partes[1] ? abrirRevisaoReferencia(tela, partes[1]) : abrirCalibragem(tela))
   else if (partes[0] === 'referencias') s = await abrirReferencias(tela)
