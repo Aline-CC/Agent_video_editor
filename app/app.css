@@ -1051,3 +1051,18 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .te-item.sel { border-color: var(--color-yellow); }
 .te-item input { min-width: 0; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--color-cream); font: inherit; font-size: 12px; }
 .te-item input:focus { border-color: var(--color-line-dark); outline: none; }
+
+/* a grade única do Banco: o chip do tipo no canto e o motion em pé no meio do card deitado */
+.chip-tipo { position: absolute; top: 10px; right: 10px; z-index: 2; padding: 3px 9px; border-radius: var(--radius-full); background: rgba(0, 0, 0, 0.62);
+  color: var(--color-cream); font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; }
+.chip-tipo-motion { background: var(--color-yellow); color: var(--color-ink); }
+.palco-motion { position: absolute; top: 0; bottom: 0; left: 50%; aspect-ratio: 9 / 16; transform: translateX(-50%); overflow: hidden; }
+.palco-motion iframe { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; border: 0; transform: scale(var(--escala, 0.1)); transform-origin: 0 0; pointer-events: none; }
+.card-banco-motion .acoes-pe { display: flex; gap: 6px; margin-top: 6px; }
+
+/* a barra do Banco: o tipo à esquerda, um fio, os selos e as ações na ponta */
+.barra-banco { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 22px; }
+.barra-banco .alternar .pilula { gap: 6px; }
+.barra-banco .alternar .pilula svg, .barra-banco .pilula.pequena svg { width: 13px; height: 13px; }
+.barra-banco .barra-sep { margin: 0 8px; }
+.barra-banco-acoes { display: flex; align-items: center; gap: 8px; margin-left: auto; }
