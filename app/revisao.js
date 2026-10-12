@@ -87,6 +87,8 @@ class Revisao {
     this.usado = {}
     for (const q of edicao.inserts?.pedidos || []) this.usado[q.plano] = { midias: (q.midias || []).map((m) => m.banco).filter(Boolean), preset: q.enriquecimento?.preset }
     for (const [pl, m] of Object.entries(edicao.motions || {})) (this.usado[pl] ||= {}).motion = m
+    for (const [pl, t] of Object.entries(edicao.transicoes || {})) if (t?.id) (this.usado[pl] ||= {}).transicao = t.id
+    this.receitas = {} // os JSONs dos presets e das transições já buscados (o nome), por 'preset:<id>' / 'transicao:<id>'
     this.midias = {} // os itens do banco já buscados (nome, fonte, vídeo)
     this.palavras = listaDe(palavras, 'palavras').slice().sort((a, b) => a.ini - b.ini)
     this.planos = listaDe(planos, 'planos')
@@ -126,7 +128,6 @@ class Revisao {
           <button class="video-tocar" data-acao="tocar" aria-label="Tocar">${ICONE.tocar}</button></div>
         <div class="lado lado-dir">
           <div class="bloco" id="usado"></div>
-          ${this.info.resumo ? `<div class="bloco"><span class="eyebrow">O que mudou na v${this.v}</span><p class="resumo-versao">${esc(this.info.resumo)}</p></div>` : ''}
           <dl class="atalhos"><dt><kbd>Espaço</kbd></dt><dd>tocar</dd><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>quadro · <kbd>Shift</kbd> 1 s</dd>
             <dt><kbd>I</kbd><kbd>O</kbd></dt><dd>trecho</dd><dt><kbd>C</kbd></dt><dd>geral</dd>
             <dt><kbd>⌘V</kbd></dt><dd>anexar print</dd><dt><kbd>Esc</kbd></dt><dd>sair</dd></dl>
@@ -567,9 +568,18 @@ class Revisao {
     }).join('')
     const linhas = [
       u.motion && `<div class="midia-linha"><span>Motion · ${esc(u.motion.nome || u.motion.preset || 'novo')}</span>${chipCodigo(c.motion?.[u.motion.preset], u.motion.nome || u.motion.preset)}</div>`,
-      u.preset && `<div class="midia-linha"><span>Preset</span>${chipCodigo(c.preset?.[u.preset], u.preset)}</div>`,
     ].filter(Boolean).join('')
-    return midias || linhas ? `<span class="eyebrow">No plano</span>${midias}${linhas}` : ''
+    // o preset do insert e a transição de entrada do plano: o clipe de referência de cada um, pequeno, em laço
+    const receita = (tipo, id, rotulo) => {
+      if (!id) return ''
+      const nome = this.receitas[`${tipo}:${id}`]?.nome || id
+      const clipe = `/biblioteca/${tipo === 'preset' ? 'presets' : 'transicoes'}/clipes/${id}.mp4`
+      return `<div class="receita-usada"><button class="receita-mini" data-ver-clipe="${clipe}" title="Assistir com som">
+          <video src="${clipe}" muted loop autoplay playsinline preload="metadata" onerror="this.parentNode.classList.add('sem-clipe')"></video></button>
+        <div class="receita-info"><span class="dica">${rotulo}</span><span class="midia-nome" title="${esc(nome)}">${esc(nome)}</span>${chipCodigo(c[tipo]?.[id], nome)}</div></div>`
+    }
+    const receitas = receita('preset', u.preset, 'Preset') + receita('transicao', u.transicao, 'Transição de entrada')
+    return midias || linhas || receitas ? `<span class="eyebrow">No plano</span>${midias}${linhas}${receitas}` : ''
   }
 
   /** A mídia do banco num modal (um trecho toca só o pedaço usado, em laço). */
@@ -613,9 +623,14 @@ class Revisao {
 
   /** Busca no banco o nome e a fonte das mídias do plano (uma vez cada) e redesenha o bloco. */
   async carregarMidias(pl) {
-    const faltam = (this.usado[pl]?.midias || []).filter((id) => !(id in this.midias))
-    if (!faltam.length) return
-    await Promise.all(faltam.map(async (id) => (this.midias[id] = (await json(`/api/banco/${id}`, null))?.item || null)))
+    const u = this.usado[pl] || {}
+    const faltam = (u.midias || []).filter((id) => !(id in this.midias))
+    const receitas = [['preset', u.preset], ['transicao', u.transicao]].filter(([t, id]) => id && !(`${t}:${id}` in this.receitas))
+    if (!faltam.length && !receitas.length) return
+    await Promise.all([
+      ...faltam.map(async (id) => (this.midias[id] = (await json(`/api/banco/${id}`, null))?.item || null)),
+      ...receitas.map(async ([t, id]) => (this.receitas[`${t}:${id}`] = await json(`/biblioteca/${t === 'preset' ? 'presets' : 'transicoes'}/${id}.json`, null))),
+    ])
     if (this.fechado || this.planos[this.iPlano]?.id !== pl) return
     this.iPlano = -2 // força o redesenho do plano atual
     this.atualizar()
@@ -1090,6 +1105,10 @@ class Revisao {
     }
     if (d.ampliar) return this.ampliar(d.ampliar)
     if (d.verMidia) return this.verMidia(d.verMidia)
+    if (d.verClipe) {
+      this.video.pause()
+      return janela(`<button class="botao-icone anexo-fechar" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button><video class="anexo-grande" src="${d.verClipe}" autoplay loop playsinline controls></video>`, { classe: 'janela-anexo' })
+    }
     if (d.tirarAnexo) {
       const k = d.tirarAnexo.indexOf('|')
       return this.tirarAnexo(d.tirarAnexo.slice(0, k), d.tirarAnexo.slice(k + 1))
