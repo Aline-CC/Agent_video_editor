@@ -28,14 +28,14 @@ export async function marcarTrechos(item, trechos, aoSalvar, op = {}) {
         <div class="te-controles"><button class="botao-icone" data-te="tocar" title="Tocar / pausar (Espaço)">${ICONE.tocar}</button>
           <span class="te-tempo"><b id="te-t">0:00,0</b> / ${tempo(dur)}</span><span class="te-aviso" id="te-aviso"></span>
           <span class="dica te-dica">arraste para criar · I / O · ← → um quadro · espaço toca</span></div>
+      </div>
+      <aside class="te-dir"><span class="eyebrow" id="te-titulo"></span><div class="te-lista" id="te-lista"></div>
+        <button class="botao botao-coral" data-te="salvar">${op.um ? 'Salvar' : 'Salvar trechos'}</button></aside>
         <div class="te-linha">
           <div class="te-regua" id="te-regua"></div>
           <div class="te-faixa" id="te-faixa" style="${tira ? `background-image:url('${tira}')` : ''}">
             <div class="te-novo" id="te-novo" hidden></div><div id="te-trechos"></div><div class="te-agulha" id="te-agulha"></div></div>
         </div>
-      </div>
-      <aside class="te-dir"><span class="eyebrow" id="te-titulo"></span><div class="te-lista" id="te-lista"></div>
-        <button class="botao botao-coral" data-te="salvar">${op.um ? 'Salvar' : 'Salvar trechos'}</button></aside>
     </div>`, { classe: 'janela-trechos', aoFechar: () => document.removeEventListener('keydown', tecla, true) })
   const v = $('video', el)
   const faixa = $('#te-faixa', el)
