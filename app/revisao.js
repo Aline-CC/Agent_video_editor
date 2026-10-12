@@ -1142,9 +1142,11 @@ class Revisao {
       if (campo.id === 'editor-texto' && enter) {
         e.preventDefault()
         this.salvarEditor()
+        document.activeElement?.blur?.()
       } else if (campo.id === 'nova-texto' && enter) {
         e.preventDefault()
         this.salvarNova()
+        campo.blur() // sai da caixa: o Espaço volta a tocar o vídeo
       } else if (e.key === 'Escape') {
         e.preventDefault()
         if (campo.id === 'editor-texto') this.fecharEditor()
