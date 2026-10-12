@@ -22,7 +22,6 @@ export async function abrirCtas(tela) {
           ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)}</option>`).join('')}</select>
         <div class="acoes-pe"><button class="botao pequeno" data-marcar title="Marque na linha do tempo onde o CTA começa e termina">${ICONE.tesoura} Marcar o CTA</button>
           <button class="botao-icone pequeno" data-apagar title="Apagar (vai para biblioteca/ctas/_lixeira/)">${ICONE.lixo}</button></div>
-        <p class="dica">${c.inicio > 0 || c.fim < c.duracao ? `de ${tempo(c.inicio)} a ${tempo(c.fim)} do vídeo de ${tempo(c.duracao)}` : `o vídeo inteiro (${tempo(c.duracao)}): marque onde o CTA começa`}</p>
       </article>`
     }
     // numa grade só, na ordem das categorias (as sem categoria primeiro, para o criador organizar); o selo diz a categoria
