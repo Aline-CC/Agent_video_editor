@@ -18,7 +18,8 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
 - GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
   · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
   · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> ({estado} marca o selo à mão) · GET /api/estados (selos do banco e usos dos motions nos
-  vídeos aprovados) · POST /api/limpar-recusados · PUT /api/motions/<id>/aprovar.
+  vídeos aprovados) · POST /api/limpar-recusados · POST /api/banco (subir: o arquivo cru, nome em X-Nome) ·
+  POST /api/banco/<id>/trechos {inicio, fim, nome} · GET /api/banco/<id>/tira · PUT /api/motions/<id>/aprovar.
 - Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
   e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
   ordem.json e os inserts que o usavam voltam ao 1º favorito da situação (presets.py escolher).
@@ -587,6 +588,65 @@ def _midia(h, q, id_):
     return {'item': item, 'usos': usos.get(id_, []), 'trechos': [{**t, 'usos': usos.get(t['id'], [])} for t in trechos]}
 
 
+@rota('POST', '/api/banco')
+def _subir_midia(h, q):
+    """O criador sobe uma mídia pelo app: o arquivo cru no corpo (o nome em X-Nome). Nasce Aprovada (`do_criador`) e o
+    Gemini a descreve em segundo plano."""
+    b = _banco()
+    nome = Path(unquote(h.headers.get('X-Nome') or 'midia.mp4')).name
+    if Path(nome).suffix.lower() not in b.EXT_VIDEO + b.EXT_IMAGEM:
+        raise Erro(f'{nome}: use MP4, MOV, WebM, PNG, JPG ou WebP.', 422)
+    resta = int(h.headers.get('Content-Length') or 0)
+    if not resta:
+        raise Erro('Arquivo vazio.', 422)
+    pasta = Path(tempfile.mkdtemp(prefix='banco-'))
+    try:
+        destino = pasta / re.sub(r'[^\w. -]', '_', nome)
+        with open(destino, 'wb') as f:
+            while resta > 0:
+                bloco = h.rfile.read(min(1 << 20, resta))
+                if not bloco:
+                    break
+                f.write(bloco)
+                resta -= len(bloco)
+        if resta:
+            raise Erro('O envio parou no meio.', 400)
+        try:
+            item = b.adicionar(destino, nome=Path(nome).stem, fonte='upload', mover=True)
+        except SystemExit as e:
+            raise Erro(str(e), 422) from e
+        item['do_criador'] = True
+        b.salvar_item(item)
+    finally:
+        shutil.rmtree(pasta, ignore_errors=True)
+
+    def descrever():
+        try:
+            b.descrever(item['id'])
+        except (Exception, SystemExit) as e:  # sem a descrição, a mídia fica como subiu
+            print(f'descrever {item["id"]}: {e}', file=sys.stderr)
+    threading.Thread(target=descrever, daemon=True).start()
+    return {'item': item}
+
+
+@rota('POST', r'/api/banco/(\w+)/trechos')
+def _criar_trecho(h, q, id_):
+    b, c = _banco(), h.corpo()
+    ler_midia(b, id_)
+    try:
+        return {'item': b.criar_trecho(id_, c.get('inicio', 0), c.get('fim', 0), c.get('nome'))}
+    except SystemExit as e:
+        raise Erro(str(e), 422) from e
+
+
+@rota('GET', r'/api/banco/(\w+)/tira')
+def _tira(h, q, id_):
+    b = _banco()
+    ler_midia(b, id_)
+    b.tira(id_)
+    return {'url': f'/biblioteca/banco/{id_}/tira.jpg'}
+
+
 @rota('GET', '/api/estados')
 def _estados(h, q):
     """Os selos do banco (usado · aprovado · recusado, com os usos nos vídeos aprovados) e os usos aprovados dos motions."""
@@ -613,6 +673,12 @@ def _editar_midia(h, q, id_):
         item['descricao'] = str(c['descricao'] or '').strip()
     if 'palavras' in c and not item.get('pai'):
         item['palavras'] = [str(p).strip() for p in c['palavras'] or [] if str(p).strip()][:30]
+    if item.get('pai') and ('inicio' in c or 'fim' in c):  # o intervalo de um trecho
+        try:
+            t = b.editar_trecho(id_, c.get('inicio', item['inicio']), c.get('fim', item['fim']))
+        except SystemExit as e:
+            raise Erro(str(e), 422) from e
+        item['inicio'], item['fim'] = t['inicio'], t['fim']  # o nome e o selo, se vieram, ficam no `item`
     if 'estado' in c:  # o selo à mão: aprovado, recusado ou None (volta ao automático)
         if c['estado'] in ('aprovado', 'recusado'):
             item['estado'] = c['estado']

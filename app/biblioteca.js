@@ -1,6 +1,7 @@
 // A biblioteca: presets (aprovar e os recomendados por situação), transições (as favoritas de cada par de grupos),
 // banco de inserts (corrigir nome, descrição e palavras-chave; apagar), motions (aprovar os novos) e trilhas.
 // O Claude é quem cria; aqui o criador vê, aprova e marca os melhores.
+import { marcarTrechos } from './trechos.js'
 import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, janela, json, lista, mmss, num, preferencia, seg, tocarTrecho, urlRef } from './comum.js'
 
 export const PAGINAS_BIBLIOTECA = ['presets', 'transicoes', 'banco', 'motions', 'trilhas']
@@ -111,8 +112,34 @@ async function bancoInserts(el) {
   const nRecusados = conta('recusado')
   el.innerHTML = cabeca(`Banco · ${dois(originais.length)} mídias`, 'Os vídeos e imagens dos inserts, de todos os projetos. Usado em vídeo: entrou num vídeo aprovado (o chip abre o plano). Aprovado: bom, mesmo sem uso. Recusado: ficou de fora de um vídeo aprovado. Passe o mouse para tocar; clique para editar ou mudar o selo.') +
     `<div class="filtros-banco">${Object.entries(FILTROS_BANCO).map(([k, n]) => chip(k === filtro, `${n} <span class="conta">${conta(k)}</span>`, `data-filtro-banco="${k}"`)).join('')}
+      <label class="botao pequeno botao-subir" title="Vídeos e imagens, vários de uma vez (ou arraste para esta página): entram Aprovados e a IA descreve">${ICONE.subir} Subir mídia<input type="file" multiple accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp" hidden data-subir></label>
       ${nRecusados ? `<button class="botao pequeno botao-perigo-contorno" data-limpar-recusados title="Leva os recusados para a lixeira do banco (biblioteca/banco/_lixeira/), de onde dá para recuperar">${ICONE.lixo} Limpar recusados (${nRecusados})</button>` : ''}</div>` +
     (originais.length ? (cards.length ? `<div class="grade grade-banco">${cards.join('')}</div>` : '<p class="vazio">Nenhuma mídia com esse selo.</p>') : '<p class="vazio">O banco está vazio.</p>')
+  const subir = async (arquivos) => {
+    const l = [...arquivos].filter((f) => /\.(mp4|mov|m4v|webm|png|jpe?g|webp)$/i.test(f.name))
+    if (!l.length) return aviso('Use MP4, MOV, WebM, PNG, JPG ou WebP', 'erro')
+    let feitos = 0
+    for (const f of l) {
+      aviso(`Enviando ${feitos + 1} de ${l.length}… ${f.name}`)
+      try {
+        const r = await fetch('/api/banco', { method: 'POST', headers: { 'X-Nome': encodeURIComponent(f.name) }, body: f })
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`)
+        feitos++
+      } catch (x) {
+        aviso(`${f.name}: ${x.message}`, 'erro')
+      }
+    }
+    if (feitos) aviso(`${feitos} ${feitos === 1 ? 'mídia subiu' : 'mídias subiram'} · a IA descreve em segundo plano`)
+    preferencia('banco.filtro', 'todos', 'todos')
+    bancoInserts(el)
+  }
+  $('[data-subir]', el)?.addEventListener('change', (e) => subir(e.target.files))
+  if (!el.dataset.arrastar) {  // arrastar arquivos para a página (uma vez por página)
+    el.dataset.arrastar = '1'
+    el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('soltando') })
+    el.addEventListener('dragleave', (e) => !el.contains(e.relatedTarget) && el.classList.remove('soltando'))
+    el.addEventListener('drop', (e) => { e.preventDefault(); el.classList.remove('soltando'); subir(e.dataTransfer.files) })
+  }
   for (const b of $$('[data-filtro-banco]', el)) b.addEventListener('click', () => {
     preferencia('banco.filtro', 'todos', b.dataset.filtroBanco)
     bancoInserts(el)
@@ -199,6 +226,7 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
             ${it.estado ? '<button class="botao pequeno" type="button" data-selo="">Automático</button>' : ''}`}</div>
           ${est?.usos?.length ? `<div class="estado-banco">${chipsDeUso(est.usos, cods)}</div>` : ''}</div>
         <div class="acoes-linha"><button class="botao botao-coral" type="submit" disabled>Salvar</button>
+          ${video && !it.pai ? `<button class="botao" type="button" data-marcar-trechos title="Selecione na linha do tempo os pedaços que servem: cada trecho vira uma mídia com código próprio">${ICONE.tesoura} Marcar trechos</button>` : ''}
           <button class="botao botao-perigo-contorno" type="button" data-apagar>${ICONE.lixo} Apagar do banco</button></div>
         <p class="erro-linha" hidden></p>
         ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
@@ -223,6 +251,13 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
       erro.hidden = false
       erro.textContent = x.message
     }
+  })
+  $('[data-marcar-trechos]', el)?.addEventListener('click', () => {
+    fechar()
+    marcarTrechos(it, d.trechos, () => {
+      recarregar()
+      detalheBanco(id, recarregar, cod, est, cods)
+    })
   })
   for (const b of $$('[data-selo]', el)) b.addEventListener('click', async () => {
     try {

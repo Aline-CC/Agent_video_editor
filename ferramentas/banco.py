@@ -174,7 +174,7 @@ def estados() -> dict[str, dict]:
             estado = 'usado'
         elif i.get('estado') in ('aprovado', 'recusado'):
             estado = i['estado']
-        elif i.get('do_criador'):
+        elif i.get('do_criador') or (i.get('pai') and existe(i['pai']) and ler_item(i['pai']).get('do_criador')):
             estado = 'aprovado'
         elif (i.get('projeto') or (ler_item(i['pai']).get('projeto') if i.get('pai') and existe(i['pai']) else None)) in aprovados:
             estado = 'recusado'
@@ -298,10 +298,38 @@ def criar_trecho(pai: str, inicio: float, fim: float, nome: str | None = None) -
     tid = uuid.uuid4().hex[:10]
     (RAIZ / tid).mkdir(parents=True)
     salvar_item({'id': tid, 'pai': pai, 'inicio': ini, 'fim': fim, 'nome': (nome or '').strip()[:200] or f'{original["nome"]} · trecho {n}',
-                 'criado_em': datetime.now().isoformat(timespec='seconds')})
+                 'criado_em': datetime.now().isoformat(timespec='milliseconds')})
     ffmpeg('-ss', f'{(ini + fim) / 2:.3f}', '-i', str(RAIZ / pai / (original.get('proxy') or original['arquivo'])), '-frames:v', '1',
            '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / tid / 'miniatura.jpg'))
     return ler_item(tid)
+
+
+def editar_trecho(tid: str, inicio: float, fim: float) -> dict:
+    """Muda o intervalo de um trecho (e refaz a miniatura no meio dele)."""
+    t = ler_item(tid)
+    if not t.get('pai'):
+        raise SystemExit(f'{tid} não é um trecho')
+    original = ler_item(t['pai'])
+    ini, fim = round(max(float(inicio), 0.0), 3), round(min(float(fim), original['duracao']), 3)
+    if fim - ini < MIN_TRECHO:
+        raise SystemExit(f'Trecho curto demais (mínimo {MIN_TRECHO} s)')
+    t.update(inicio=ini, fim=fim)
+    salvar_item(t)
+    ffmpeg('-ss', f'{(ini + fim) / 2:.3f}', '-i', str(RAIZ / t['pai'] / (original.get('proxy') or original['arquivo'])), '-frames:v', '1',
+           '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / tid / 'miniatura.jpg'))
+    return ler_item(tid)
+
+
+def tira(bid: str) -> Path:
+    """A tira de quadros de um vídeo (24 quadros de 90 px numa linha), o fundo da linha do tempo dos trechos. Feita uma
+    vez e guardada em `tira.jpg` (do 18: banco.tira)."""
+    item = ler_item(bid)
+    alvo = RAIZ / bid / 'tira.jpg'
+    if not alvo.exists():
+        dur = max(item.get('duracao') or 1.0, 0.1)
+        ffmpeg('-i', str(RAIZ / bid / (item.get('proxy') or item['arquivo'])), '-vf', f'fps={24 / dur:.6f},scale=-2:90,tile=24x1',
+               '-frames:v', '1', '-q:v', '5', str(alvo))
+    return alvo
 
 
 # ---------------------------------------------------------------- descrição pelo Gemini
