@@ -1025,8 +1025,8 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 /* marcar trechos (do 18: EditorVideo): o vídeo e a linha do tempo à esquerda, a lista à direita */
 .janela-trechos { width: min(1180px, calc(100vw - 32px)); }
 .te { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 8px 20px 20px; }
-.te-video { display: grid; place-items: center; height: 46vh; background: #000; border-radius: var(--radius-xl); overflow: hidden; cursor: pointer; }
-.te-video video { max-width: 100%; max-height: 100%; }
+.te-video { display: grid; place-items: center; height: 52vh; background: #000; border-radius: var(--radius-xl); overflow: hidden; cursor: pointer; }
+.te-video video { display: block; width: auto; height: auto; max-width: 100%; max-height: 52vh; }  /* em pé ou deitado, inteiro */
 .te-controles { display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 12px; }
 .te-tempo { font-variant-numeric: tabular-nums; color: var(--color-fog); }
 .te-tempo b { color: var(--color-cream); font-weight: 600; }
@@ -1069,7 +1069,7 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 
 /* a página dos CTAs */
 .cabeca-secao .botao-subir { margin-left: auto; }
-.grade-ctas { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 20px; }
+.grade-ctas { grid-template-columns: repeat(auto-fill, 200px); gap: 28px 20px; }
 .card-cta .mini { position: relative; overflow: hidden; border-radius: var(--radius-xl); background: #000; }
 .card-cta .mini img, .card-cta .mini video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .card-cta .mini video { opacity: 0; transition: opacity 0.2s; }

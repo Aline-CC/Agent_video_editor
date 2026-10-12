@@ -25,13 +25,13 @@ export async function abrirCtas(tela) {
         <p class="dica">${c.inicio > 0 || c.fim < c.duracao ? `de ${tempo(c.inicio)} a ${tempo(c.fim)} do vídeo de ${tempo(c.duracao)}` : `o vídeo inteiro (${tempo(c.duracao)}): marque onde o CTA começa`}</p>
       </article>`
     }
-    // agrupados por categoria (as sem categoria primeiro, para o criador organizar)
+    // numa grade só, na ordem das categorias (as sem categoria primeiro, para o criador organizar); o selo diz a categoria
     const grupos = [['', 'Sem categoria'], ...d.categorias.map((k) => [k.id, `${k.emoji} ${k.nome} → ${k.saida}`])]
       .map(([id, nome]) => [nome, d.ctas.filter((c) => (c.categoria || '') === id)]).filter(([, l]) => l.length)
     tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">CTAs · ${String(d.ctas.length).padStart(2, '0')}</span>
         ${ajuda('Trechos finais de vídeos já editados, que entram inteiros no fim de um orgânico. A categoria define a saída que o CTA dá ao projeto (📱 Reels ManyChat, 💰 Ad LP, 💰 Ad VSL…); a ★ é o favorito da categoria, o que entra por padrão. Suba o vídeo editado e marque onde o CTA começa e termina.')}
         <label class="botao pequeno botao-subir">${ICONE.subir} Subir vídeo<input type="file" multiple accept="video/mp4,video/quicktime,video/webm" hidden data-subir></label></div>
-      ${grupos.length ? grupos.map(([nome, l]) => `<h4 class="grupo-data">${esc(nome)}</h4><div class="grade grade-ctas">${l.map(card).join('')}</div>`).join('')
+      ${grupos.length ? `<div class="grade grade-ctas">${grupos.flatMap(([, l]) => l).map(card).join('')}</div>`
         : '<p class="vazio">Nenhum CTA ainda. Suba um vídeo editado (ou arraste para esta página) e marque onde o CTA começa.</p>'}`
     const porId = Object.fromEntries(d.ctas.map((c) => [c.id, c]))
     // a prévia: toca só o trecho do CTA com o mouse em cima
