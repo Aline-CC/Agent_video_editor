@@ -20,9 +20,10 @@ export async function abrirCtas(tela) {
           <div class="cta-barra"><i></i></div>
           <span class="duracao">${tempo(c.fim - c.inicio)}</span>
           <button class="estrela${c.favorito ? ' ligada' : ''}" data-favorito title="${c.favorito ? 'Favorito da categoria (entra por padrão)' : 'Tornar o favorito da categoria'}">${c.favorito ? ESTRELA_CHEIA : ICONE.estrela}</button></div>
-        <div class="card-titulo"><h3 title="${esc(c.fonte || '')}">${esc(c.nome)}</h3>${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
-        <select class="select-cta" data-categoria aria-label="Categoria"><option value="">Categoria…</option>
-          ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)}</option>`).join('')}</select>
+        <h3 class="cta-nome" title="${esc(c.nome)}${c.fonte ? `\n${esc(c.fonte)}` : ''}">${esc(c.nome)}</h3>
+        <div class="cta-info">${chipCodigo(cods.cta?.[c.id], c.nome)}
+          <select class="select-cta" data-categoria aria-label="Categoria"><option value="">Categoria…</option>
+            ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)}</option>`).join('')}</select></div>
         <div class="acoes-pe"><button class="botao pequeno" data-marcar title="Marque na linha do tempo onde o CTA começa e termina">${ICONE.tesoura} Marcar o CTA</button>
           <button class="botao-icone pequeno" data-apagar title="Apagar (vai para biblioteca/ctas/_lixeira/)">${ICONE.lixo}</button></div>
       </article>`
