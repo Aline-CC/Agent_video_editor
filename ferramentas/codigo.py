@@ -27,11 +27,11 @@ from base import BIBLIOTECA, PROJETOS, RAIZ, gravar_json, ler_json  # noqa: E402
 
 REGISTRO = BIBLIOTECA / 'codigos.json'
 PREFIXO = {'preset': 'PRE', 'motion': 'MOT', 'transicao': 'TRA', 'trilha': 'TRI', 'midia': 'BAN', 'referencia': 'REF',
-           'som': 'SOM', 'projeto': 'PRJ'}
+           'som': 'SOM', 'projeto': 'PRJ', 'cta': 'CTA'}
 TIPO = {v: k for k, v in PREFIXO.items()}
 NOME_TIPO = {'preset': 'preset', 'motion': 'motion', 'transicao': 'transição', 'trilha': 'trilha', 'midia': 'mídia do banco',
-             'trecho': 'trecho de mídia do banco', 'referencia': 'referência da Calibragem', 'som': 'som', 'projeto': 'projeto'}
-CODIGO = re.compile(r'(PRE|MOT|TRA|TRI|BAN|REF|SOM|PRJ)-?(\d+)(?:\.(\d+))?(?:\s*[·.:/ ]\s*([pv])(\d+))?', re.I)  # o resto (o nome) é ignorado
+             'trecho': 'trecho de mídia do banco', 'referencia': 'referência da Calibragem', 'som': 'som', 'projeto': 'projeto', 'cta': 'CTA'}
+CODIGO = re.compile(r'(PRE|MOT|TRA|TRI|BAN|REF|SOM|PRJ|CTA)-?(\d+)(?:\.(\d+))?(?:\s*[·.:/ ]\s*([pv])(\d+))?', re.I)  # o resto (o nome) é ignorado
 PLANOS = {'full_ator': 'Full ator', 'full_ator_lettering': 'Full ator + lettering', 'insert_tela_cheia': 'Insert tela cheia',
           'motion_tela_cheia': 'Motion tela cheia', 'tela_dividida_insert': 'Tela dividida · insert',
           'tela_dividida_motion': 'Tela dividida · motion', 'comentario_insert_ator': 'Comentário + insert + ator'}
@@ -83,6 +83,8 @@ def existentes() -> dict[str, list[tuple[str, str]]]:
             out['midia'].append((a.parent.name, _criado(a, i.get('criado_em'))))
     for a in (BIBLIOTECA / 'referencias').glob('*/referencia.json'):
         out['referencia'].append((a.parent.name, _criado(a, (ler_json(a, {}) or {}).get('criado_em'))))
+    for a in (BIBLIOTECA / 'ctas').glob('*/cta.json'):
+        out['cta'].append((a.parent.name, _criado(a, (ler_json(a, {}) or {}).get('criado_em'))))
     for a in PROJETOS.glob('*/edicao.json'):
         out['projeto'].append((a.parent.name, _criado(a, (ler_json(a, {}) or {}).get('criado_em'))))
     for l in out.values():
@@ -178,6 +180,8 @@ def nome_de(tipo: str, id_: str) -> str:
         return (ler_json(BIBLIOTECA / 'referencias' / id_ / 'referencia.json', {}) or {}).get('nome') or id_
     if tipo == 'projeto':
         return (ler_json(PROJETOS / id_ / 'edicao.json', {}) or {}).get('nome') or id_
+    if tipo == 'cta':
+        return (ler_json(BIBLIOTECA / 'ctas' / id_ / 'cta.json', {}) or {}).get('nome') or id_
     if tipo == 'trilha':
         cat = ler_json(BIBLIOTECA / 'trilhas' / 'catalogo.json', {}) or {}
         return next((f.get('nome') for f in (cat.get('faixas', cat) if isinstance(cat, dict) else cat) if f['id'] == id_), id_)

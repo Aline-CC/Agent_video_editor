@@ -8,10 +8,11 @@ const QUADRO = 1 / 30
 const MIN = 0.2 // como o MIN_TRECHO do banco.py
 const q = (t) => Math.round(t / QUADRO) * QUADRO
 
-export async function marcarTrechos(item, trechos, aoSalvar) {
+/** `op`: {base (a pasta do vídeo), um (um trecho só: o CTA), titulo, salvar(t) (grava o trecho único)} — sem `op`, o banco. */
+export async function marcarTrechos(item, trechos, aoSalvar, op = {}) {
   const dur = item.duracao || 0
-  const base = `/biblioteca/banco/${item.id}/`
-  const tira = (await json(`/api/banco/${item.id}/tira`, null))?.url
+  const base = op.base || `/biblioteca/banco/${item.id}/`
+  const tira = (await json(op.tira || `/api/banco/${item.id}/tira`, null))?.url
   // a lista: os trechos que já existem (com id) e os novos; os apagados saem no Salvar
   let lista = trechos.map((t) => ({ id: t.id, nome: t.nome, inicio: t.inicio, fim: t.fim, orig: `${t.nome}|${t.inicio}|${t.fim}` }))
   const apagados = []
@@ -19,7 +20,7 @@ export async function marcarTrechos(item, trechos, aoSalvar) {
   let entrada = null
   let parar = null
   const { el, fechar } = janela(`
-    <header class="janela-cabeca"><h2>Marcar trechos · ${esc(item.nome)}</h2><span class="dica">${tempo(dur)}</span>
+    <header class="janela-cabeca"><h2>${esc(op.titulo || 'Marcar trechos')} · ${esc(item.nome)}</h2><span class="dica">${tempo(dur)}</span>
       <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
     <div class="te">
       <div class="te-esq">
@@ -34,7 +35,7 @@ export async function marcarTrechos(item, trechos, aoSalvar) {
         </div>
       </div>
       <aside class="te-dir"><span class="eyebrow" id="te-titulo"></span><div class="te-lista" id="te-lista"></div>
-        <button class="botao botao-coral" data-te="salvar">Salvar trechos</button></aside>
+        <button class="botao botao-coral" data-te="salvar">${op.um ? 'Salvar' : 'Salvar trechos'}</button></aside>
     </div>`, { classe: 'janela-trechos', aoFechar: () => document.removeEventListener('keydown', tecla, true) })
   const v = $('video', el)
   const faixa = $('#te-faixa', el)
@@ -77,6 +78,12 @@ export async function marcarTrechos(item, trechos, aoSalvar) {
     const ini = q(Math.max(0, Math.min(a, b)))
     const fim = q(Math.min(dur, Math.max(a, b)))
     if (fim - ini < MIN) return
+    if (op.um) {  // um trecho só: arrastar de novo substitui o anterior
+      const t = lista[0] || { id: item.id, nome: item.nome }
+      lista = [{ ...t, inicio: ini, fim }]
+      sel = 0
+      return desenhar()
+    }
     lista.push({ id: null, nome: `${item.nome} · trecho ${lista.length + 1}`, inicio: ini, fim })
     sel = lista.length - 1
     desenhar()
@@ -127,8 +134,9 @@ export async function marcarTrechos(item, trechos, aoSalvar) {
   }
   faixa.addEventListener('pointerdown', (e) => {
     e.preventDefault()
-    const caixa = e.target.closest('.te-trecho')
     const x0 = e.clientX
+    // um trecho só: só as alças ajustam; arrastar em qualquer outro lugar marca o intervalo de novo
+    const caixa = op.um && !e.target.dataset.alca ? null : e.target.closest('.te-trecho')
     if (caixa) {
       const k = +caixa.dataset.k
       const t = lista[k]
@@ -220,6 +228,17 @@ export async function marcarTrechos(item, trechos, aoSalvar) {
   document.addEventListener('keydown', tecla, true)
 
   async function salvar(botao) {
+    if (op.um) {
+      if (!lista.length) return aviso('Marque o trecho na linha do tempo', 'erro')
+      try {
+        await op.salvar({ inicio: +lista[0].inicio.toFixed(3), fim: +lista[0].fim.toFixed(3), nome: lista[0].nome.trim() || undefined })
+      } catch (x) {
+        return aviso(x.message, 'erro')
+      }
+      aviso('Salvo')
+      fechar()
+      return aoSalvar?.()
+    }
     botao.disabled = true
     const erros = []
     for (const t of apagados) {
