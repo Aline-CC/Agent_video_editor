@@ -1,14 +1,17 @@
 // Os CTAs: trechos finais de vídeos já editados, que entram inteiros no fim de um orgânico e dão as saídas do projeto
 // (📱 Reels ManyChat, 💰 Ad LP, 💰 Ad VSL…). Aqui o criador sobe os vídeos, marca onde o CTA começa e termina, escolhe a
 // categoria e o favorito de cada uma (o que entra por padrão).
-import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, enviar, esc, janela, json, tempo, tocarTrecho } from './comum.js'
+import { $, $$, ESTRELA_CHEIA, ICONE, ajuda, aviso, chipCodigo, codigos, confirmar, enviar, esc, janela, json, preferencia, tempo, tocarTrecho } from './comum.js'
 import { marcarTrechos } from './trechos.js'
 
 export async function abrirCtas(tela) {
   tela.className = 'pagina pagina-ctas'
+  let filtro = preferencia('ctas.produto', '')
   const desenhar = async () => {
     const [d, cods] = await Promise.all([json('/api/ctas', { ctas: [], categorias: [] }), codigos()])
     const cats = Object.fromEntries(d.categorias.map((c) => [c.id, c]))
+    const prods = Object.fromEntries(d.produtos.map((p) => [p.id, p]))
+    if (filtro && filtro !== '_sem' && !prods[filtro]) filtro = ''
     const card = (c) => {
       const cat = cats[c.categoria]
       return `<article class="card-cta" data-id="${c.id}">
@@ -26,10 +29,14 @@ export async function abrirCtas(tela) {
         <div class="cta-corpo">
           <input class="cta-nome" value="${esc(c.nome)}" data-nome maxlength="200" spellcheck="false" aria-label="Nome do CTA" title="${esc(c.nome)}${c.fonte ? ` · ${esc(c.fonte)}` : ''}">
           <div class="cta-meta">
-            <label class="cta-categoria${cat ? '' : ' vazia'}">${cat ? esc(cat.emoji) : ''}<span>${cat ? esc(cat.nome) : 'Sem categoria'}</span>${ICONE.seta_baixo}
+            <label class="cta-categoria cta-produto${prods[c.produto] ? '' : ' vazia'}" title="Produto">${prods[c.produto] ? esc(prods[c.produto].emoji) : ''}<span>${prods[c.produto] ? esc(prods[c.produto].nome) : 'Produto'}</span>${ICONE.seta_baixo}
+              <select data-produto aria-label="Produto"><option value="">Sem produto</option>
+                ${d.produtos.map((k) => `<option value="${esc(k.id)}"${k.id === c.produto ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)}</option>`).join('')}</select></label>
+            <label class="cta-categoria${cat ? '' : ' vazia'}" title="Categoria (a saída que o CTA dá)">${cat ? esc(cat.emoji) : ''}<span>${cat ? esc(cat.nome) : 'Sem categoria'}</span>${ICONE.seta_baixo}
               <select data-categoria aria-label="Categoria"><option value="">Sem categoria</option>
                 ${d.categorias.map((k) => `<option value="${esc(k.id)}"${k.id === c.categoria ? ' selected' : ''}>${esc(k.emoji)} ${esc(k.nome)} → ${esc(k.saida)}</option>`).join('')}</select></label>
-            ${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
+            </div>
+          <div class="cta-rodape">${chipCodigo(cods.cta?.[c.id], c.nome)}</div>
         </div>
       </article>`
     }
@@ -38,8 +45,11 @@ export async function abrirCtas(tela) {
       .map(([id, nome]) => [nome, d.ctas.filter((c) => (c.categoria || '') === id)]).filter(([, l]) => l.length)
     tela.innerHTML = `<div class="cabeca-secao"><span class="eyebrow">CTAs · ${String(d.ctas.length).padStart(2, '0')}</span>
         ${ajuda('Trechos finais de vídeos já editados, que entram inteiros no fim de um orgânico. A categoria define a saída que o CTA dá ao projeto (📱 Reels ManyChat, 💰 Ad LP, 💰 Ad VSL…); a ★ é o favorito da categoria, o que entra por padrão. Suba o vídeo editado e marque onde o CTA começa e termina.')}
+        <div class="filtro-produtos">${[['', 'Todos', ''], ...d.produtos.map((p) => [p.id, p.nome, p.emoji]), ['_sem', 'Sem produto', '']].map(([id, nome, em]) =>
+          `<button class="pilula pequena${filtro === id ? ' ativa' : ''}" data-filtro-produto="${esc(id)}">${em ? `${esc(em)} ` : ''}${esc(nome)} <span class="conta">${d.ctas.filter((c) => (id === '' ? true : id === '_sem' ? !prods[c.produto] : c.produto === id)).length}</span></button>`).join('')}</div>
+        <button class="botao pequeno" data-editar-produtos title="Cadastrar e renomear os produtos">${ICONE.ajustes} Produtos</button>
         <label class="botao pequeno botao-subir">${ICONE.subir} Subir vídeo<input type="file" multiple accept="video/mp4,video/quicktime,video/webm" hidden data-subir></label></div>
-      ${grupos.length ? `<div class="grade grade-ctas">${grupos.flatMap(([, l]) => l).map(card).join('')}</div>`
+      ${grupos.length ? `<div class="grade grade-ctas">${grupos.flatMap(([, l]) => l).filter((c) => (filtro === '' ? true : filtro === '_sem' ? !prods[c.produto] : c.produto === filtro)).map(card).join('')}</div>`
         : '<p class="vazio">Nenhum CTA ainda. Suba um vídeo editado (ou arraste para esta página) e marque onde o CTA começa.</p>'}`
     const porId = Object.fromEntries(d.ctas.map((c) => [c.id, c]))
     // a prévia: com o mouse em cima, o trecho do CTA mudo; o ▶ toca com som (um card por vez; clique de novo pausa)
@@ -77,6 +87,8 @@ export async function abrirCtas(tela) {
         v.pause()
         c.classList.remove('tocando')
       })
+      // clicar em qualquer lugar do vídeo toca com som (ou pausa); os botões de cima fazem o deles
+      $('.mini', c).addEventListener('click', (e) => !e.target.closest('button') && $('[data-som]', c).click())
       $('[data-expandir]', c).addEventListener('click', (e) => {
         e.stopPropagation()
         pararSom()
@@ -120,11 +132,19 @@ export async function abrirCtas(tela) {
     }
     tela.onchange = async (e) => {
       if (e.target.dataset.subir != null) return subir(e.target.files)
+      const pr = e.target.closest('[data-produto]')
+      if (pr) return salvar(pr.closest('.card-cta').dataset.id, { produto: pr.value || null })
       const s = e.target.closest('[data-categoria]')
       if (!s) return
       await salvar(s.closest('.card-cta').dataset.id, { categoria: s.value || null })
     }
     tela.onclick = async (e) => {
+      const fp = e.target.closest('[data-filtro-produto]')
+      if (fp) {
+        filtro = preferencia('ctas.produto', '', fp.dataset.filtroProduto)
+        return desenhar()
+      }
+      if (e.target.closest('[data-editar-produtos]')) return editarProdutos(d.produtos)
       const card = e.target.closest('.card-cta')
       if (!card) return
       const c = porId[card.dataset.id]
@@ -168,6 +188,49 @@ export async function abrirCtas(tela) {
     })
     el.addEventListener('keydown', (e) => e.key === ' ' && (e.preventDefault(), alternar()))
     b.focus()
+  }
+  /** O painel dos produtos: emoji e nome editáveis, adicionar e tirar; grava a lista inteira. */
+  const editarProdutos = (lista) => {
+    let l = lista.map((p) => ({ ...p }))
+    const { el, fechar } = janela(`<header class="janela-cabeca"><h2>Produtos</h2><span class="dica">a que produto cada CTA leva</span>
+        <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
+      <div class="produtos-lista"></div>
+      <div class="produtos-acoes"><button class="botao pequeno" data-novo>${ICONE.mais} Novo produto</button>
+        <button class="botao botao-coral" data-gravar>Salvar</button></div>`, { classe: 'janela-produtos' })
+    const desenharL = () => {
+      $('.produtos-lista', el).innerHTML = l.map((p, k) => `<div class="produto-linha" data-k="${k}">
+          <input class="produto-emoji" value="${esc(p.emoji || '')}" maxlength="8" data-campo="emoji" aria-label="Emoji" placeholder="🏷️">
+          <input class="produto-nome" value="${esc(p.nome)}" maxlength="60" data-campo="nome" aria-label="Nome" placeholder="Nome do produto">
+          <button class="botao-icone pequeno" data-tirar title="Tirar (os CTAs dele ficam sem produto)">${ICONE.lixo}</button></div>`).join('')
+        || '<p class="dica">Nenhum produto. Crie o primeiro.</p>'
+    }
+    desenharL()
+    el.addEventListener('input', (e) => {
+      const linha = e.target.closest('.produto-linha')
+      if (linha) l[+linha.dataset.k][e.target.dataset.campo] = e.target.value
+    })
+    el.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-novo]')) {
+        l.push({ id: '', nome: '', emoji: '' })
+        desenharL()
+        return $$('.produto-nome', el).at(-1).focus()
+      }
+      const t = e.target.closest('[data-tirar]')
+      if (t) {
+        l.splice(+t.closest('.produto-linha').dataset.k, 1)
+        return desenharL()
+      }
+      if (e.target.closest('[data-gravar]')) {
+        try {
+          await enviar('PUT', '/api/ctas-produtos', { produtos: l })
+          aviso('Produtos salvos')
+          fechar()
+          desenhar()
+        } catch (x) {
+          aviso(x.message, 'erro')
+        }
+      }
+    })
   }
   const salvar = async (id, dados) => {
     try {

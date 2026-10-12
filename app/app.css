@@ -1111,7 +1111,8 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
   transition: border-color 0.15s, background-color 0.15s; }
 .cta-nome:hover { border-color: var(--color-line-dark); }
 .cta-nome:focus { outline: none; border-color: var(--color-cream-50); background: var(--color-deeper); }
-.cta-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.cta-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.cta-rodape { display: flex; justify-content: flex-start; }
 .cta-categoria { position: relative; display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 3px 9px 3px 8px;
   border: 1px solid var(--color-line-dark); border-radius: var(--radius-full); color: var(--color-fog); font-size: 11.5px; font-weight: 500; cursor: pointer;
   transition: border-color 0.15s, color 0.15s; }
@@ -1121,3 +1122,19 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .cta-categoria svg { flex: none; width: 11px; height: 11px; opacity: 0.7; }
 .cta-categoria select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
 .cta-meta .codigo { flex: none; }
+
+/* os produtos: o filtro no topo da página e o painel de edição */
+.filtro-produtos { display: flex; flex-wrap: wrap; gap: 6px; margin-left: 18px; }
+.pagina-ctas .cabeca-secao [data-editar-produtos] { margin-left: auto; }
+.pagina-ctas .cabeca-secao .botao-subir { margin-left: 0; }
+.cta-produto:not(.vazia) { color: var(--color-cream); }
+.janela-produtos { width: min(460px, calc(100vw - 32px)); }
+.produtos-lista { display: flex; flex-direction: column; gap: 8px; padding: 12px 20px; }
+.produto-linha { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.produto-linha input { padding: 8px 10px; border: 1px solid var(--color-line-dark); border-radius: var(--radius-lg); background: var(--color-deeper);
+  color: var(--color-cream); font: inherit; font-size: 13px; }
+.produto-linha input:focus { outline: none; border-color: var(--color-cream-50); }
+.produto-emoji { text-align: center; font-size: 16px !important; }
+.produtos-acoes { display: flex; justify-content: space-between; align-items: center; padding: 4px 20px 20px; }
+
+.card-cta .mini { cursor: pointer; }

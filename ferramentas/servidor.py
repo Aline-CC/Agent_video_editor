@@ -18,7 +18,7 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
 - GET /api/presets/amostras (o ator e as mídias do banco da simulação dos presets, render/preset.html)
   · PUT /api/presets/<id> {aprovado} · PUT /api/presets/ordem {chave, ids, favoritos} · PUT /api/transicoes/<id> {aprovado}
   · PUT /api/transicoes/ordem {chave, ids, favoritas} · GET|PUT|DELETE /api/banco/<id> ({estado} marca o selo à mão) · GET /api/estados (selos do banco e usos dos motions nos
-  vídeos aprovados) · POST /api/limpar-recusados · GET|POST /api/ctas · PUT|DELETE /api/ctas/<id> (os CTAs) · POST /api/banco (subir: o arquivo cru, nome em X-Nome) ·
+  vídeos aprovados) · POST /api/limpar-recusados · GET|POST /api/ctas · PUT|DELETE /api/ctas/<id> (os CTAs) · PUT /api/ctas-produtos {produtos} · POST /api/banco (subir: o arquivo cru, nome em X-Nome) ·
   POST /api/banco/<id>/trechos {inicio, fim, nome} · GET /api/banco/<id>/tira · PUT /api/motions/<id>/aprovar.
 - Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
   e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
@@ -655,7 +655,12 @@ def _ctas():
 @rota('GET', '/api/ctas')
 def _lista_ctas(h, q):
     c = _ctas()
-    return {'ctas': c.todos(), 'categorias': c.categorias()}
+    return {'ctas': c.todos(), 'categorias': c.categorias(), 'produtos': c.produtos()}
+
+
+@rota('PUT', '/api/ctas-produtos')
+def _produtos_cta(h, q):
+    return {'produtos': _ctas().salvar_produtos(h.corpo().get('produtos') or [])}
 
 
 @rota('POST', '/api/ctas')

@@ -6,7 +6,7 @@
 orgânico e dão as saídas do projeto (📱 Reels ManyChat, 📱 ManyChat TikTok, 💰 Ad LP, 💰 Ad VSL…).
 
 Cada CTA mora em `biblioteca/ctas/<id>/`: `original.<ext>` (o vídeo editado inteiro), `proxy.mp4`, `miniatura.jpg` e
-`cta.json` {id, nome, categoria, inicio, fim, duracao, favorito, fonte, criado_em}. `inicio`/`fim`: onde o CTA começa e
+`cta.json` {id, nome, categoria, produto, inicio, fim, duracao, favorito, fonte, criado_em}. `inicio`/`fim`: onde o CTA começa e
 termina no vídeo (sem marcar, o vídeo todo). As categorias (e a saída que cada uma dá) ficam em `biblioteca/ctas/
 categorias.json`; o favorito de cada categoria é o que entra por padrão.
 
@@ -33,6 +33,42 @@ CATEGORIAS = [
     {'id': 'vsl', 'nome': 'VSL', 'saida': 'Ad VSL', 'emoji': '💰'},
     {'id': 'vsl-isca', 'nome': 'VSL-isca', 'saida': 'Ad VSL-isca', 'emoji': '💰'},
 ]
+
+
+# os produtos a que um CTA leva (o criador edita no painel da página CTAs)
+PRODUTOS = [
+    {'id': 'claude', 'nome': 'Claude', 'emoji': '✴️'},
+    {'id': 'fia', 'nome': 'FIA', 'emoji': '🤖'},
+    {'id': 'fid', 'nome': 'FID', 'emoji': '🎨'},
+]
+
+
+def produtos() -> list[dict]:
+    arq = RAIZ / 'produtos.json'
+    if not arq.exists():
+        RAIZ.mkdir(parents=True, exist_ok=True)
+        gravar_json(arq, PRODUTOS)
+    return ler_json(arq, PRODUTOS) or []
+
+
+def salvar_produtos(lista: list[dict]) -> list[dict]:
+    """Grava a lista inteira (nome e emoji editados, novos sem id ganham um). Um produto apagado sai dos CTAs."""
+    out, vistos = [], set()
+    for p in lista:
+        nome = str(p.get('nome') or '').strip()[:60]
+        if not nome:
+            continue
+        pid = str(p.get('id') or '').strip() or uuid.uuid4().hex[:8]
+        if pid in vistos:
+            continue
+        vistos.add(pid)
+        out.append({'id': pid, 'nome': nome, 'emoji': str(p.get('emoji') or '').strip()[:8]})
+    gravar_json(RAIZ / 'produtos.json', out)
+    for c in todos():
+        if c.get('produto') and c['produto'] not in vistos:
+            c['produto'] = None
+            salvar(c)
+    return out
 
 
 def categorias() -> list[dict]:
@@ -92,6 +128,10 @@ def editar(cid: str, dados: dict) -> dict:
         if dados['categoria'] and dados['categoria'] not in {k['id'] for k in categorias()}:
             raise SystemExit(f'Categoria desconhecida: {dados["categoria"]}')
         c['categoria'] = dados['categoria'] or None
+    if 'produto' in dados:
+        if dados['produto'] and dados['produto'] not in {p['id'] for p in produtos()}:
+            raise SystemExit(f'Produto desconhecido: {dados["produto"]}')
+        c['produto'] = dados['produto'] or None
     if 'inicio' in dados or 'fim' in dados:
         ini = round(max(float(dados.get('inicio', c['inicio'])), 0.0), 3)
         fim = round(min(float(dados.get('fim', c['fim'])), c['duracao']), 3)
