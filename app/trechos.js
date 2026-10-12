@@ -135,8 +135,9 @@ export async function marcarTrechos(item, trechos, aoSalvar, op = {}) {
   faixa.addEventListener('pointerdown', (e) => {
     e.preventDefault()
     const x0 = e.clientX
-    // um trecho só: só as alças ajustam; arrastar em qualquer outro lugar marca o intervalo de novo
-    const caixa = op.um && !e.target.dataset.alca ? null : e.target.closest('.te-trecho')
+    // arrastar a caixa a desliza na linha do tempo; as alças ajustam as pontas; arrastar no vazio marca um trecho novo
+    // (num trecho só, o novo substitui o anterior)
+    const caixa = e.target.closest('.te-trecho')
     if (caixa) {
       const k = +caixa.dataset.k
       const t = lista[k]
