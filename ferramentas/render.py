@@ -5,6 +5,7 @@
 """O render: o vídeo do projeto com tudo queimado (cortes, 9:16, look, inserts, motions, transições, legenda e áudio).
 
     uv run ferramentas/render.py <slug>            → projetos/<slug>/versoes/vN/ (proxy.mp4 720×1280 H.264 + os JSONs da revisão)
+    uv run ferramentas/render.py <slug> --versao 7.1  → versoes/v7.1/ (uma alternativa a uma versão; a próxima comum segue v8)
     uv run ferramentas/render.py <slug> --final    → projetos/<slug>/final/<nome> · <AAAA-MM-DD HHhMM>.mp4 (2160×3840 HEVC)
 
 Como a exportação do 18 (SPEC §13; a cola de backend/app/exportacao.py `_gravar`/`_trechos`, reescrita aqui): a página
@@ -298,7 +299,7 @@ def _nome_livre(destino: Path) -> Path:
     return alvo
 
 
-def render(slug: str, final: bool = False) -> Path:
+def render(slug: str, final: bool = False, versao_pedida: str | None = None) -> Path:
     t_ini = time.time()
     p = pasta(slug)
     edicao = ler(slug)
@@ -325,7 +326,7 @@ def render(slug: str, final: bool = False) -> Path:
         pasta_versao = None
         versao = None
     else:
-        versao = 1 + max([int(m.group(1)) for x in (p / 'versoes').glob('v*') if (m := re.fullmatch(r'v(\d+)', x.name))], default=0)
+        versao = versao_pedida or 1 + max([int(m.group(1)) for x in (p / 'versoes').glob('v*') if (m := re.fullmatch(r'v(\d+)(\.\d+)?', x.name))], default=0)
         pasta_versao = p / 'versoes' / f'.v{versao}.parte'  # vira vN no fim: o app nunca vê uma versão pela metade
         shutil.rmtree(pasta_versao, ignore_errors=True)
         pasta_versao.mkdir(parents=True)
@@ -422,6 +423,8 @@ def render(slug: str, final: bool = False) -> Path:
         gravar_json(pasta_versao / 'info.json', {'versao': versao, 'duracao': duracao_real, 'criado_em': datetime.now().isoformat(timespec='seconds'),
                                                  'fases': fases, 'avisos': avisos})
         final_dir = p / 'versoes' / f'v{versao}'
+        if versao_pedida:  # refazer uma alternativa: a anterior sai
+            shutil.rmtree(final_dir, ignore_errors=True)
         pasta_versao.replace(final_dir)
         destino = final_dir / 'proxy.mp4'
     for x in avisos:
@@ -432,7 +435,11 @@ def render(slug: str, final: bool = False) -> Path:
 
 
 if __name__ == '__main__':
-    args = [a for a in sys.argv[1:] if a != '--final']
+    args = sys.argv[1:]
+    vp = args[args.index('--versao') + 1] if '--versao' in args else None  # uma alternativa: --versao 7.1
+    if vp and not re.fullmatch(r'\d+\.\d+', vp):
+        raise SystemExit('--versao: uma alternativa no formato 7.1')
+    args = [a for k, a in enumerate(args) if a not in ('--final', '--versao') and not (k and args[k - 1] == '--versao')]
     if len(args) != 1:
         raise SystemExit(__doc__)
-    render(args[0], final='--final' in sys.argv[1:])
+    render(args[0], final='--final' in sys.argv[1:], versao_pedida=vp)

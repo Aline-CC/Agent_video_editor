@@ -69,9 +69,10 @@ class Erro(Exception):
         self.status = status
 
 
-def versoes(projeto: Path) -> list[int]:
-    """As versões entregues (as que já têm o proxy.mp4), em ordem."""
-    return sorted(int(v.name[1:]) for v in projeto.glob('versoes/v*') if v.name[1:].isdigit() and (v / 'proxy.mp4').is_file())
+def versoes(projeto: Path) -> list[int | float]:
+    """As versões entregues (as que já têm o proxy.mp4), em ordem; as alternativas têm ponto (v7.1, v7.2)."""
+    return sorted((float(v.name[1:]) if '.' in v.name else int(v.name[1:])) for v in projeto.glob('versoes/v*')
+                  if re.fullmatch(r'v\d+(\.\d+)?', v.name) and (v / 'proxy.mp4').is_file())
 
 
 def projetos() -> list[dict]:
@@ -148,7 +149,7 @@ def _lista(h, q):  # nomes de arquivos de uma pasta pública: ?pasta=biblioteca/
     return sorted(p.name + ('/' if p.is_dir() else '') for p in alvo.iterdir() if not p.name.startswith('.'))
 
 
-@rota('PUT', r'/api/revisao/([\w-]+)/v(\d+)')
+@rota('PUT', r'/api/revisao/([\w-]+)/v(\d+(?:\.\d+)?)')
 def _revisao(h, q, slug, v):  # o app grava a revisão inteira
     if not (PROJETOS / slug).is_dir():
         raise Erro('rota inválida', 404)
@@ -198,7 +199,7 @@ TIPOS_ANEXO = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
 ANEXO = r'revisoes/anexos/(c\d+|geral)-\d+\.(png|jpg|webp|gif|mp4|mov|webm)'
 
 
-@rota('POST', r'/api/revisao/([\w-]+)/v(\d+)/anexo')
+@rota('POST', r'/api/revisao/([\w-]+)/v(\d+(?:\.\d+)?)/anexo')
 def _anexar(h, q, slug, v):
     """Uma imagem ou um vídeo colado, arrastado ou escolhido num comentário:
     projetos/<slug>/revisoes/anexos/<comentário>-<n>.<ext> (n: o próximo livre; a extensão, a do tipo)."""
@@ -233,7 +234,7 @@ def _anexar(h, q, slug, v):
     return {'caminho': str(destino.relative_to(PROJETOS / slug))}
 
 
-@rota('DELETE', r'/api/revisao/([\w-]+)/v(\d+)/anexo')
+@rota('DELETE', r'/api/revisao/([\w-]+)/v(\d+(?:\.\d+)?)/anexo')
 def _tirar_anexo(h, q, slug, v):
     caminho = q.get('caminho', [''])[0]
     if not re.fullmatch(ANEXO, caminho):

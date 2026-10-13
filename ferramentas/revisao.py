@@ -14,6 +14,7 @@
         de biblioteca/referencias/ (senão, do 18); as externas, de presets/externas/ (senão, do 18).
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -76,8 +77,10 @@ def texto(slug: str, v: int, rev: dict) -> str:
 
 def versao_da_revisao(slug: str, v: str | None) -> int:
     if v:
-        return int(v.lstrip('v'))
-    feitas = sorted(int(p.stem[1:]) for p in (pasta(slug) / 'revisoes').glob('v*.json') if p.stem[1:].isdigit())
+        n = v.lstrip('v')
+        return float(n) if '.' in n else int(n)
+    feitas = sorted((float(p.stem[1:]) if '.' in p.stem else int(p.stem[1:])) for p in (pasta(slug) / 'revisoes').glob('v*.json')
+                    if re.fullmatch(r'v\d+(\.\d+)?', p.stem))
     if not feitas:
         raise SystemExit(f'O projeto {slug} ainda não tem revisão (o criador comenta no app).')
     return feitas[-1]

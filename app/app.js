@@ -174,11 +174,11 @@ async function rotear() {
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
   let s
   // #/p/<slug>/vN/t12.3 (o chip "usado em" do Banco e dos Motions): a revisão abre naquele instante
-  if (partes[0] === 'p' && partes[1] && /^v\d+$/.test(partes[2] || '') && /^t[\d.]+$/.test(partes[3] || '')) {
+  if (partes[0] === 'p' && partes[1] && /^v\d+(\.\d+)?$/.test(partes[2] || '') && /^t[\d.]+$/.test(partes[3] || '')) {
     preferencia(`posicao.${partes[1]}.${partes[2]}`, 0, +partes[3].slice(1))
     history.replaceState(null, '', `#/p/${encodeURIComponent(partes[1])}/${partes[2]}`)
   }
-  if (partes[0] === 'p' && partes[1]) s = await abrirRevisao(tela, partes[1], partes[2] ? parseInt(partes[2].replace(/^v/, ''), 10) : null)
+  if (partes[0] === 'p' && partes[1]) s = await abrirRevisao(tela, partes[1], partes[2] ? parseFloat(partes[2].replace(/^v/, '')) : null)
   else if (partes[0] === 'calibragem') s = await (partes[1] ? abrirRevisaoReferencia(tela, partes[1]) : abrirCalibragem(tela))
   else if (partes[0] === 'ctas') s = await abrirCtas(tela)
   else if (partes[0] === 'referencias') s = await abrirReferencias(tela)
