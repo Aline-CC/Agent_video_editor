@@ -1453,6 +1453,8 @@
   var queixo = (l) => l.rosto ? l.rosto.cy + l.rosto.h / 2 : 0.45;
   var olhos = (l) => l.rosto ? l.rosto.cy - 0.15 * l.rosto.h : 0.29;
   var FONTE = "'SF Pro Display', system-ui, sans-serif";
+  var SERIF = "'Instrument Serif', serif";
+  var ROXO = "#c74bff";
   var MONO = "ui-monospace, 'SF Mono', Menlo, monospace";
   var W_H2 = 9 / 16;
   var POP = { dur: 0.18, escala: 0.92, curva: bezier(0.16, 1, 0.3, 1) };
@@ -1530,9 +1532,10 @@ ${b}` };
     return { left: "50%", top: `${y * 100}%`, transform: `translate(-50%, -50%) scale(${p.escala})`, opacity: p.opacidade };
   };
   function letteringNoAtor(e, rel) {
-    const { tam, texto } = lettering(e.texto ?? "", TAM.grande);
+    const serif = e.estilo?.startsWith("serif");
+    const { tam, texto } = lettering(e.texto ?? "", TAM.grande * (serif ? 1.25 : 1));
     const y = Math.min(Math.max(queixo(e.lugar) + 0.08, 0.5), 0.6);
-    return { chave: e.id, classe: "absolute", estilo: { ...centrado(y, rel), ...estiloLettering(tam) }, texto };
+    return { chave: e.id, classe: "absolute", estilo: { ...centrado(y, rel), ...estiloLettering(tam, e.estilo) }, texto: serif ? texto.toUpperCase() : texto };
   }
   function letteringNoInsert(e, rel) {
     const { modo, f } = e.lugar;
@@ -1552,12 +1555,10 @@ ${b}` };
       ]
     };
   }
-  var estiloLettering = (tam) => ({
-    fontFamily: FONTE,
-    fontWeight: 700,
+  var estiloLettering = (tam, estilo) => ({
+    ...estilo?.startsWith("serif") ? { fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, color: estilo === "serif-roxo" ? ROXO : "#fff" } : { fontFamily: FONTE, fontWeight: 700, color: "#fff" },
     fontSize: `${tam.toFixed(3)}cqh`,
     lineHeight: 1.08,
-    color: "#fff",
     textAlign: "center",
     whiteSpace: "pre",
     textShadow: SOMBRA_TEXTO
@@ -1778,7 +1779,7 @@ ${b}` };
       return { modo: "ator", f: 1, rosto: rostoEm?.(ini, fim) ?? null };
     };
     const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]));
-    const desenhaveis = [...planos.filter((p) => p.tipo === "full_ator_lettering"), ...elementos].sort((a, b) => a.inicio - b.inicio).map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }));
+    const desenhaveis = [...planos.filter((p) => p.tipo === "full_ator_lettering"), ...elementos].sort((a, b) => a.inicio - b.inicio).map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, estilo: originais.get(e.id)?.estilo ?? null, lugar: lugarEm(e.inicio, e.fim) }));
     trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })));
     const versoes = /* @__PURE__ */ new Map();
     const versao = (url) => {

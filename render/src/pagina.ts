@@ -141,7 +141,7 @@ async function iniciar() {
   const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]))
   const desenhaveis: Elemento[] = [...planos.filter((p) => p.tipo === 'full_ator_lettering'), ...elementos]
     .sort((a, b) => a.inicio - b.inicio)
-    .map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, lugar: lugarEm(e.inicio, e.fim) }))
+    .map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, estilo: (originais.get(e.id) as { estilo?: string } | undefined)?.estilo ?? null, lugar: lugarEm(e.inicio, e.fim) }))
   // os pedaços deles fora dos inserts e motions entram para o render fotografar (os de dentro já saem na foto do trecho)
   trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })))
 

@@ -16,13 +16,17 @@ import type { Rosto } from './ator'
 export type Lugar = { modo: 'ator' | 'cheia' | 'metade' | 'atras'; f: number; rosto: Rosto | null }
 /** Um elemento no tempo do vídeo final (o plano Full ator com lettering entra como um, com o tipo do plano). `banco`: no
  *  print sobreposto, a mídia do banco (imagem ou vídeo) que vai no card; sem ela, uma etiqueta com o texto. */
-export type Elemento = { id: string; tipo: string; inicio: number; fim: number; texto: string | null; descricao: string; banco: string | null; lugar: Lugar }
+export type Elemento = { id: string; tipo: string; inicio: number; fim: number; texto: string | null; descricao: string; banco: string | null; lugar: Lugar; estilo?: string | null }
 
 /** O queixo e os olhos do ator (fração da altura): pela caixa do rosto medido (os olhos como em `ator.enquadrar`); sem
  *  medida, os das referências. */
 const queixo = (l: Lugar) => (l.rosto ? l.rosto.cy + l.rosto.h / 2 : 0.45)
 const olhos = (l: Lugar) => (l.rosto ? l.rosto.cy - 0.15 * l.rosto.h : 0.29)
 const FONTE = "'SF Pro Display', system-ui, sans-serif"
+/** O lettering em serifa itálica (`estilo: 'serif'` no item da direção; `'serif-roxo'` em roxo), como os destaques do
+ *  Reels de referência das fichas de personagem: só onde o item pede, o padrão continua a SF Pro. */
+const SERIF = "'Instrument Serif', serif"
+const ROXO = '#c74bff'
 const MONO = "ui-monospace, 'SF Mono', Menlo, monospace"
 const W_H = 9 / 16 // largura ÷ altura do quadro
 /** A entrada de todos: um "pop" rápido (escala e opacidade na curva de chegada); a saída é seca. */
@@ -139,9 +143,10 @@ const centrado = (y: number, rel: number) => {
 
 /** O texto grande do Full ator com lettering (e um lettering sobre o ator): branco, centrado logo abaixo do rosto. */
 function letteringNoAtor(e: Elemento, rel: number): V {
-  const { tam, texto } = lettering(e.texto ?? '', TAM.grande)
+  const serif = e.estilo?.startsWith('serif')
+  const { tam, texto } = lettering(e.texto ?? '', TAM.grande * (serif ? 1.25 : 1))
   const y = Math.min(Math.max(queixo(e.lugar) + 0.08, 0.5), 0.6)
-  return { chave: e.id, classe: 'absolute', estilo: { ...centrado(y, rel), ...estiloLettering(tam) }, texto }
+  return { chave: e.id, classe: 'absolute', estilo: { ...centrado(y, rel), ...estiloLettering(tam, e.estilo) }, texto: serif ? texto.toUpperCase() : texto }
 }
 
 /** O lettering sobre um insert ou motion: branco, no meio da área do insert (na tela dividida, no meio da metade de cima;
@@ -166,12 +171,10 @@ function letteringNoInsert(e: Elemento, rel: number): V {
   }
 }
 
-const estiloLettering = (tam: number) => ({
-  fontFamily: FONTE,
-  fontWeight: 700,
+const estiloLettering = (tam: number, estilo?: string | null) => ({
+  ...(estilo?.startsWith('serif') ? { fontFamily: SERIF, fontStyle: 'italic', fontWeight: 400, color: estilo === 'serif-roxo' ? ROXO : '#fff' } : { fontFamily: FONTE, fontWeight: 700, color: '#fff' }),
   fontSize: `${tam.toFixed(3)}cqh`,
   lineHeight: 1.08,
-  color: '#fff',
   textAlign: 'center',
   whiteSpace: 'pre',
   textShadow: SOMBRA_TEXTO,
