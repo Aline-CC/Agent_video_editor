@@ -59,7 +59,7 @@ def v1_tocada(edicao: dict) -> list[dict]:
         v = round(min(max(float(edicao.get('velocidade') or 1), VELOCIDADE[0]), VELOCIDADE[1]), 3)
     except (TypeError, ValueError):
         v = 1.0
-    return [{**c, 'vel': v} for c in sorted((edicao.get('timeline') or {}).get('V1') or [], key=lambda c: c['inicio'])]
+    return [{**c, 'vel': v} for c in sorted((edicao.get('timeline') or {}).get('V1') or [], key=lambda c: c.get('ordem', c['inicio']))]
 
 
 def palavras_na_saida(palavras: list[dict], clipes: list[dict]) -> list[dict]:

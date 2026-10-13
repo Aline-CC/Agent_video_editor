@@ -49,7 +49,7 @@ NOMES = {chave_nome(v): k for k, v in PLANOS.items()} | {'tela dividida': 'tela_
 def palavras_na_saida(palavras: list[dict], clipes: list[dict]) -> list[dict]:
     """As palavras que tocam no vídeo final, com início e fim no tempo da saída (do 18, igual)."""
     acc, posicoes = 0.0, []
-    for c in sorted(clipes, key=lambda c: c['inicio']):
+    for c in sorted(clipes, key=lambda c: c.get('ordem', c['inicio'])):
         posicoes.append((c, acc))
         acc += dur_saida(c)
     out = []

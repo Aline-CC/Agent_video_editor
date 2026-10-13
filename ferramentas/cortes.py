@@ -48,7 +48,7 @@ def velocidade(edicao: dict) -> float:
 def v1_tocada(edicao: dict) -> list[dict]:
     """Os clipes da V1 em ordem, cada um com a aceleração (`vel`) (do 18: projeto.v1_tocada)."""
     v = velocidade(edicao)
-    return [{**c, 'vel': v} for c in sorted((edicao.get('timeline') or {}).get('V1') or [], key=lambda c: c['inicio'])]
+    return [{**c, 'vel': v} for c in sorted((edicao.get('timeline') or {}).get('V1') or [], key=lambda c: c.get('ordem', c['inicio']))]
 
 
 def dur_saida(c: dict) -> float:
