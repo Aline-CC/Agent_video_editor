@@ -519,7 +519,7 @@
     const olhos2 = r.cy - 0.15 * r.h;
     const tx = limite2(0.5 - s * r.cx, 1 - s, 0);
     let ty = f + REGRA.olhos * area - s * olhos2;
-    ty = Math.max(ty, f + REGRA.folga * area - s * (r.cy - 0.6 * r.h));
+    ty = Math.max(ty, f + REGRA.folga * area - s * (r.cy - 1.1 * r.h));
     return { s, tx, ty: limite2(ty, 1 - s, f) };
   }
   function metadeSemDeslocamento(d, aj, rosto) {

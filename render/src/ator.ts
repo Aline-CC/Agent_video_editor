@@ -44,7 +44,9 @@ function enquadrar(f: number, r: Rosto | null): { s: number; tx: number; ty: num
   const olhos = r.cy - 0.15 * r.h // os olhos, um pouco acima do centro da caixa do rosto
   const tx = limite(0.5 - s * r.cx, 1 - s, 0)
   let ty = f + REGRA.olhos * area - s * olhos
-  ty = Math.max(ty, f + REGRA.folga * area - s * (r.cy - 0.6 * r.h)) // o topo da cabeça (com o cabelo) não encosta
+  // o topo da cabeça com o cabelo (~1,1 altura do rosto acima do centro dele) nunca encosta na costura (ficha-personagem-ia v2:
+  // o cabelo volumoso passava da estimativa antiga, de 0,6)
+  ty = Math.max(ty, f + REGRA.folga * area - s * (r.cy - 1.1 * r.h))
   return { s, tx, ty: limite(ty, 1 - s, f) }
 }
 
