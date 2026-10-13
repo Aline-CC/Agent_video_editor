@@ -39,7 +39,7 @@ Edite `inserts.pedidos[i].enriquecimento` no `edicao.json`:
 | proximo | Antes · Normal · Depois | quando a mídia seguinte entra |
 | deslize | Pouco · Como na referência · Até a borda | só em card que transborda e desliza |
 | som | Sem · Baixo · Médio | os sons de apoio do preset neste insert |
-| y · largura | "−25…25" · "70…130" (texto) | sobe/desce os cards (% da área) · largura (%) |
+| y · largura | "−25…25" · "0.7…1.3" (texto) | sobe/desce os cards (% da área) · largura (fator: "1.3" = 30% maior; não é %) |
 
 Ex.: um print com texto pequeno pede `"zoom": "Mais"` e `"zona"` no ponto do texto; uma sequência rápida de 3 mídias
 num insert curto pede `"entrada": "Rápida"`.
