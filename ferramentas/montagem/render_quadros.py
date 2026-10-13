@@ -66,7 +66,7 @@ def pedaco(args: tuple[list[float], int, int, int, str]) -> int:
     Devolve quantos fez."""
     tempos, fps, w, h, saida = args
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{w}x{h}',
-                           '-framerate', str(fps), '-i', '-', '-c:v', 'prores_videotoolbox', '-profile:v', '4444', saida],
+                           '-framerate', str(fps), '-i', '-', '-c:v', 'prores_videotoolbox', '-allow_sw', '1', '-profile:v', '4444', saida],  # sem o chip de ProRes (M1 comum): software
                           stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     anterior: tuple[str | None, bytes] = (None, b'')
     for t in tempos:
