@@ -93,11 +93,10 @@ export function receitaParaInsert(r: Receita, d: Divisao | null, aspectos: numbe
     }
     if (cheio) {
       const z = c.continuo
-      // o zoom contínuo cresce a partir do centro na horizontal; na vertical, preso pelo topo (a parte de cima da mídia em
-      // pé continua à vista), a não ser que a receita tenha a própria deriva vertical (uma rolagem, por exemplo). Um zoom
+      // o zoom contínuo cresce a partir do centro da mídia (a deriva própria da receita, se houver, continua). Um zoom
       // que afasta (escala < 0) descobriria o fundo nas bordas, e a tela toda deixaria de ser toda: vira o mesmo zoom
       // lento aproximando, preso pelo topo (a câmera continua andando, sem abrir margens)
-      const continuo = !z ? z : z.escala < 0 ? { ...z, escala: -z.escala, dx: 0, dy: (-z.escala * 100) / 2 } : { ...z, dy: z.dy || (z.escala * 100) / 2 }
+      const continuo = !z ? z : z.escala < 0 ? { ...z, escala: -z.escala, dx: 0, dy: (-z.escala * 100) / 2 } : { ...z, dy: z.dy ?? 0 }
       const cc = comRepouso(c, { cx: 50, cy: 50, w: 100, h: 100 })
       return { ...cc, ajuste: 'topo' as const, continuo, saida: saidaCobrindo(cc.saida) }
     }

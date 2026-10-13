@@ -670,7 +670,8 @@
       aplicar: (r, i) => cards(r, (c) => {
         if (i === 0) return { ...c, continuo: null };
         const z = 0.015 * (i === 2 ? 2 : 1);
-        return { ...c, continuo: { escala: z, dx: z * (c.repouso.cx - 50), dy: z * (c.repouso.cy - 50), rot: 0 } };
+        const so = r.cards.length === 1;
+        return { ...c, continuo: { escala: z, dx: so ? 0 : z * (c.repouso.cx - 50), dy: so ? 0 : z * (c.repouso.cy - 50), rot: 0 } };
       })
     },
     {
@@ -790,7 +791,7 @@
       }
       if (cheio2) {
         const z = c.continuo;
-        const continuo2 = !z ? z : z.escala < 0 ? { ...z, escala: -z.escala, dx: 0, dy: -z.escala * 100 / 2 } : { ...z, dy: z.dy || z.escala * 100 / 2 };
+        const continuo2 = !z ? z : z.escala < 0 ? { ...z, escala: -z.escala, dx: 0, dy: -z.escala * 100 / 2 } : { ...z, dy: z.dy ?? 0 };
         const cc = comRepouso(c, { cx: 50, cy: 50, w: 100, h: 100 });
         return { ...cc, ajuste: "topo", continuo: continuo2, saida: saidaCobrindo(cc.saida) };
       }

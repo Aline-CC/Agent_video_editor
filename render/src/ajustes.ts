@@ -123,7 +123,9 @@ export const AJUSTES: Ajuste[] = [
       cards(r, (c) => {
         if (i === 0) return { ...c, continuo: null }
         const z = 0.015 * (i === 2 ? 2 : 1)
-        return { ...c, continuo: { escala: z, dx: z * (c.repouso.cx - 50), dy: z * (c.repouso.cy - 50), rot: 0 } }
+        // um card só: o zoom cresce do centro da própria mídia (sem andar); vários: a composição inteira, do centro do quadro
+        const so = r.cards.length === 1
+        return { ...c, continuo: { escala: z, dx: so ? 0 : z * (c.repouso.cx - 50), dy: so ? 0 : z * (c.repouso.cy - 50), rot: 0 } }
       }),
   },
   {
