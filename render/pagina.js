@@ -887,6 +887,8 @@
   function chaveParada(x, rel, presets) {
     const pr = presetDe(x, presets);
     const dur = Math.max(x.t.fim - x.t.inicio, 0.01);
+    const camera = x.enriquecimento?.ajustes?.camera;
+    if (camera && camera !== "Parado") return null;
     if (pr) return mexendo(pr.receita, rel, dur) ? null : `${x.id}:p${pr.receita.cards.map((c) => rel >= c.inicio_frac * (x.t.fim - x.t.inicio) ? 1 : 0).join("")}`;
     const { k, ini, durM } = corteSimples(x.midias.length, rel, dur);
     return rel - ini >= Math.min(SURGIR.duracao, durM) ? `${x.id}:${k + 1}` : null;

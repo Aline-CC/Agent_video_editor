@@ -15,6 +15,9 @@ export type PedidoNoTempo = PedidoInsert & { t: { inicio: number; fim: number } 
 export function chaveParada(x: PedidoNoTempo, rel: number, presets: Preset[] | null): string | null {
   const pr = presetDe(x, presets)
   const dur = Math.max(x.t.fim - x.t.inicio, 0.01)
+  // o zoom lento escolhido no insert (ajuste "camera") mexe a cena até o fim, mesmo num preset parado: nunca é quadro parado
+  const camera = (x.enriquecimento as { ajustes?: Record<string, string> } | undefined)?.ajustes?.camera
+  if (camera && camera !== 'Parado') return null
   if (pr) return mexendo(pr.receita, rel, dur) ? null : `${x.id}:p${pr.receita.cards.map((c) => (rel >= c.inicio_frac * (x.t.fim - x.t.inicio) ? 1 : 0)).join('')}`
   // sem preset: parado depois da entrada da mídia que está na tela
   const { k, ini, durM } = corteSimples(x.midias.length, rel, dur)
