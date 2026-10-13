@@ -161,7 +161,10 @@ def filtros(a: dict, clipes: list[dict], eventos_som: list[dict], primeira_entra
     f = [f'[{primeira_entrada}:a]aresample=48000,{para_mono(Path(a["voz"]))},asplit={n}' + ''.join(f'[pv{k}]' for k in range(n))]
     for k, c in enumerate(clipes):
         dur = dur_saida(c)
+        # depois do atempo, o clipe com a duração exata (o atempo devolve alguns ms a menos ou a mais por clipe; somados nas
+        # emendas, a voz adiantava ~0,3 s no fim do vídeo — ficha-personagem-ia v4 c7)
         f.append(f"[pv{k}]atrim=start={c['inicio']:.4f}:end={c['fim']:.4f},asetpts=PTS-STARTPTS,{acelerar(c.get('vel', 1))[1]}"
+                 f'apad,atrim=end={dur:.5f},asetpts=PTS-STARTPTS,'
                  f'afade=t=in:d={FADE},afade=t=out:st={max(dur - FADE, 0):.4f}:d={FADE}[pc{k}]')
     f.append(''.join(f'[pc{k}]' for k in range(n)) + f'concat=n={n}:v=0:a=1,{cadeia_voz(a["timbre"], a["niveis"]["ator"])},'
              f'{VOZ_ESTEREO}[pvoz]')

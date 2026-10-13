@@ -94,7 +94,7 @@ def _ator(clipes: list[dict], horizontal: bool, enquadramento_x: float, w: int, 
         ini_v = ini + (q0 / fps - acc) * vel
         no_grid = f'{setpts},fps={fps},tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame={q1 - q0},setpts=PTS-STARTPTS'
         partes.append(f'[v{k}]trim=start={ini_v:.4f}:end={fim:.4f},{no_grid}[cv{k}]')
-        partes.append(f'[a{k}]atrim=start={ini:.4f}:end={fim:.4f},asetpts=PTS-STARTPTS,{atempo}'
+        partes.append(f'[a{k}]atrim=start={ini:.4f}:end={fim:.4f},asetpts=PTS-STARTPTS,{atempo}apad,atrim=end={dur:.5f},asetpts=PTS-STARTPTS,'
                       f'afade=t=in:d={FADE},afade=t=out:st={max(dur - FADE, 0):.4f}:d={FADE}[ca{k}]')
         videos += f'[cv{k}]'
         audios += f'[ca{k}]'
