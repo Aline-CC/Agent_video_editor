@@ -1222,7 +1222,8 @@
     { id: "nevoa", nome: "N\xE9voa azul", claro: true, amostra: "linear-gradient(180deg,#d9d6e2 0%,#a9b2c7 45%,#8a97ad 75%,#c8ccd8 100%)" },
     { id: "chuva", nome: "Chuva", claro: false, amostra: "radial-gradient(90% 70% at 50% 40%,#0c3b35 0%,#06201c 55%,#050505 100%)" },
     { id: "gradiente", nome: "Gradiente escuro", claro: false, amostra: "radial-gradient(85% 70% at 50% 45%,#24423b 0%,#13201d 60%,#0b1412 100%)" },
-    { id: "cinza", nome: "Cinza escuro", claro: false, amostra: "radial-gradient(85% 70% at 50% 45%,#2c2c2e 0%,#1f1f21 60%,#151516 100%)" }
+    { id: "cinza", nome: "Cinza escuro", claro: false, amostra: "radial-gradient(85% 70% at 50% 45%,#2c2c2e 0%,#1f1f21 60%,#151516 100%)" },
+    { id: "preto", nome: "Preto", claro: false, amostra: "#000" }
   ];
   function chuvaNoRelogio(v) {
     if (!v.duration) return;

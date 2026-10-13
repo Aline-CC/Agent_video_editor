@@ -30,7 +30,7 @@ from direcao import PLANOS, saida_do, tempos  # noqa: E402
 MAX_MIDIAS = 12
 PRESETS_MOTION = BIBLIOTECA / 'motions' / 'presets'
 FORMATO_MOTION = {'motion_tela_cheia': 'vertical', 'tela_dividida_motion': 'dividida'}
-FUNDOS = ('verde_claro', 'papel', 'nevoa', 'chuva', 'gradiente', 'cinza')  # do 18: inserts.FUNDOS
+FUNDOS = ('verde_claro', 'papel', 'nevoa', 'chuva', 'gradiente', 'cinza', 'preto')  # do 18: inserts.FUNDOS
 
 
 def pedido(edicao: dict, plano: str) -> dict:

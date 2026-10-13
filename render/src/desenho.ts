@@ -70,7 +70,7 @@ export const definirRelogio = (t: number) => void (relogio = t)
 
 // ---------------------------------------------------------------- os fundos (do 18: frontend/src/inserts/Fundo.tsx)
 
-/** Os fundos atrás dos inserts com moldura (SPEC §8.4): 3 claros e 3 escuros. A **chuva** é o fundo do Overview do design
+/** Os fundos atrás dos inserts com moldura (SPEC §8.4): 3 claros e 4 escuros. A **chuva** é o fundo do Overview do design
  *  system da Asimov, que toca como vídeo (`biblioteca/fundos/aura/chuva.mp4`, um loop de 12 s gravado da cena ao vivo). */
 export const FUNDOS: { id: string; nome: string; claro: boolean; amostra: string }[] = [
   { id: 'verde_claro', nome: 'Verde claro', claro: true, amostra: 'linear-gradient(180deg,#dfe8e1 0%,#a9c6b3 55%,#6f9c84 100%)' },
@@ -79,6 +79,7 @@ export const FUNDOS: { id: string; nome: string; claro: boolean; amostra: string
   { id: 'chuva', nome: 'Chuva', claro: false, amostra: 'radial-gradient(90% 70% at 50% 40%,#0c3b35 0%,#06201c 55%,#050505 100%)' },
   { id: 'gradiente', nome: 'Gradiente escuro', claro: false, amostra: 'radial-gradient(85% 70% at 50% 45%,#24423b 0%,#13201d 60%,#0b1412 100%)' },
   { id: 'cinza', nome: 'Cinza escuro', claro: false, amostra: 'radial-gradient(85% 70% at 50% 45%,#2c2c2e 0%,#1f1f21 60%,#151516 100%)' },
+  { id: 'preto', nome: 'Preto', claro: false, amostra: '#000' },
 ]
 
 // na exportação: parado no instante do relógio (o loop dá a volta)
