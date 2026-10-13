@@ -100,7 +100,7 @@ class Revisao {
       const g = this.rev.resposta_geral || {}
       const n = Math.max(0, ...this.rev.comentarios.map((c) => numero(c.id))) + 1
       this.rev.comentarios.push({ id: `c${n}`, geral: true, t: null, fim: null, palavra: null, fala: '', texto: (this.rev.geral || '').trim(),
-        criado_em: agora(), de: 'rodrigo', status: g.status || 'pendente', resposta: g.resposta || null, ...(this.rev.anexos_geral?.length ? { anexos: this.rev.anexos_geral } : {}) })
+        criado_em: agora(), de: 'criador', status: g.status || 'pendente', resposta: g.resposta || null, ...(this.rev.anexos_geral?.length ? { anexos: this.rev.anexos_geral } : {}) })
       delete this.rev.geral
       delete this.rev.anexos_geral
       delete this.rev.resposta_geral
@@ -751,12 +751,12 @@ class Revisao {
   novoComentario({ t, fim, responde, novoId, anexos, geral }, texto) {
     const n = novoId ? numero(novoId) : Math.max(this.reservado || 0, ...this.rev.comentarios.map((c) => numero(c.id))) + 1
     if (geral)
-      return { id: `c${n}`, geral: true, t: null, fim: null, palavra: null, fala: '', texto, criado_em: agora(), de: 'rodrigo', status: 'pendente', resposta: null, ...(anexos?.length ? { anexos } : {}) }
+      return { id: `c${n}`, geral: true, t: null, fim: null, palavra: null, fala: '', texto, criado_em: agora(), de: 'criador', status: 'pendente', resposta: null, ...(anexos?.length ? { anexos } : {}) }
     const nota = responde && this.notas.find((x) => x.id === responde)
     const fala = nota ? (nota.fala ? limpar(nota.fala) : this.falaIntervalo(nota.ini, nota.fim ?? nota.ini + 0.5)) : fim != null ? this.falaIntervalo(t, fim) : this.falaPonto(t)
     return {
       id: `c${n}`, t: r3(t), fim: fim == null ? null : r3(fim), palavra: this.palavraPerto(t)?.id ?? null, fala, texto,
-      criado_em: agora(), de: 'rodrigo', status: 'pendente', resposta: null, ...(responde ? { responde } : {}), ...(anexos?.length ? { anexos } : {}),
+      criado_em: agora(), de: 'criador', status: 'pendente', resposta: null, ...(responde ? { responde } : {}), ...(anexos?.length ? { anexos } : {}),
     }
   }
 

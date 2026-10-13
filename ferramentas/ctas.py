@@ -37,9 +37,8 @@ CATEGORIAS = [
 
 # os produtos a que um CTA leva (o criador edita no painel da página CTAs)
 PRODUTOS = [
-    {'id': 'claude', 'nome': 'Claude', 'emoji': '✴️'},
-    {'id': 'fia', 'nome': 'FIA', 'emoji': '🤖'},
-    {'id': 'fid', 'nome': 'FID', 'emoji': '🎨'},
+    {'id': 'artista-ia', 'nome': 'Formação Artista IA', 'emoji': '🎨'},
+    {'id': 'acesso-total', 'nome': 'Acesso Total', 'emoji': '🔓'},
 ]
 
 
