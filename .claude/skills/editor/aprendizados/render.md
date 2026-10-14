@@ -15,6 +15,17 @@ _Nenhum ainda._
   o ponto apontado: o mesmo defeito costuma estar em outras trocas de plano, e a correção pode criar outro. _mvi-0717 · 2026-10-12_
 - **[defeito] Quadro repetido na emenda.** O bruto roda a 23,976 quadros/s e o vídeo final a 24: cada trecho precisa
   ocupar exatamente os quadros do vídeo final que lhe cabem — corrigido em `ferramentas/montagem/exportacao.py`. _mvi-0717 · 2026-10-12_
+- **[defeito] ProRes no M1.** O M1 comum não tem o codificador de ProRes por hardware — corrigido em
+  `ferramentas/montagem/render_quadros.py` (`-allow_sw 1`). _3-coisas-fai · 2026-10-14_
+- **[defeito] Zoom em degraus.** Um insert com zoom lento era tratado como quadro parado e o quadro era reaproveitado —
+  corrigido em `render/src/inserts.ts`. _3-coisas-fai · 2026-10-14_
+- **[defeito] Zoom andando para o lado.** O zoom lento crescia do centro do quadro e a mídia em tela toda ficava presa
+  pelo topo — agora cresce do centro da mídia (`render/src/ajustes.ts`, `render/src/divisao.ts`). _3-coisas-fai · 2026-10-14_
+- **[defeito] "largura" é fator.** O ajuste `largura` é um fator ("1.3"), não % — corrigido em `etapas/05-enriquecimento.md`. _3-coisas-fai · 2026-10-14_
+- **[defeito] Gravação de tela acelerada trava.** As pausas paradas entre os movimentos viram micro-paradas quando
+  aceleradas: tire os quadros parados antes de acelerar (`mpdecimate`). _3-coisas-fai · 2026-10-14_
+- **[defeito] Máscara do ator recortado.** O render espera `midia/recorte/<fonte>_mascara.mp4`, mas nada no projeto o
+  gerava: gerada com o MediaPipe (selfie segmenter); vale virar ferramenta do projeto. _3-coisas-fai · 2026-10-14_
 - O Gemini acerta problemas de corte e de legenda sobre conteúdo, e erra cor de legenda (diz "preta" para a branca com
   sombra): confira na folha de contato antes de mexer. _1º teste · 2026-10-10_
 - Nunca rode o render (ou algo que use multiprocessing) por `python -` (stdin): os processos-filho entram em laço e a

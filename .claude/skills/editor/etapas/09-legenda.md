@@ -18,7 +18,7 @@ Em `edicao.legenda.ajustes`, presos às palavras:
  "w00077": {"texto": "", "fim": "w00077"}}
 ```
 - A chave é o id da 1ª palavra do bloco; `fim`, a última (junta palavras num bloco); `texto` corrigido; `""` esconde.
-- `modo`: `palavra` (padrão) ou `frase` (até 3 palavras / 18 letras) — só se o criador pedir.
+- `modo`: `frase` (padrão: até 3 palavras / 18 letras, como nos Reels da criadora) ou `palavra` (uma por vez).
 - `ligada: false` desliga.
 - Num insert, `inserts.pedidos[i].enriquecimento.legenda_y` (fração do quadro, 0,15–0,85) põe a legenda numa altura
   escolhida só ali (ex.: 0.72 para descer de cima de um rosto em tela cheia).

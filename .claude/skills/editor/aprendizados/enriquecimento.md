@@ -5,8 +5,12 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-- **[gosto] Fundo oficial atrás dos inserts.** O fundo atrás dos inserts com moldura é o fundo oficial da marca
-  (`chuva`), o mesmo no vídeo todo. _mvi-0717 · 2026-10-12_
+- **[gosto] Fundo preto ou cinza escuro.** O fundo atrás dos inserts é `preto` ou `cinza`, nunca os da Asimov
+  (`chuva`, verdes). _3-coisas-fai · 2026-10-14_
+- **[gosto] Tela dividida na metade.** A mídia de cima ocupa a metade de cima, mais baixa, dentro da área visível do
+  Instagram (fora da faixa da interface no topo); o ator fica da metade para baixo. _3-coisas-fai · 2026-10-14_
+- **[gosto] Zoom em imagem: suave, constante, do centro.** ~3%/s (ajuste "Zoom lento"), a partir do centro da imagem;
+  nada de pulo, degrau ou imagem andando. _3-coisas-fai · 2026-10-14_
 
 ## Técnicos (do editor)
 

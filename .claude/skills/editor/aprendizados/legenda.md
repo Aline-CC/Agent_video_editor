@@ -5,7 +5,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-_Nenhum ainda._
+- **[gosto] Legenda por frase (2–4 palavras)**, como nos Reels da criadora (`legenda.modo: frase`). _3-coisas-fai · 2026-10-14_
 
 ## Técnicos (do editor)
 

@@ -14,6 +14,9 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   (um anúncio, uma data, um preço). _mvi-0717 · 2026-10-12_
 - **[gosto] Material atual.** Mostre a versão e as telas da geração atual do produto. Versão antiga (outro nome de
   modelo, interface velha) só se não houver outra, e com nota para o criador. _mvi-0717 · 2026-10-12_
+- **[gosto] Fluxo do Magnific: gravar a tela.** Abra o Space e grave a tela passeando pelos nós, mostrando o fluxo
+  completo e os modelos de geração (a lista de modelos aberta), acelerado para caber no trecho. _3-coisas-fai · 2026-10-14_
+- **[gosto] Mesmo cenário e mesma modelo numa sequência.** As imagens de uma mesma sequência vêm do mesmo ensaio. _3-coisas-fai · 2026-10-14_
 
 ## Técnicos (do editor)
 

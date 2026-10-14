@@ -10,7 +10,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   preparando para a tomada ou relaxando depois dela (olhar para baixo, ajeitar a postura): no vídeo, parece erro. _mvi-0717 · 2026-10-12_
 - **[gosto] Respiro só entre blocos ligados.** Entre duas frases da mesma tomada, que continuam o raciocínio sem erro,
   pode ficar uma pausa natural de até ~0,5 s: é o respiro do ator, e cortá-lo atropela a fala. Pausa maior que ~1 s
-  dentro de um trecho sai sempre: o Reels não aguenta silêncio. _mvi-0717 · 2026-10-12_
+  dentro de um trecho sai sempre: o Reels não aguenta silêncio. _mvi-0717 · 2026-10-12; 3-coisas-fai v4 c1 · 2026-10-14_
 
 ## Técnicos (do editor)
 
@@ -19,6 +19,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   está certo e a imagem não, ajuste a borda do trecho à mão (no `timeline.V1`, guardando o valor antigo em `auto`). _mvi-0717 · 2026-10-12_
 - **[defeito]** Borda "fora de pausa" (fala colada na palavra removida): o fim da palavra no ElevenLabs costuma vir
   ~0,1–0,2 s tarde e o começo da palavra cortada vaza ("o 'm' de 'mas'"). Ajuste a borda à mão no `timeline.V1`
-  (guarde o valor da IA em `auto`). _melhor-ia-para-design·v1 ✂2 · 2026-10-10 (o criador fez o mesmo ajuste no 18)_
+  (guarde o valor da IA em `auto`). Meça o áudio na emenda (o nível a cada 10 ms) para achar o fim real da palavra.
+  _melhor-ia-para-design·v1 ✂2 · 2026-10-10 (o criador fez o mesmo ajuste no 18); 3-coisas-fai v5 c1 ("câmera" + "e") · 2026-10-14_
 - O ElevenLabs acerta palavras repetidas ("gastando gastando") que o Whisper fundia; por isso é o motor. _do 18_
 - Num vídeo de 2 min, a seleção típica remove ~35–45% do bruto (2:02 → 1:04 no vídeo de teste). _do 18_
