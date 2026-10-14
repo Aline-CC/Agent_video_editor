@@ -18,7 +18,9 @@ export type Modo = 'palavra' | 'frase'
 export type Ajuste = { fim?: string; texto?: string; modo?: Modo }
 /** O ajuste como vale no modo de agora: uma presilha de outro modo não vale (é como se não houvesse ajuste). */
 export const ajusteNoModo = (aj: Ajuste | undefined, modo: Modo): Ajuste | undefined => (aj?.modo && aj.modo !== modo ? undefined : aj)
-export type Legenda = { ligada: boolean; modo: Modo; ajustes: Record<string, Ajuste> }
+export type Legenda = { ligada: boolean; modo: Modo; ajustes: Record<string, Ajuste>
+  /** a altura escolhida de um bloco (pela 1ª palavra dele): a conferência de rostos (`legenda_rostos.py`) grava aqui */
+  alturas?: Record<string, number> }
 /** Um bloco no tempo da saída: as palavras (ids), o texto, quando aparece e some, o centro do texto (fração da altura)
  *  e se foi mexido à mão (`ajustado`) ou escondido (`oculto`: texto vazio). */
 export type Bloco = { id: string; palavras: string[]; texto: string; ini: number; fim: number; y: number; ajustado: boolean; oculto: boolean }
@@ -220,6 +222,8 @@ export function blocosDaLegenda(saida: PalavraSaida[], planos: ItemRef[], lg: Le
     // no ator em tela cheia, nunca em cima de olhos, nariz e boca
     if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9)
     for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card)
+    const escolhida = lg.alturas?.[b.palavras[0]]
+    if (escolhida != null) y = escolhida
     return { ...b, fim, y }
   })
 }
@@ -254,4 +258,4 @@ export function semOsLetterings(bs: Bloco[], saida: PalavraSaida[], letterings: 
 export const blocoNoTempo = (bs: Bloco[], t: number) => bs.find((b) => !b.oculto && b.ini <= t && t < b.fim) ?? null
 
 /** Para a página de render: os blocos visíveis no formato do ASS (`legenda.py`). */
-export const paraExportar = (bs: Bloco[]) => bs.filter((b) => !b.oculto).map((b) => ({ ini: b.ini, fim: b.fim, texto: b.texto, y: b.y }))
+export const paraExportar = (bs: Bloco[]) => bs.filter((b) => !b.oculto).map((b) => ({ ini: b.ini, fim: b.fim, texto: b.texto, y: b.y, palavra: b.palavras[0] }))

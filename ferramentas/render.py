@@ -373,6 +373,8 @@ def render(slug: str, final: bool = False, versao_pedida: str | None = None) -> 
         mascara = p / 'midia' / 'recorte' / f"{fonte['id']}_mascara.mp4"
         lk = look.do_projeto(edicao)
         arq_leg = legenda.escrever(r.get('legenda'), w, h, tmp / 'legenda.ass')
+        if pasta_versao and r.get('legenda'):  # os blocos (tempo, texto, altura), para a conferência de rostos
+            (pasta_versao / 'legenda.json').write_text(json.dumps(r['legenda'], ensure_ascii=False))
         vinheta = look.mascara_vinheta(w, h, look.VINHETAS[lk['vinheta']], tmp / 'vinheta.png') if look.ativo(lk) else None
         parte = destino.with_name(destino.stem + '.parte.mp4')
         # no proxy, o ator sai do proxy 720p (a mesma linha do tempo do bruto): decodificar e escalar o 4K pesava mais que tudo

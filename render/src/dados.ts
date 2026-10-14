@@ -69,6 +69,7 @@ const legendaDe = (lg: Partial<Legenda> | undefined): Legenda => ({
   ligada: lg?.ligada ?? true,
   modo: lg?.modo === 'frase' ? 'frase' : 'palavra',
   ajustes: lg?.ajustes && typeof lg.ajustes === 'object' ? lg.ajustes : {},
+  alturas: lg?.alturas && typeof lg.alturas === 'object' ? lg.alturas : {},
 })
 
 /** O que um trecho herda do original (do 18: backend/app/banco.py, HERDADOS). */

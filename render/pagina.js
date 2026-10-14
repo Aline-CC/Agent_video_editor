@@ -360,7 +360,8 @@
   var legendaDe = (lg) => ({
     ligada: lg?.ligada ?? true,
     modo: lg?.modo === "frase" ? "frase" : "palavra",
-    ajustes: lg?.ajustes && typeof lg.ajustes === "object" ? lg.ajustes : {}
+    ajustes: lg?.ajustes && typeof lg.ajustes === "object" ? lg.ajustes : {},
+    alturas: lg?.alturas && typeof lg.alturas === "object" ? lg.alturas : {}
   });
   var HERDADOS = ["tipo", "formato", "largura", "altura", "descricao", "palavras", "descricao_ia", "origem", "ia", "arquivo", "proxy", "cortes"];
   async function itemBanco(id) {
@@ -1122,6 +1123,8 @@
       let y = alturaDaLegenda(plano?.tipo, zona);
       if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9);
       for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card);
+      const escolhida = lg.alturas?.[b.palavras[0]];
+      if (escolhida != null) y = escolhida;
       return { ...b, fim, y };
     });
   }
@@ -1146,7 +1149,7 @@
       return fim - ini >= 0.05 ? [{ ...b, ini, fim }] : [];
     });
   }
-  var paraExportar = (bs) => bs.filter((b) => !b.oculto).map((b) => ({ ini: b.ini, fim: b.fim, texto: b.texto, y: b.y }));
+  var paraExportar = (bs) => bs.filter((b) => !b.oculto).map((b) => ({ ini: b.ini, fim: b.fim, texto: b.texto, y: b.y, palavra: b.palavras[0] }));
 
   // src/transicoes.ts
   var familia = (c) => c.startsWith("full_ator") ? "ator" : c.startsWith("tela_dividida") || c === "comentario_insert_ator" ? "dividida" : "cheia";
