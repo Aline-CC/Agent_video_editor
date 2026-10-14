@@ -1541,6 +1541,7 @@ ${b}` };
   }
   function letteringNoInsert(e, rel) {
     const { modo, f } = e.lugar;
+    if (e.estilo === "lente") return lente(e, rel, modo === "metade" ? f / 2 : modo === "atras" ? Math.min(f, 0.72) / 2 : 0.5);
     const y = modo === "metade" ? f / 2 : modo === "atras" ? Math.min(f, 0.72) / 2 : 0.3;
     const { tam, texto } = lettering(e.texto ?? "", TAM.insert);
     const p = pop(rel).opacidade;
@@ -1555,6 +1556,33 @@ ${b}` };
         },
         { chave: "texto", classe: "absolute", estilo: { ...centrado(y, rel), ...estiloLettering(tam) }, texto }
       ]
+    };
+  }
+  var LENTE = { desfoque: 1.1, fundo: "rgba(255,255,255,0.10)", borda: "rgba(255,255,255,0.38)", sombra: "0 1.2cqw 4cqw rgba(0,0,0,0.35)" };
+  function lente(e, rel, y) {
+    const { tam, texto } = lettering(e.texto ?? "", TAM.insert * 0.72);
+    return {
+      chave: e.id,
+      classe: "absolute",
+      estilo: {
+        ...centrado(y, rel),
+        fontFamily: FONTE,
+        fontWeight: 500,
+        color: "#fff",
+        fontSize: `${tam.toFixed(3)}cqh`,
+        lineHeight: 1.1,
+        letterSpacing: "0.01em",
+        whiteSpace: "pre",
+        textAlign: "center",
+        padding: "0.55em 1.1em",
+        borderRadius: "999px",
+        background: LENTE.fundo,
+        backdropFilter: `blur(${LENTE.desfoque}cqw) saturate(1.25) brightness(1.08)`,
+        border: `0.12cqw solid ${LENTE.borda}`,
+        boxShadow: LENTE.sombra,
+        textShadow: "0 0.02em 0.12em rgba(0,0,0,0.35)"
+      },
+      texto
     };
   }
   var estiloLettering = (tam, estilo) => ({
