@@ -1024,7 +1024,8 @@
       }
       const as = x.formato !== "dividida" && x.midias.length ? aspectosDe(x.midias, banco) : [];
       const deitada = as.length > 0 && as.every((a) => a >= 1.2);
-      return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada };
+      const y = Number(x.enriquecimento?.legenda_y) || null;
+      return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada, y };
     });
   }
   function alturaDaLegenda(tipo, z) {
@@ -1036,6 +1037,7 @@
       y = g.modo === "canto" ? topoDoAtor(g) - MEIA - FOLGA : g.ty + ALTURA_POR_PLANO.full_ator * g.s;
     } else if (tipo === "tela_dividida_motion") y = 0.5;
     else if (tipo === "insert_tela_cheia" && z?.deitada) y = ALTURA_DEITADA;
+    if (z?.y) y = Math.min(Math.max(z.y, 0.15), 0.85);
     return z?.card ? desviar(y, z.card) : y;
   }
   function desviar(y, c) {

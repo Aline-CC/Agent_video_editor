@@ -70,7 +70,7 @@ const limpar = (t: string) => t.replace(/[,;:]+$/, '')
 /** O que há na tela num trecho (um insert) e muda a altura da legenda: a divisão da tela (onde fica a costura), o ator
  *  no "ator embaixo" (a geometria, `ator/ator.ts`; sem o rosto, que só muda o x) e o card do comentário (`y`: o
  *  centro, `h`: a altura, frações do quadro). */
-export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null; deitada?: boolean }
+export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null; deitada?: boolean; y?: number | null }
 
 export function zonasDaLegenda(pedidos: Pedido[], banco: Map<string, ItemBanco> | null | undefined, presets: Preset[] | null | undefined): Zona[] {
   return pedidos.map((x) => {
@@ -85,7 +85,9 @@ export function zonasDaLegenda(pedidos: Pedido[], banco: Map<string, ItemBanco> 
     // um insert em tela cheia só com mídias deitadas: o card fica no meio do quadro, e a legenda desce para baixo dele
     const as = x.formato !== 'dividida' && x.midias.length ? aspectosDe(x.midias, banco) : []
     const deitada = as.length > 0 && as.every((a) => a >= 1.2)
-    return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada }
+    // a altura escolhida à mão para a legenda neste insert (fração do quadro: 0,7 = mais para baixo)
+    const y = Number((x.enriquecimento as { legenda_y?: number } | undefined)?.legenda_y) || null
+    return { ini: x.t.inicio, fim: x.t.fim, divisao, ator, card, deitada, y }
   })
 }
 
@@ -105,6 +107,7 @@ function alturaDaLegenda(tipo: string | undefined, z: Zona | null): number {
   }
   else if (tipo === 'tela_dividida_motion') y = 0.5
   else if (tipo === 'insert_tela_cheia' && z?.deitada) y = ALTURA_DEITADA
+  if (z?.y) y = Math.min(Math.max(z.y, 0.15), 0.85)
   return z?.card ? desviar(y, z.card) : y
 }
 
