@@ -5,11 +5,11 @@
 import { carregar, itemBanco } from './dados'
 import { montarSequencia } from './sequencia'
 import { paraTempo, palavrasNaSaida } from './direcaoProjeto'
-import { geometriaDoAtor, rostoDoArquivo } from './ator'
+import { geometriaDoAtor, rostoDoArquivo, type Geometria } from './ator'
 import { centroDoMovimento, ehFullAtor } from './movimento'
 import { divisaoDe, lugarDoComentario, type Divisao } from './divisao'
 import { chaveParada, pedidosNoTempo, receitaDoInsert } from './inserts'
-import { blocosDaLegenda, paraExportar, semOsLetterings, zonasDaLegenda } from './legenda'
+import { blocosDaLegenda, paraExportar, semOsLetterings, zonasDaLegenda, type Zona } from './legenda'
 import { cortesDoVideo, sonsDasTransicoes } from './transicoes'
 import { eventosDaReceita, type EventoSom } from './sons'
 import { escolhasDeSom, eventosDoMotion, falaDoPlano, fundoDoMotion, marcasDaPagina, urlPaginaMotion } from './motions'
@@ -121,8 +121,10 @@ async function iniciar() {
       return { ini: x.t.inicio, fim: x.t.fim, dividida: x.formato === 'dividida', divisao: divisao && { ...divisao, ator } }
     }),
     ...comMotion.map((m) => {
-      const divisao: Divisao | null = m.dividida ? { modo: 'metade', tipo: 'area', f: 0.5 } : null
-      return { ini: m.ini, fim: m.fim, dividida: m.dividida, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } }
+      // `divisao: 'atras'` no motion: o motion na tela toda e o ator numa janela embaixo (como o "ator embaixo" dos inserts)
+      const atras = (motions[m.plano] as { divisao?: string } | undefined)?.divisao === 'atras'
+      const divisao: Divisao | null = atras ? { modo: 'atras', tipo: 'atras', f: 0.72 } : m.dividida ? { modo: 'metade', tipo: 'area', f: 0.5 } : null
+      return { ini: m.ini, fim: m.fim, dividida: m.dividida || atras, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } }
     }),
   ]
   // os elementos da direção e o texto dos planos Full ator com lettering (`elementos.ts`), cada um com o lugar onde cai
@@ -139,6 +141,19 @@ async function iniciar() {
     return { modo: 'ator', f: 1, rosto: rostoEm?.(ini, fim) ?? null }
   }
   const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]))
+  // a legenda por plano: a altura escolhida num motion (`legenda_y` no motion), o ator embaixo dos motions e, no ator em
+  // tela cheia, abaixo do queixo (o rosto medido, com folga para o zoom do plano)
+  const zonasDosPlanos = (): Zona[] => planos.flatMap((pl): Zona[] => {
+    const mo = motions[pl.id] as { legenda_y?: number } | undefined
+    if (mo?.legenda_y) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: mo.legenda_y }]
+    const tr = mo && trechos.find((t) => t.divisao?.modo === 'atras' && Math.abs(t.ini - pl.inicio) < 0.01)
+    if (tr && tr.divisao) return [{ ini: pl.inicio, fim: pl.fim, divisao: tr.divisao, ator: (tr.divisao as { ator?: Geometria | null }).ator ?? null, card: null }]
+    if (!ehFullAtor(pl.tipo)) return []
+    const r = rostoEm?.(pl.inicio, pl.fim)
+    if (!r) return []
+    const zoom = ins.ator_planos?.[pl.id] ? 1.18 : 1
+    return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, minY: r.cy + (0.5 * r.h + 0.05) * zoom + 0.035 }]
+  })
   const desenhaveis: Elemento[] = [...planos.filter((p) => p.tipo === 'full_ator_lettering'), ...elementos]
     .sort((a, b) => a.inicio - b.inicio)
     .map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, estilo: (originais.get(e.id) as { estilo?: string } | undefined)?.estilo ?? null, lugar: lugarEm(e.inicio, e.fim) }))
@@ -264,7 +279,7 @@ async function iniciar() {
     // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página e
     // desviando da barra do ManyChat, da caixinha e do print), sem o que um lettering já mostra, para o ASS
     legenda: async () => {
-      const zonas = [...zonasDaLegenda(lista, banco, presets), ...zonasDosElementos(desenhaveis, banco)]
+      const zonas = [...zonasDaLegenda(lista, banco, presets), ...zonasDosElementos(desenhaveis, banco), ...zonasDosPlanos()]
       if (!d.legenda.ligada) return null
       const blocos = semOsLetterings(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas), saida, intervalosDeLettering(desenhaveis))
       return { blocos: paraExportar(blocos) }

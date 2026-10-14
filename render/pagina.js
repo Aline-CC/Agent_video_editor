@@ -1034,7 +1034,7 @@
     if (d?.modo === "metade") y = Math.min(Math.max(d.f, 0.3), 0.7);
     else if (d?.modo === "atras") {
       const g = z?.ator ?? { modo: "janela", s: 0.55, tx: 0.225, ty: 0.45 };
-      y = g.modo === "canto" ? topoDoAtor(g) - MEIA - FOLGA : g.ty + ALTURA_POR_PLANO.full_ator * g.s;
+      y = g.modo === "canto" ? topoDoAtor(g) - MEIA - FOLGA : g.ty + 0.6 * g.s;
     } else if (tipo === "tela_dividida_motion") y = 0.5;
     else if (tipo === "insert_tela_cheia" && z?.deitada) y = ALTURA_DEITADA;
     if (z?.y) y = Math.min(Math.max(z.y, 0.15), 0.85);
@@ -1120,6 +1120,7 @@
       const plano = ps.find((p) => p.inicio <= fala + 1e-3 && fala < p.fim);
       const zona = zonas.find((z) => z.ini <= fala + 1e-3 && fala < z.fim) ?? null;
       let y = alturaDaLegenda(plano?.tipo, zona);
+      if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9);
       for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card);
       return { ...b, fim, y };
     });
@@ -1793,8 +1794,9 @@ ${b}` };
         return { ini: x.t.inicio, fim: x.t.fim, dividida: x.formato === "dividida", divisao: divisao && { ...divisao, ator } };
       }),
       ...comMotion.map((m) => {
-        const divisao = m.dividida ? { modo: "metade", tipo: "area", f: 0.5 } : null;
-        return { ini: m.ini, fim: m.fim, dividida: m.dividida, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } };
+        const atras = motions[m.plano]?.divisao === "atras";
+        const divisao = atras ? { modo: "atras", tipo: "atras", f: 0.72 } : m.dividida ? { modo: "metade", tipo: "area", f: 0.5 } : null;
+        return { ini: m.ini, fim: m.fim, dividida: m.dividida || atras, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } };
       })
     ];
     const lugarEm = (ini, fim) => {
@@ -1809,6 +1811,17 @@ ${b}` };
       return { modo: "ator", f: 1, rosto: rostoEm?.(ini, fim) ?? null };
     };
     const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]));
+    const zonasDosPlanos = () => planos.flatMap((pl) => {
+      const mo = motions[pl.id];
+      if (mo?.legenda_y) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: mo.legenda_y }];
+      const tr = mo && trechos.find((t) => t.divisao?.modo === "atras" && Math.abs(t.ini - pl.inicio) < 0.01);
+      if (tr && tr.divisao) return [{ ini: pl.inicio, fim: pl.fim, divisao: tr.divisao, ator: tr.divisao.ator ?? null, card: null }];
+      if (!ehFullAtor(pl.tipo)) return [];
+      const r = rostoEm?.(pl.inicio, pl.fim);
+      if (!r) return [];
+      const zoom = ins.ator_planos?.[pl.id] ? 1.18 : 1;
+      return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, minY: r.cy + (0.5 * r.h + 0.05) * zoom + 0.035 }];
+    });
     const desenhaveis = [...planos.filter((p) => p.tipo === "full_ator_lettering"), ...elementos].sort((a, b) => a.inicio - b.inicio).map((e) => ({ id: e.id, tipo: e.tipo, inicio: e.inicio, fim: e.fim, texto: e.texto, descricao: e.descricao, banco: originais.get(e.id)?.banco ?? null, estilo: originais.get(e.id)?.estilo ?? null, lugar: lugarEm(e.inicio, e.fim) }));
     trechos.push(...semSobrepor(desenhaveis.map((e) => ({ ini: e.inicio, fim: e.fim })), trechos).map((p) => ({ ...p, dividida: false, divisao: null })));
     const versoes = /* @__PURE__ */ new Map();
@@ -1935,7 +1948,7 @@ ${b}` };
       // a legenda (SPEC §8.10): os blocos visíveis (a mesma conta da prévia, com a altura pelos inserts desta página e
       // desviando da barra do ManyChat, da caixinha e do print), sem o que um lettering já mostra, para o ASS
       legenda: async () => {
-        const zonas = [...zonasDaLegenda(lista2, banco, presets), ...zonasDosElementos(desenhaveis, banco)];
+        const zonas = [...zonasDaLegenda(lista2, banco, presets), ...zonasDosElementos(desenhaveis, banco), ...zonasDosPlanos()];
         if (!d.legenda.ligada) return null;
         const blocos = semOsLetterings(blocosDaLegenda(saida, planos, d.legenda, d.palavras, zonas), saida, intervalosDeLettering(desenhaveis));
         return { blocos: paraExportar(blocos) };

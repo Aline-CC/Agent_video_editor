@@ -70,7 +70,9 @@ const limpar = (t: string) => t.replace(/[,;:]+$/, '')
 /** O que há na tela num trecho (um insert) e muda a altura da legenda: a divisão da tela (onde fica a costura), o ator
  *  no "ator embaixo" (a geometria, `ator/ator.ts`; sem o rosto, que só muda o x) e o card do comentário (`y`: o
  *  centro, `h`: a altura, frações do quadro). */
-export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null; deitada?: boolean; y?: number | null }
+export type Zona = { ini: number; fim: number; divisao: Divisao | null; ator?: Geometria | null; card: { y: number; h: number } | null; deitada?: boolean; y?: number | null
+  /** a legenda não sobe além daqui: abaixo do queixo do ator em tela cheia (ficha-personagem-ia v6.7) */
+  minY?: number }
 
 export function zonasDaLegenda(pedidos: Pedido[], banco: Map<string, ItemBanco> | null | undefined, presets: Preset[] | null | undefined): Zona[] {
   return pedidos.map((x) => {
@@ -103,7 +105,8 @@ function alturaDaLegenda(tipo: string | undefined, z: Zona | null): number {
   else if (d?.modo === 'atras') {
     // na janela e no recortado, a altura do Full ator dentro do ator encolhido; no canto (o ator pequeno), logo acima dele
     const g: Geometria = z?.ator ?? { modo: 'janela', s: 0.55, tx: 0.225, ty: 0.45 }
-    y = g.modo === 'canto' ? topoDoAtor(g) - MEIA - FOLGA : g.ty + ALTURA_POR_PLANO.full_ator * g.s
+    // dentro da janela, abaixo do queixo (nunca em cima de olhos, nariz e boca: ficha-personagem-ia v6.7)
+    y = g.modo === 'canto' ? topoDoAtor(g) - MEIA - FOLGA : g.ty + 0.6 * g.s
   }
   else if (tipo === 'tela_dividida_motion') y = 0.5
   else if (tipo === 'insert_tela_cheia' && z?.deitada) y = ALTURA_DEITADA
@@ -214,6 +217,8 @@ export function blocosDaLegenda(saida: PalavraSaida[], planos: ItemRef[], lg: Le
     // o bloco entra antes da fala (`ANTECIPA`): a 1ª palavra de um plano aparece ainda no anterior, e desvia também do
     // card do comentário de lá enquanto ele está na tela
     let y = alturaDaLegenda(plano?.tipo, zona)
+    // no ator em tela cheia, nunca em cima de olhos, nariz e boca
+    if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9)
     for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card)
     return { ...b, fim, y }
   })
