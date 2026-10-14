@@ -80,6 +80,7 @@ export const FUNDOS: { id: string; nome: string; claro: boolean; amostra: string
   { id: 'gradiente', nome: 'Gradiente escuro', claro: false, amostra: 'radial-gradient(85% 70% at 50% 45%,#24423b 0%,#13201d 60%,#0b1412 100%)' },
   { id: 'cinza', nome: 'Cinza escuro', claro: false, amostra: 'radial-gradient(85% 70% at 50% 45%,#2c2c2e 0%,#1f1f21 60%,#151516 100%)' },
   { id: 'preto', nome: 'Preto', claro: false, amostra: '#000' },
+  { id: 'branco', nome: 'Branco', claro: true, amostra: '#eef1f1' },
 ]
 
 // na exportação: parado no instante do relógio (o loop dá a volta)

@@ -5,7 +5,7 @@
 import { carregar, itemBanco } from './dados'
 import { montarSequencia } from './sequencia'
 import { paraTempo, palavrasNaSaida } from './direcaoProjeto'
-import { geometriaDoAtor, rostoDoArquivo, type Geometria } from './ator'
+import { geometriaDoAtor, rostoDoArquivo, type AjusteAtor, type Geometria } from './ator'
 import { centroDoMovimento, ehFullAtor } from './movimento'
 import { divisaoDe, lugarDoComentario, type Divisao } from './divisao'
 import { chaveParada, pedidosNoTempo, receitaDoInsert } from './inserts'
@@ -124,7 +124,8 @@ async function iniciar() {
       // `divisao: 'atras'` no motion: o motion na tela toda e o ator numa janela embaixo (como o "ator embaixo" dos inserts)
       const atras = (motions[m.plano] as { divisao?: string } | undefined)?.divisao === 'atras'
       const divisao: Divisao | null = atras ? { modo: 'atras', tipo: 'atras', f: 0.72 } : m.dividida ? { modo: 'metade', tipo: 'area', f: 0.5 } : null
-      return { ini: m.ini, fim: m.fim, dividida: m.dividida || atras, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, null, rostoEm?.(m.ini, m.fim) ?? null) } }
+      const aj = (motions[m.plano] as { ator?: AjusteAtor } | undefined)?.ator ?? null // o ator embaixo: janela, canto ou recortado, na posição escolhida
+      return { ini: m.ini, fim: m.fim, dividida: m.dividida || atras, divisao: divisao && { ...divisao, ator: geometriaDoAtor(divisao, aj, rostoEm?.(m.ini, m.fim) ?? null) } }
     }),
   ]
   // os elementos da direção e o texto dos planos Full ator com lettering (`elementos.ts`), cada um com o lugar onde cai
