@@ -1,7 +1,7 @@
 # 09 · Legenda
 
 Gerada sozinha da fala cortada, no estilo medido nas referências: SF Pro Display Bold, branca, sombra escura difusa,
-minúsculas como na fala, centralizada, **uma palavra por vez**, na altura de cada tipo de plano (desviando da costura da
+minúsculas como na fala, centralizada, **por frase curta (2–4 palavras)**, na altura de cada tipo de plano (desviando da costura da
 tela dividida e do card do comentário). Entra 0,17 s antes da palavra.
 
 > **Antes de começar, leia `../aprendizados/legenda.md`**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
