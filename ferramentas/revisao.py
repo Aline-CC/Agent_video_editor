@@ -136,7 +136,7 @@ def responder(slug: str, v: str, cid: str, status: str, resposta: str) -> None:
     status = status.replace('não ', 'nao_').replace('nao ', 'nao_')
     if status not in STATUS:
         raise SystemExit(f'Status inválido: {status} (use {", ".join(STATUS)}).')
-    n = int(v.lstrip('v'))
+    n = versao_da_revisao(slug, v)  # aceita as alternativas (v6.2)
     arq = pasta(slug) / 'revisoes' / f'v{n}.json'
     rev = ler_json(arq)
     if rev is None:

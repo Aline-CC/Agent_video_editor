@@ -7,7 +7,7 @@ from pathlib import Path
 from base import BIBLIOTECA
 
 LUTS = BIBLIOTECA / 'luts'
-NOMES = {'natural': 'Natural', 'casa': 'Casa', 'frio': 'Frio / limpo'}
+NOMES = {'natural': 'Natural', 'casa': 'Casa', 'frio': 'Frio / limpo', 'collect-3-niveis': 'Collect 3 níveis (Premiere)'}
 # a vinheta: o quanto as bordas escurecem (0 = sem) e a forma (uma elipse do quadro 9:16, centro um pouco acima do meio,
 # borda bem suave). A mesma fórmula no shader da prévia e na máscara do render (`mascara_vinheta`).
 VINHETAS = {'sem': 0.0, 'leve': 0.25, 'normal': 0.4, 'forte': 0.55}
