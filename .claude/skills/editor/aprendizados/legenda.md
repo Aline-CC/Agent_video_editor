@@ -5,7 +5,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 ## Do criador
 
-- **[gosto] Legenda por frase (2–4 palavras)**, como nos Reels da criadora (`legenda.modo: frase`). _3-coisas-fai · 2026-10-14_
+- **[gosto] Legenda palavra por palavra** nos próximos vídeos (`legenda.modo: palavra`, o padrão). O 3 coisas FAI saiu por frase,
+  a pedido, para o teste com o estilo do anúncio; não é o padrão. _3-coisas-fai · 2026-10-14_
 
 ## Técnicos (do editor)
 
