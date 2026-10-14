@@ -54,8 +54,8 @@ fim do plano). O centro é o rosto. Proposta inicial (ajuste com as revisões do
 
 ## Fundo e card do comentário
 
-- `inserts.fundo`: o fundo atrás dos inserts com moldura, para o vídeo todo: `gradiente` (padrão, escuro), `chuva`
-  (vídeo escuro), `verde_claro`, `papel`, `nevoa`. Mídias escuras pedem fundo claro e vice-versa.
+- `inserts.fundo`: o fundo atrás dos inserts com moldura, para o vídeo todo: `preto` (padrão) ou `cinza` (os da
+  criadora); os herdados `gradiente`, `chuva`, `verde_claro`, `papel`, `nevoa` só se ela pedir.
 - Comentário + insert + ator: o card usa o texto do plano; `pedido.comentario` aceita `{"avatar": 0-4, "escala": 0.6-1.3,
   "x": %, "y": %}` só se a posição automática cobrir algo importante.
 
