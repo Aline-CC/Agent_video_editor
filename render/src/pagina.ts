@@ -6,7 +6,7 @@ import { carregar, itemBanco } from './dados'
 import { montarSequencia } from './sequencia'
 import { paraTempo, palavrasNaSaida } from './direcaoProjeto'
 import { geometriaDoAtor, rostoDoArquivo, type AjusteAtor, type Geometria } from './ator'
-import { centroDoMovimento, ehFullAtor } from './movimento'
+import { centroDoMovimento, ehFullAtor, escalaDoMovimento } from './movimento'
 import { divisaoDe, lugarDoComentario, type Divisao } from './divisao'
 import { chaveParada, pedidosNoTempo, receitaDoInsert } from './inserts'
 import { blocosDaLegenda, paraExportar, semOsLetterings, zonasDaLegenda, type Zona } from './legenda'
@@ -256,6 +256,13 @@ async function iniciar() {
       const tipo = ehFullAtor(pl.tipo) ? ins.ator_planos?.[pl.id] : undefined
       if (!tipo) return []
       const c = centroDoMovimento(rostoEm?.(pl.inicio, pl.fim))
+      // no zoom seco, o rosto vai para o meio da tela o quanto a ampliação deixa (sem mostrar a borda do quadro): o ponto
+      // fixo do zoom é o que põe a janela de 1/s centrada no rosto
+      if (tipo === 'zoom_seco') {
+        const s = escalaDoMovimento(tipo, 0, pl.fim - pl.inicio)
+        const meio = Math.min(Math.max(c.x, 1 / (2 * s)), 1 - 1 / (2 * s))
+        c.x = (s * meio - 0.5) / (s - 1)
+      }
       return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y }]
     }),
     sons: async () => {
