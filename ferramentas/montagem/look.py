@@ -7,7 +7,7 @@ from pathlib import Path
 from base import BIBLIOTECA
 
 LUTS = BIBLIOTECA / 'luts'
-NOMES = {'natural': 'Natural', 'casa': 'Casa', 'frio': 'Frio / limpo', 'collect-3-niveis': 'Collect 3 níveis (Premiere)', 'collect-3-niveis-suave': 'Collect 3 níveis, menos magenta', 'collect-3-niveis-quente': 'Collect 3 níveis, leve amarelo', 'collect-lp-3-niveis': 'Collect LP 3 níveis (Premiere)', 'collect-lp-ext': 'Collect LP ext (Premiere)', 'collect-vsl-ext': 'Collect VSL ext (Premiere)', 'collect-lp-ext-ref': 'Collect LP ext, pela referência da criadora', 'lp-ext-ref2': 'LP ext, pela 2ª referência (fundo frio, pele viva)'}
+NOMES = {'natural': 'Natural', 'casa': 'Casa', 'frio': 'Frio / limpo', 'collect-3-niveis': 'Collect 3 níveis (Premiere)', 'collect-3-niveis-suave': 'Collect 3 níveis, menos magenta', 'collect-3-niveis-quente': 'Collect 3 níveis, leve amarelo', 'collect-lp-3-niveis': 'Collect LP 3 níveis (Premiere)', 'collect-lp-ext': 'Collect LP ext (Premiere)', 'collect-vsl-ext': 'Collect VSL ext (Premiere)', 'collect-lp-ext-ref': 'Collect LP ext, pela referência da criadora', 'lp-ext-ref2': 'LP ext, pela 2ª referência (fundo frio, pele viva)', 'vsl-ext-ref-lp': 'VSL ext, pela cor do LP ext'}
 # a vinheta: o quanto as bordas escurecem (0 = sem) e a forma (uma elipse do quadro 9:16, centro um pouco acima do meio,
 # borda bem suave). A mesma fórmula no shader da prévia e na máscara do render (`mascara_vinheta`).
 VINHETAS = {'sem': 0.0, 'leve': 0.25, 'normal': 0.4, 'forte': 0.55}
