@@ -21,5 +21,5 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
 
 - **[gosto]** A cabeça da criadora nunca é cortada; em todas as telas divididas, o mesmo recorte, com o cabelo saindo pela janela (`recorte.py`). _ficha-personagem-ia·v2, v6.7 · 2026-10-15_
-- **[gosto]** A mídia nunca é cortada para preencher a tela (cabeça cortada, vídeo cortado, fluxo recortado): mídia inteira e maior (ex.: `largura` 1.3 no Corte seco). _ficha-personagem-ia·v3, v4, v6.4; cta-lp-ext·v4 c5 · 2026-10-15_
+- **[gosto]** A mídia nunca é cortada para preencher a tela (cabeça cortada, vídeo cortado, fluxo recortado): mídia inteira e maior (ex.: `largura` 1.3 no Corte seco). Na gravação de um Space, use o trecho com a câmera afastada, em que o fluxo aparece inteiro, não o passeio ampliado com os nós cortados em cima e embaixo. _ficha-personagem-ia·v3, v4, v6.4; cta-lp-ext·v4 c5; gpt-image-glow·v16 c2, c5 · 2026-10-15_
 - **[gosto]** Fundo preto atrás dos cards (reforça o de cima). _ficha-personagem-ia·v4 · 2026-10-15_
