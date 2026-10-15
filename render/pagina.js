@@ -1075,6 +1075,7 @@
     }
     return { valem, orfaos };
   }
+  var LIMITE_BAIXO = 0.8;
   function blocosDaLegenda(saida, planos, lg, palavras, zonas = []) {
     const ws = [...saida].sort((a, b) => a.saida_ini - b.saida_ini);
     const pos = new Map(ws.map((w, i) => [w.id, i]));
@@ -1121,11 +1122,11 @@
       const plano = ps.find((p) => p.inicio <= fala + 1e-3 && fala < p.fim);
       const zona = zonas.find((z) => z.ini <= fala + 1e-3 && fala < z.fim) ?? null;
       let y = alturaDaLegenda(plano?.tipo, zona);
-      if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9);
+      if (zona?.minY != null && !zona.y) y = Math.max(y, zona.minY);
       for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card);
       const escolhida = lg.alturas?.[b.palavras[0]];
       if (escolhida != null) y = escolhida;
-      return { ...b, fim, y };
+      return { ...b, fim, y: Math.min(y, LIMITE_BAIXO) };
     });
   }
   function semOsLetterings(bs, saida, letterings) {

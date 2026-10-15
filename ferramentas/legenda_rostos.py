@@ -26,6 +26,7 @@ W, H = 360, 640
 ALTURA_LINHA = 0.045  # a faixa que um bloco ocupa (fração da altura do quadro), com a sombra
 LETRA = 0.026  # a largura média de uma letra (fração da largura), SF Pro Display Bold no tamanho da legenda
 MARGEM_ROSTO = 0.1  # o rosto medido cresce isso em cada direção (a caixa do detector já vai da testa ao queixo)
+LIMITE_BAIXO = 0.8  # abaixo disso a interface do Instagram (legenda, botões) cobre o texto
 
 
 def quadro(video: Path, t: float) -> np.ndarray:
@@ -88,7 +89,7 @@ def main(slug: str, versao: str | None) -> None:
         y0 = bs[0]['y']
         if not any(bate(b['y'], largura, caixas) for b in bs):
             continue
-        cands = list(np.arange(0.12, 0.92, 0.005))
+        cands = list(np.arange(0.12, LIMITE_BAIXO + 0.001, 0.005))
         livres = [y for y in cands if not bate(y, largura, caixas)]
         if livres:  # o mais perto, preferindo abaixo (o queixo, o colo) a acima (a testa, o cabelo)
             y = min(livres, key=lambda y: abs(y - y0) * (1 if y > y0 else 1.6))

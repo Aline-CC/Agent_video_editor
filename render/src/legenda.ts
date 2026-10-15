@@ -160,6 +160,9 @@ export function ajustesNoVideo(ajustes: Record<string, Ajuste>, palavras: { id: 
 
 /** Os blocos da legenda no tempo da saída. `palavras`: todas, na ordem da fala (para os ajustes de palavras cortadas;
  *  sem elas, valem só os ajustes de palavras que ficaram); `zonas`: os inserts na tela (`zonasDaLegenda`). */
+/** O ponto mais baixo da legenda (fração da altura): abaixo disso, a interface do Reels cobre o texto. */
+export const LIMITE_BAIXO = 0.8
+
 export function blocosDaLegenda(saida: PalavraSaida[], planos: ItemRef[], lg: Legenda, palavras?: { id: string; texto: string }[], zonas: Zona[] = []): Bloco[] {
   const ws = [...saida].sort((a, b) => a.saida_ini - b.saida_ini)
   const pos = new Map(ws.map((w, i) => [w.id, i]))
@@ -220,11 +223,12 @@ export function blocosDaLegenda(saida: PalavraSaida[], planos: ItemRef[], lg: Le
     // card do comentário de lá enquanto ele está na tela
     let y = alturaDaLegenda(plano?.tipo, zona)
     // no ator em tela cheia, nunca em cima de olhos, nariz e boca
-    if (zona?.minY != null && !zona.y) y = Math.min(Math.max(y, zona.minY), 0.9)
+    if (zona?.minY != null && !zona.y) y = Math.max(y, zona.minY)
     for (const z of zonas) if (z !== zona && z.card && z.ini < fim && b.ini < z.fim) y = desviar(y, z.card)
     const escolhida = lg.alturas?.[b.palavras[0]]
     if (escolhida != null) y = escolhida
-    return { ...b, fim, y }
+    // nunca abaixo da área que a interface do Instagram cobre (a legenda do post, os botões)
+    return { ...b, fim, y: Math.min(y, LIMITE_BAIXO) }
   })
 }
 
