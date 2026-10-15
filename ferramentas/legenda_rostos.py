@@ -9,7 +9,9 @@ legenda cai sobre um rosto, escolhe a altura livre mais perto (de preferência a
 `edicao.legenda.alturas` (pela 1ª palavra do bloco). A altura é uma só por plano (a legenda não pula de bloco em bloco);
 onde não há lugar livre (rostos na tela toda), fica onde cobre menos rosto. Depois, renderize de novo.
 
-    uv run ferramentas/legenda_rostos.py <slug> [vN]
+    uv run ferramentas/legenda_rostos.py <slug> [vN] [--y 0.56]
+
+Com `--y`, a legenda fica nessa altura em todos os planos (ex.: logo abaixo do meio) e só sai dela onde cobre um rosto.
 """
 import json
 import subprocess
@@ -64,7 +66,7 @@ def sobreposicao(y: float, largura: float, caixas) -> float:
     return sum(max(0, min(l1, c[2]) - max(l0, c[0])) * max(0, min(a1, c[3]) - max(a0, c[1])) for c in caixas)
 
 
-def main(slug: str, versao: str | None) -> None:
+def main(slug: str, versao: str | None, preferida: float | None = None) -> None:
     import mediapipe as mp
     from mediapipe.tasks.python import BaseOptions, vision
 
@@ -86,8 +88,12 @@ def main(slug: str, versao: str | None) -> None:
         largura = min(0.95, LETRA * max(len(b['texto']) for b in bs) + 0.04)
         ts = [b['ini'] + (b['fim'] - b['ini']) * k for b in bs for k in (0.2, 0.8)]
         caixas = [c for t in ts for c in rostos(det, mp, quadro(video, t))]
-        y0 = bs[0]['y']
-        if not any(bate(b['y'], largura, caixas) for b in bs):
+        y0 = preferida if preferida is not None else bs[0]['y']
+        if not bate(y0, largura, caixas) and (preferida is not None or not any(bate(b['y'], largura, caixas) for b in bs)):
+            if preferida is not None:
+                for b in bs:
+                    alturas[b['palavra']] = round(float(y0), 3)
+                mudou += len(bs)
             continue
         cands = list(np.arange(0.12, LIMITE_BAIXO + 0.001, 0.005))
         livres = [y for y in cands if not bate(y, largura, caixas)]
@@ -104,4 +110,8 @@ def main(slug: str, versao: str | None) -> None:
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
+    a = sys.argv[1:]
+    y = float(a[a.index('--y') + 1]) if '--y' in a else None
+    if '--y' in a:
+        del a[a.index('--y'):a.index('--y') + 2]
+    main(a[0], a[1] if len(a) > 1 else None, y)
