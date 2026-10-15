@@ -13,3 +13,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 - O `variar` pode pôr três efeitos seguidos (luz, zoom, brilho): cansa. Troque o do meio por corte seco. _1º teste_
 - O `luz.webm` (luz colorida) tem um ponto escuro no centro no próprio arquivo do 18: o criador ainda não opinou. _1º teste_
+
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** Brilho branco (TRA-01) nas trocas de assunto e nas entradas importantes. _cta-vsl-ext·v12 c1, v14 c3; ficha-personagem-ia·v6.9 · 2026-10-15_

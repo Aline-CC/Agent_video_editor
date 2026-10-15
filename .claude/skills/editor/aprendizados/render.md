@@ -34,3 +34,5 @@ _Nenhum ainda._
 
 - **[gosto] Cor.** Parte da gravação, com ajuste leve: pele natural sem magenta, fundo cinza neutro, contraste meio-termo (nem lavado, nem forte). LUTs aprovadas: `lp-ext-ref2`, `vsl-ext-ref-lp`. _ficha-personagem-ia·v6.6, v6.9; cta-lp-ext·v1 c1, v4 c1; chat · 2026-10-15_
 - **[técnica] Cor.** Antes de mexer, meça pretos e brancos (o "lavado" era o branco preso em 82%). Para casar com uma referência de outra cena, case só a luz e o balanço pelo fundo cinza, nunca canal por canal (deixa o fundo verde ou rosa). _chat · 2026-10-15_
+- **[defeito]** Motion recusado na Biblioteca e ainda usado no projeto deixava o render em 8 s por quadro — corrigido em `render.py` (para logo e diz qual falta). Render lento: olhe primeiro os erros da página (404). _cta-vsl-ext·chat · 2026-10-15_
+- **[defeito]** A máscara do recorte saía com quadro-chave a cada 250 quadros (busca lenta) — corrigido em `recorte.py` (a cada 6). _cta-vsl-ext·chat · 2026-10-15_

@@ -43,3 +43,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto]** Material já aprovado antes de qualquer outro: os Spaces, o fluxo live, o agente criador e o analisador das versões aprovadas. _cta-lp-ext·v1 c3; ficha-personagem-ia·v6.4 · 2026-10-15_
 - **[gosto]** Gravação de fluxo devagar o bastante para ler; não acelere demais. _ficha-personagem-ia·v6.7, v6.9 · 2026-10-15_
 - **[técnica]** Recorte a gravação de tela no que importa (no ChatGPT: a área de geração com a caixa de texto embaixo). _cta-lp-ext·v4 c3 · 2026-10-15_
+- **[gosto]** Fala sobre conceito de foto (detalhes da pele, iluminação, composição, câmera): a série correspondente das aulas (a tenista em Câmera/Luz/Volume, o retrato em 3 iluminações). _cta-vsl-ext·v6 c2–c4, v8 c3–c5, v12 c2 · 2026-10-15_
+- **[gosto]** Mídias do mesmo assunto juntas na mesma tela, não uma depois da outra (três vídeos empilhados com o rosto no meio; duas aulas, uma em cima e outra embaixo da legenda; 6 fotos numa página). _cta-vsl-ext·v6 c1, v12 c5, v14 c2 · 2026-10-15_
+- **[gosto]** Fotos juntas numa página entram só como imagem, paradas, sem animação de motion. _cta-vsl-ext·chat · 2026-10-15_
+- **[gosto]** Fala que cita ferramentas sem nome ("ferramentas gratuitas"): os logos delas (motion `logos-ferramentas`: ChatGPT, Gemini, Flow). _cta-vsl-ext·v10 c1 · 2026-10-15_
+- **[gosto]** "Dar vida a uma ideia": o processo real, o antes e as referências (a modelo sem joia e as fotos da joia, do fluxo). _cta-vsl-ext·v6 c10 · 2026-10-15_

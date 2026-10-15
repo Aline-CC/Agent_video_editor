@@ -23,3 +23,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   _melhor-ia-para-design·v1 ✂2 · 2026-10-10 (o criador fez o mesmo ajuste no 18); 3-coisas-fai v5 c1 ("câmera" + "e") · 2026-10-14_
 - O ElevenLabs acerta palavras repetidas ("gastando gastando") que o Whisper fundia; por isso é o motor. _do 18_
 - Num vídeo de 2 min, a seleção típica remove ~35–45% do bruto (2:02 → 1:04 no vídeo de teste). _do 18_
+
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[defeito]** Quadro solto na emenda (o 1º quadro com outra pose): olhe os 2–3 quadros de cada lado de toda emenda antes de entregar (reforça o técnico acima). _cta-vsl-ext·v14 c1 · 2026-10-15_
