@@ -21,3 +21,6 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   aproximar. _mvi-0717 · 2026-10-12_
 - **[técnica] Números de verdade.** Todo número na tela vem de fonte real (documentação, anúncio). Se for
   ilustrativo, avise o criador numa nota. _mvi-0717 · 2026-10-12_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** Card de motion centralizado na tela quando não há título embaixo (`ficha-card`: campo `centro`). _cta-lp-ext·v8 c2 · 2026-10-15_

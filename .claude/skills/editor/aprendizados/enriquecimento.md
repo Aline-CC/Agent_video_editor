@@ -18,3 +18,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   mídia que tenha resolução de sobra; senão, escolha um preset sem zoom. _mvi-0717 · 2026-10-12_
 - O `presets.py escolher` põe o 1º favorito da situação em quase todos (no 1º teste, 9 de 12 inserts com "Corte seco"):
   alterne entre os favoritos da situação nos inserts vizinhos. _1º teste · 2026-10-10_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** A cabeça da criadora nunca é cortada; em todas as telas divididas, o mesmo recorte, com o cabelo saindo pela janela (`recorte.py`). _ficha-personagem-ia·v2, v6.7 · 2026-10-15_
+- **[gosto]** A mídia nunca é cortada para preencher a tela (cabeça cortada, vídeo cortado, fluxo recortado): mídia inteira e maior (ex.: `largura` 1.3 no Corte seco). _ficha-personagem-ia·v3, v4, v6.4; cta-lp-ext·v4 c5 · 2026-10-15_
+- **[gosto]** Fundo preto atrás dos cards (reforça o de cima). _ficha-personagem-ia·v4 · 2026-10-15_

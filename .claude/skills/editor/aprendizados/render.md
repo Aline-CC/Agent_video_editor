@@ -30,3 +30,7 @@ _Nenhum ainda._
   sombra): confira na folha de contato antes de mexer. _1º teste · 2026-10-10_
 - Nunca rode o render (ou algo que use multiprocessing) por `python -` (stdin): os processos-filho entram em laço e a
   máquina trava. Use um arquivo com `if __name__ == '__main__'`. _1º teste_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto] Cor.** Parte da gravação, com ajuste leve: pele natural sem magenta, fundo cinza neutro, contraste meio-termo (nem lavado, nem forte). LUTs aprovadas: `lp-ext-ref2`, `vsl-ext-ref-lp`. _ficha-personagem-ia·v6.6, v6.9; cta-lp-ext·v1 c1, v4 c1; chat · 2026-10-15_
+- **[técnica] Cor.** Antes de mexer, meça pretos e brancos (o "lavado" era o branco preso em 82%). Para casar com uma referência de outra cena, case só a luz e o balanço pelo fundo cinza, nunca canal por canal (deixa o fundo verde ou rosa). _chat · 2026-10-15_

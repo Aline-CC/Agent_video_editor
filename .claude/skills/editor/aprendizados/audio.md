@@ -12,3 +12,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 - **[técnica] Som junto da ação.** Som de apoio (tecla, clique) começa quando a ação aparece na tela, nunca antes: a
   digitação soa só enquanto as letras aparecem. _mvi-0717 · 2026-10-12_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** O áudio de outra gravação (o CTA) soa igual ao da gravação principal: equalize uma pela outra (espectro médio da voz). _ficha-personagem-ia·v6.2 · 2026-10-15_
+- **[defeito]** Com a fala acelerada, o áudio dessincronizava — corrigido em `ferramentas/montagem/audio.py` e `exportacao.py` (cada trecho com a duração exata). _ficha-personagem-ia·v4 · 2026-10-15_

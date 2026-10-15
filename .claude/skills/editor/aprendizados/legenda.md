@@ -14,3 +14,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   mídia, não no meio da tela — corrigido em `render/src/legenda.ts`. Em outros casos em que ainda cubra algo
   importante, vire nota para o criador. _1º teste; mvi-0717 · 2026-10-12_
 - O transcritor escreve "Cloud" para "Claude": corrija a grafia na legenda (`ajustes`). _1º teste_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** Nunca sobre olhos, nariz ou boca, nem nos inserts e motions com rosto. Rode `legenda_rostos.py` em toda versão antes de entregar (pulado no CTA LP ext, a legenda caiu no rosto). _ficha-personagem-ia·v6.7; cta-lp-ext·v4 c6 · 2026-10-15_
+- **[gosto]** Nunca abaixo da área visível do Instagram (80% da altura) — limite em `render/src/legenda.ts` e `ferramentas/legenda_rostos.py`. _cta-lp-ext·v8 c2, c3 · 2026-10-15_
+- **[gosto]** A legenda nunca fica por cima da assinatura do final. _ficha-personagem-ia·v5 · 2026-10-15_

@@ -38,3 +38,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - Exemplos "do que não fazer" (site genérico, site poluído) são os mais difíceis de achar prontos: descreva na marcação
   um tipo concreto e achável (ex.: "a galeria de templates do Lovable"). Nunca monte um mockup sem dizer. _1º teste_
 - Apague do banco o que foi capturado e não serviu (`banco.py apagar`): os subagentes deixavam lixo. _1º teste_
+## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
+
+- **[gosto]** Material já aprovado antes de qualquer outro: os Spaces, o fluxo live, o agente criador e o analisador das versões aprovadas. _cta-lp-ext·v1 c3; ficha-personagem-ia·v6.4 · 2026-10-15_
+- **[gosto]** Gravação de fluxo devagar o bastante para ler; não acelere demais. _ficha-personagem-ia·v6.7, v6.9 · 2026-10-15_
+- **[técnica]** Recorte a gravação de tela no que importa (no ChatGPT: a área de geração com a caixa de texto embaixo). _cta-lp-ext·v4 c3 · 2026-10-15_
