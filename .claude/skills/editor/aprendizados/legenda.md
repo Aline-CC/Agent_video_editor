@@ -20,4 +20,4 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
 
 - **[gosto]** A legenda nunca fica por cima da assinatura do final. _ficha-personagem-ia·v5 · 2026-10-15_
-- **[gosto]** Altura padrão logo abaixo do meio da tela (~56%): só sai dali para não cobrir rosto (`legenda_rostos.py --y 0.56`). _cta-vsl-ext·v8 c2 · 2026-10-15_
+- **[gosto]** Altura padrão da legenda a 62,5% da altura (a do print da criadora), sempre a mesma: só sai dali para não cobrir rosto (`legenda_rostos.py --y 0.625`). _cta-vsl-ext·v8 c2 · 2026-10-15_
