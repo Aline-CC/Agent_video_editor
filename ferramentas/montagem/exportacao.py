@@ -3,6 +3,7 @@
 a quadro por navegadores escondidos (`render_quadros.py`). Tudo se junta numa passada só do ffmpeg (`comando_final`),
 montada por camadas, uma função por camada. A cola (ler a página, fotografar, rodar) fica em `ferramentas/render.py`."""
 import math
+import os
 from pathlib import Path
 
 from . import audio as audio_mod
@@ -11,7 +12,7 @@ from . import look as look_mod
 from . import sons
 from . import transicoes as transicoes_mod
 
-NAVEGADORES = 6  # navegadores fotografando em paralelo
+NAVEGADORES = int(os.environ.get('NAVEGADORES', 6))  # navegadores fotografando em paralelo (com muitos vídeos no plano, menos: o decodificador do Mac trava)
 FADE = 0.015  # s de fade do áudio em cada emenda, contra estalos
 
 

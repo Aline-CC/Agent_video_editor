@@ -306,6 +306,11 @@ def render(slug: str, final: bool = False, versao_pedida: str | None = None) -> 
     clipes = v1_tocada(edicao)
     if not clipes:
         raise SystemExit(f'O projeto {slug} ainda não tem cortes (timeline.V1 vazia).')
+    # um motion que sumiu da biblioteca (recusado no app) faz a página esperar 8 s em cada quadro: pare logo, dizendo qual
+    faltam = sorted({m['preset'] for m in (edicao.get('motions') or {}).values() if isinstance(m, dict) and m.get('preset')
+                     and not (BIBLIOTECA / 'motions' / 'presets' / f"{m['preset']}.html").exists()})
+    if faltam:
+        raise SystemExit(f"Motions que o projeto usa e não estão em biblioteca/motions/presets (recusados?): {', '.join(faltam)}")
     fonte = next(f for f in edicao['fontes'] if f['papel'] == 'bruto')
     duracao = sum(dur_saida(c) for c in clipes)
     w, h, codec = FINAL if final else PROXY

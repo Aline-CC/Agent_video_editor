@@ -35,7 +35,10 @@ def iniciar(url: str, w: int, h: int) -> None:
 
     pw = sync_playwright().start()
     browser = pw.chromium.launch(channel='chromium', args=[
-        '--force-color-profile=srgb', '--hide-scrollbars', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'])
+        '--force-color-profile=srgb', '--hide-scrollbars', '--enable-gpu-rasterization', '--ignore-gpu-blocklist',
+        # o vídeo decodificado pelo processador: o decodificador do Mac (VideoToolbox) às vezes fica ocupado e o vídeo não
+        # chega ao quadro pedido (cada foto esperava 15 s)
+        '--disable-accelerated-video-decode'])
     # a janela tem o tamanho do vídeo; a página amplia o desenho da prévia (540 px de largura) com zoom
     _pagina = abrir_render(browser, url, w, h)
     _cdp = _pagina.context.new_cdp_session(_pagina)

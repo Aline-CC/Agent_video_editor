@@ -49,7 +49,7 @@ def main(slug: str) -> None:
     ler = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', str(bruto), '-vf', f'fps={FPS},scale={W}:{H}', '-pix_fmt', 'rgb24',
                             '-f', 'rawvideo', '-'], stdout=subprocess.PIPE)
     gravar = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'gray', '-s', f'{W}x{H}', '-r', str(FPS),
-                               '-i', '-', '-c:v', 'libx264', '-crf', '12', '-pix_fmt', 'yuv420p', str(destino)], stdin=subprocess.PIPE)
+                               '-i', '-', '-c:v', 'libx264', '-crf', '12', '-g', '6', '-pix_fmt', 'yuv420p', str(destino)], stdin=subprocess.PIPE)
     media = None
     n = 0
     while True:
