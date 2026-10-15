@@ -17,6 +17,7 @@ As Regras do criador são obrigatórias. As sugeridas pela IA são guia; o criad
 - Cada imagem troca exatamente na palavra que ela ilustra.
 - Fechar com a assinatura alinefreitas.cc: fundo preto, entrada elegante, fade, sem legenda e sem traço.
 - Volume de criação: várias imagens, uma depois da outra, sem sobreposição.
+- Eu só apareço quando estou olhando para a câmera. Quando olho para baixo ou para o lado (lendo, mexendo no computador), o trecho é insert ou motion em tela cheia, sem mim. Vale para todo vídeo, sempre.
 
 ### Inserts
 - Na marcação de cada insert, conte o que acontece, em ordem: qual material aparece (o site, a página, a ferramenta, concretos), como entra, zooms (em quê), destaques, trocas de um material para outro.
