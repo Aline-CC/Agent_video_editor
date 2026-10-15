@@ -148,8 +148,11 @@ def usos_aprovados() -> tuple[dict[str, list[dict]], dict[str, list[dict]], set[
                 if m.get('banco'):
                     midias.setdefault(m['banco'], []).append(uso(x.get('plano') or x.get('id')))
         for plano, m in (e.get('motions') or {}).items():
-            if m.get('banco'):
-                midias.setdefault(m['banco'], []).append(uso(plano))
+            # a mídia do motion: o campo `banco` ou as URLs do banco nos valores (img, img2, midias…)
+            ids = {m['banco']} if m.get('banco') else set()
+            ids |= set(re.findall(r'/biblioteca/banco/([0-9a-f]{10})/', json.dumps(m.get('valores') or {})))
+            for b in sorted(ids):
+                midias.setdefault(b, []).append(uso(plano))
             if m.get('preset'):
                 motions.setdefault(m['preset'], []).append(uso(plano))
     return midias, motions, aprovados
