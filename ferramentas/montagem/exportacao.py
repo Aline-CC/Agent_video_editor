@@ -28,7 +28,7 @@ ZOOM_LENTO = {'por_segundo': 0.03, 'maximo': 0.15}  # os presets do Full ator (i
 ZOOM_SECO = 0.18
 
 
-def _movimentos(movimentos: list[dict], w: int, h: int, entrada: str, saida: str) -> str:
+def _movimentos(movimentos: list[dict], w: int, h: int, entrada: str, saida: str, fps: int = 24) -> str:
     """O movimento de câmera no ator nos planos de Full ator (`__render.movimentos`: ini, fim, tipo, cx, cy): a escala no
     tempo (o lento sai e chega andando: metade linear, metade suavizada; o seco salta de uma vez) e o recorte que deixa o
     centro do rosto parado. A mesma conta de `escalaDoMovimento` na prévia."""
@@ -39,7 +39,7 @@ def _movimentos(movimentos: list[dict], w: int, h: int, entrada: str, saida: str
             continue
         dentro = f'between(t,{a:.4f},{b:.4f})'
         if m['tipo'] == 'zoom_seco':
-            z.append(f'{dentro}*{ZOOM_SECO}')
+            z.append(f'{dentro}*{float(m.get("z") or ZOOM_SECO):.4f}')
         else:
             amp = min(ZOOM_LENTO['por_segundo'] * (b - a), ZOOM_LENTO['maximo'])
             u = f'clip((t-{a:.4f})/{b - a:.4f},0,1)'
@@ -48,9 +48,11 @@ def _movimentos(movimentos: list[dict], w: int, h: int, entrada: str, saida: str
         cy.append(f'{dentro}*({float(m.get("cy", 0.4)):.4f}-0.5)')
     if not z:
         return f'[{entrada}]null[{saida}]'
-    zt, xt, yt = '+'.join(z), '+'.join(cx), '+'.join(cy)
-    return (f"[{entrada}]scale=w='trunc(iw*(1+{zt})/2)*2':h='trunc(ih*(1+{zt})/2)*2':eval=frame:flags=bicubic,"
-            f"crop={w}:{h}:x='(iw-ow)*(0.5+{xt})':y='(ih-oh)*(0.5+{yt})',setsar=1[{saida}]")
+    # o zoompan (e não scale+crop): com o tamanho mudando no meio do vídeo, o crop perdia a posição e cortava sempre
+    # pela esquerda; o zoompan amplia e posiciona quadro a quadro, com a saída do mesmo tamanho (`it`: o tempo do quadro)
+    zt, xt, yt = ('+'.join(v).replace('(t,', '(it,').replace('(t-', '(it-') for v in (z, cx, cy))
+    return (f"[{entrada}]zoompan=z='1+{zt}':x='(iw-iw/zoom)*(0.5+{xt})':y='(ih-ih/zoom)*(0.5+{yt})':d=1:s={w}x{h}:fps={fps},"
+            f"setsar=1[{saida}]")
 
 
 def acelerar(vel: float) -> tuple[str, str]:
@@ -110,7 +112,7 @@ def _ator(clipes: list[dict], horizontal: bool, enquadramento_x: float, w: int, 
     rotulo = 'ator_cru' if com_look else 'ator'
     partes.append(f'[vc]{recorte}scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},setsar=1,fps={fps}[{'ator_mv' if movimentos else rotulo}]')
     if movimentos:
-        partes.append(_movimentos(movimentos, w, h, 'ator_mv', rotulo))
+        partes.append(_movimentos(movimentos, w, h, 'ator_mv', rotulo, fps))
     if geometria:
         if usa_mascara:
             partes.append(f'{masc}concat=n={n}:v=1:a=0,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=gray,fps={fps}[masc]')

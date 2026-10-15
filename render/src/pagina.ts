@@ -258,12 +258,15 @@ async function iniciar() {
       const c = centroDoMovimento(rostoEm?.(pl.inicio, pl.fim))
       // no zoom seco, o rosto vai para o meio da tela o quanto a ampliação deixa (sem mostrar a borda do quadro): o ponto
       // fixo do zoom é o que põe a janela de 1/s centrada no rosto
+      // (com o rosto longe do meio, o zoom amplia mais, até 1,4×, para caber a janela centrada nele)
+      let z: number | undefined
       if (tipo === 'zoom_seco') {
-        const s = escalaDoMovimento(tipo, 0, pl.fim - pl.inicio)
+        const s = Math.min(Math.max(escalaDoMovimento(tipo, 0, pl.fim - pl.inicio), 1 / (2 * Math.min(c.x, 1 - c.x))), 1.4)
         const meio = Math.min(Math.max(c.x, 1 / (2 * s)), 1 - 1 / (2 * s))
         c.x = (s * meio - 0.5) / (s - 1)
+        z = s - 1
       }
-      return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y }]
+      return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y, z }]
     }),
     sons: async () => {
       const cat = d.catalogo

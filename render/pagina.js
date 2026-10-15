@@ -1941,12 +1941,14 @@ ${b}` };
         const tipo = ehFullAtor(pl.tipo) ? ins.ator_planos?.[pl.id] : void 0;
         if (!tipo) return [];
         const c = centroDoMovimento(rostoEm?.(pl.inicio, pl.fim));
+        let z;
         if (tipo === "zoom_seco") {
-          const s = escalaDoMovimento(tipo, 0, pl.fim - pl.inicio);
+          const s = Math.min(Math.max(escalaDoMovimento(tipo, 0, pl.fim - pl.inicio), 1 / (2 * Math.min(c.x, 1 - c.x))), 1.4);
           const meio = Math.min(Math.max(c.x, 1 / (2 * s)), 1 - 1 / (2 * s));
           c.x = (s * meio - 0.5) / (s - 1);
+          z = s - 1;
         }
-        return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y }];
+        return [{ ini: pl.inicio, fim: pl.fim, tipo, cx: c.x, cy: c.y, z }];
       }),
       sons: async () => {
         const cat = d.catalogo;

@@ -391,6 +391,8 @@ def render(slug: str, final: bool = False, versao_pedida: str | None = None) -> 
                                        r.get('transicoes'), {'arquivo': arq_leg} if arq_leg else None, lk, vinheta, a, r.get('movimentos'),
                                        hwaccel=video == p / fonte['arquivo'])
         log = tmp / 'ffmpeg.log'
+        (p / '.cache').mkdir(exist_ok=True)
+        (p / '.cache' / 'ultimo_ffmpeg.txt').write_text('\n'.join(map(str, cmd)))  # para depurar a montagem
         with open(log, 'wb') as erros:
             ff = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=erros, text=True)
             proximo = 0.25
