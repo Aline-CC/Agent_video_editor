@@ -23,6 +23,7 @@ As Regras do criador são obrigatórias. As sugeridas pela IA são guia; o criad
 - Na marcação de cada insert, conte o que acontece, em ordem: qual material aparece (o site, a página, a ferramenta, concretos), como entra, zooms (em quê), destaques, trocas de um material para outro.
 - Não descreva o layout que o nome do plano já diz (tela dividida, apresentador embaixo, conteúdo em cima).
 - Quando a fala cita mais de uma coisa ("esses dois sites"), mostre cada uma e diga quando troca.
+- Nunca corte o insert em cima nem embaixo, e nunca o deixe pequeno em card: a mídia ocupa a altura toda da tela e, se precisar, só as laterais saem (como o BAN-352). Vale para gravação de tela, fluxo do Magnific, vídeo e imagem; num fluxo, use o trecho com a câmera afastada e o fluxo inteiro, e para mostrar o que não cabe na largura, deslize de lado. Ajuste a velocidade da gravação para que o que importa (as imagens sendo geradas) apareça no tempo da fala, sem tela vazia.
 
 ## Regras sugeridas pela IA
 - Destaque o nome de qualquer ferramenta ou termo central com lettering ou motion de tela cheia no exato instante em que ele for pronunciado.
