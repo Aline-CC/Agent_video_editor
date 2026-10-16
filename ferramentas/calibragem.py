@@ -632,6 +632,8 @@ def de_projeto(slug: str, versao: int | str | None = None) -> str:
     revs = _revisoes(p)
     if versao is None:
         n = ([v for v in feitas if revs.get(v, ({},))[0].get('aprovado')] or feitas)[-1]
+    elif re.fullmatch(r'\d+\.\d+', str(versao).lstrip('vV')) and (p / 'versoes' / f"v{str(versao).lstrip('vV')}" / 'proxy.mp4').exists():
+        n = str(versao).lstrip('vV')  # uma versão de revisão com ponto (v6.11): só pedindo pelo nome
     else:
         n = int(str(versao).lstrip('vV'))
         if n not in feitas:
