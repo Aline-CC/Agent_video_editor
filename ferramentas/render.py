@@ -311,6 +311,11 @@ def render(slug: str, final: bool = False, versao_pedida: str | None = None) -> 
                      and not (BIBLIOTECA / 'motions' / 'presets' / f"{m['preset']}.html").exists()})
     if faltam:
         raise SystemExit(f"Motions que o projeto usa e não estão em biblioteca/motions/presets (recusados?): {', '.join(faltam)}")
+    # um projeto já aprovado sai com o código de hoje (regras novas de zoom, legenda, motions): avise
+    aprovadas = sorted(x.stem for x in (p / 'revisoes').glob('v*.json') if (ler_json(x) or {}).get('aprovado'))
+    if aprovadas:
+        print(f"Atenção: {slug} já tem versão aprovada ({', '.join(aprovadas)}). Este render usa as regras de hoje e pode "
+              'sair diferente do que foi aprovado: confirme com o criador antes de entregar.', flush=True)
     fonte = next(f for f in edicao['fontes'] if f['papel'] == 'bruto')
     duracao = sum(dur_saida(c) for c in clipes)
     w, h, codec = FINAL if final else PROXY
