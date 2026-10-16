@@ -28,6 +28,7 @@ W, H = 360, 640
 ALTURA_LINHA = 0.045  # a faixa que um bloco ocupa (fração da altura do quadro), com a sombra
 LETRA = 0.026  # a largura média de uma letra (fração da largura), SF Pro Display Bold no tamanho da legenda
 MARGEM_ROSTO = 0.1  # o rosto medido cresce isso em cada direção (a caixa do detector já vai da testa ao queixo)
+ROSTO_MIN = 0.12  # a largura mínima (fração do quadro) de um rosto que a legenda evita
 LIMITE_BAIXO = 0.8  # abaixo disso a interface do Instagram (legenda, botões) cobre o texto
 
 
@@ -45,11 +46,14 @@ def rostos(det, mp, img: np.ndarray) -> list[tuple[float, float, float, float]]:
         r = det.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=parte))
         for d in r.detections:
             b = d.bounding_box
-            if d.categories[0].score < 0.5:
+            # nas metades ampliadas o detector confunde mão e corpo com rosto: lá, só com confiança alta
+            if d.categories[0].score < (0.7 if (y0, y1) == (0, H) else 0.85):
                 continue
             ph = y1 - y0
             x0, x1 = b.origin_x / W, (b.origin_x + b.width) / W
             a0, a1 = (y0 + b.origin_y) / H, (y0 + b.origin_y + b.height) / H
+            if x1 - x0 < ROSTO_MIN:  # rosto pequeno (miniatura numa grade, num fluxo): a legenda pode passar por cima
+                continue
             mw, mh = (x1 - x0) * MARGEM_ROSTO, (a1 - a0) * MARGEM_ROSTO
             caixas.append((x0 - mw, a0 - mh, x1 + mw, a1 + mh))
             del ph
@@ -86,7 +90,8 @@ def main(slug: str, versao: str | None, preferida: float | None = None) -> None:
         if not bs:
             continue
         largura = min(0.95, LETRA * max(len(b['texto']) for b in bs) + 0.04)
-        ts = [b['ini'] + (b['fim'] - b['ini']) * k for b in bs for k in (0.2, 0.8)]
+        # só quadros do próprio plano (o bloco entra antes da fala e sai depois: o rosto do vizinho não conta)
+        ts = [min(max(b['ini'] + (b['fim'] - b['ini']) * k, pl['ini'] + 0.06), pl['fim'] - 0.06) for b in bs for k in (0.2, 0.8)]
         caixas = [c for t in ts for c in rostos(det, mp, quadro(video, t))]
         y0 = preferida if preferida is not None else bs[0]['y']
         if not bate(y0, largura, caixas) and (preferida is not None or not any(bate(b['y'], largura, caixas) for b in bs)):
@@ -94,6 +99,18 @@ def main(slug: str, versao: str | None, preferida: float | None = None) -> None:
                 for b in bs:
                     alturas[b['palavra']] = round(float(y0), 3)
                 mudou += len(bs)
+            continue
+        if preferida is not None:
+            # com a altura padrão, poucas posições fixas e perto dela: a legenda só dá um passo para fugir do rosto
+            # (preferindo abaixo), e não pula pela tela de plano em plano
+            degraus = [preferida + 0.065, preferida + 0.135, preferida - 0.07, LIMITE_BAIXO]
+            cands = [round(min(y, LIMITE_BAIXO), 3) for y in degraus]
+            livres = [y for y in cands if not bate(y, largura, caixas)]
+            y = livres[0] if livres else min(cands, key=lambda y: sobreposicao(y, largura, caixas))
+            for b in bs:
+                alturas[b['palavra']] = round(float(y), 3)
+            mudou += len(bs)
+            print(f"  {pl['id']:>4} {pl['ini']:6.2f}s ({len(bs)} blocos): {y0:.3f} → {y:.3f}{'' if livres else ' (o menos coberto)'}")
             continue
         cands = list(np.arange(0.12, LIMITE_BAIXO + 0.001, 0.005))
         livres = [y for y in cands if not bate(y, largura, caixas)]
