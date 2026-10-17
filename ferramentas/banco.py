@@ -11,14 +11,21 @@
     uv run ferramentas/banco.py apagar <id…>              apaga mídias que não serviram (recusa se alguma está em uso)
     uv run ferramentas/banco.py listar
     uv run ferramentas/banco.py descrever <id>            o Gemini descreve e sugere palavras-chave
+    uv run ferramentas/banco.py parecidas [<id>]          as mídias que mostram a mesma coisa (candidatas a versão)
+    uv run ferramentas/banco.py versoes <principal> <id…> junta como versões da principal (um card só no app)
+    uv run ferramentas/banco.py separar <id…>             tira uma versão do grupo (volta a ser um card)
 
 Trechos (do 18): itens com `pai`, `inicio` e `fim`, que tocam o original e herdam dele a descrição, as palavras e o formato.
+Versões: o mesmo clipe com outro corte, outra duração ou outra velocidade (cada projeto usa a sua; nada é apagado). A
+versão leva `versao_de` (o id da principal) e aparece dentro do card da principal. A comparação é um hash de até 5
+quadros (`assinatura`, guardada no item.json); ao entrar, uma mídia quase idêntica a outra já vira versão dela.
 """
 import argparse
 import json
 import math
 import re
 import shutil
+import subprocess
 import sys
 import unicodedata
 import uuid
@@ -33,6 +40,9 @@ EXT_VIDEO = ('.mp4', '.mov', '.m4v', '.webm')
 EXT_IMAGEM = ('.png', '.jpg', '.jpeg', '.webp')
 PROPORCOES = {'16:9': 16 / 9, '16:10': 16 / 10, '4:3': 4 / 3, '1:1': 1.0, '4:5': 4 / 5, '3:4': 3 / 4, '9:16': 9 / 16, 'alto': 9 / 22}
 MIN_TRECHO = 0.2
+N_HASH = 32  # o hash de cada quadro: 32×32 diferenças de brilho (1024 bits)
+LIMITE_SOZINHA = 12  # até aqui (bits diferentes) a mídia nova vira versão sozinha: só o quase idêntico
+LIMITE_PARECIDA = 60  # até aqui, `parecidas` lista como candidata (o Claude ou o criador olham antes de juntar)
 HERDADOS = ('tipo', 'formato', 'largura', 'altura', 'descricao', 'palavras', 'descricao_ia', 'origem', 'ia', 'arquivo', 'proxy', 'cortes')
 VERSAO_PROXY = 2  # quadro-chave a cada 12 quadros: a busca no player é imediata
 
@@ -110,6 +120,105 @@ def renomear_tag(de: str, para: str) -> int:
             salvar_item(i)
             n += 1
     return n
+
+
+# ---------------------------------------------------------------- versões (o mesmo clipe, outro corte)
+
+def _hash_quadro(arq: Path, t: float | None = None) -> int | None:
+    cmd = ['ffmpeg', '-v', 'quiet', *(['-ss', f'{t:.3f}'] if t is not None else []), '-i', str(arq), '-frames:v', '1',
+           '-vf', f'scale={N_HASH + 1}:{N_HASH}:flags=area,format=gray', '-f', 'rawvideo', '-']
+    px = subprocess.run(cmd, capture_output=True).stdout
+    if len(px) != (N_HASH + 1) * N_HASH:
+        return None
+    w = N_HASH + 1
+    return sum(1 << k for k, (r, c) in enumerate((r, c) for r in range(N_HASH) for c in range(N_HASH)) if px[r * w + c] > px[r * w + c + 1])
+
+
+def assinatura(i: dict) -> list[int]:
+    """O hash de até 5 quadros (o vídeo) ou da imagem; calculado uma vez e guardado no item.json."""
+    if i.get('pai'):
+        return []
+    if i.get('assinatura'):
+        return [int(h, 16) for h in i['assinatura']]
+    pasta = RAIZ / i['id']
+    if i.get('tipo') == 'video':
+        d = i.get('duracao') or 1
+        hs = [h for f in (0.1, 0.3, 0.5, 0.7, 0.9) if (h := _hash_quadro(pasta / (i.get('proxy') or 'proxy.mp4'), d * f)) is not None]
+    else:
+        hs = [h for h in [_hash_quadro(pasta / (i.get('arquivo') or 'miniatura.jpg'))] if h is not None]
+    if hs:
+        i['assinatura'] = [f'{h:x}' for h in hs]
+        salvar_item(i)
+    return hs
+
+
+def distancia(a: list[int], b: list[int]) -> int:
+    """Quantos bits mudam entre os quadros mais parecidos das duas (0 = o mesmo quadro)."""
+    return min((bin(x ^ y).count('1') for x in a for y in b), default=N_HASH * N_HASH)
+
+
+def principal(bid: str) -> str:
+    """A principal do grupo de uma mídia (ela mesma, se não é versão; uma principal que sumiu não conta)."""
+    i = ler_json(RAIZ / bid / 'item.json') or {}
+    p = i.get('versao_de')
+    return p if p and existe(p) and not (ler_json(RAIZ / p / 'item.json') or {}).get('versao_de') else bid
+
+
+def parecidas(bid: str | None = None, limite: int = LIMITE_PARECIDA) -> list[tuple[int, str, str]]:
+    """Os pares de originais do mesmo tipo (vídeo com vídeo, imagem com imagem) que mostram a mesma coisa, do mais
+    parecido ao menos: (distância, a, b). Com `bid`, só os pares dela. Os que já são do mesmo grupo ficam de fora."""
+    orig = [i for i in todos() if not i.get('pai')]
+    hs = {i['id']: assinatura(i) for i in orig}
+    out = []
+    for x, a in enumerate(orig):
+        for b in orig[x + 1:]:
+            if bid and bid not in (a['id'], b['id']) or a.get('tipo') != b.get('tipo') or not hs[a['id']] or not hs[b['id']]:
+                continue
+            if principal(a['id']) == principal(b['id']):
+                continue
+            if (d := distancia(hs[a['id']], hs[b['id']])) <= limite:
+                out.append((d, a['id'], b['id']))
+    return sorted(out)
+
+
+def agrupar(prin: str, ids: list[str]) -> list[str]:
+    """Junta `ids` como versões de `prin` (e as versões deles junto). Vira a principal quem for passada como tal."""
+    for x in [prin, *ids]:
+        i = ler_item(x)
+        if i.get('pai'):
+            raise SystemExit(f'{x} é um trecho: só mídias inteiras viram versão')
+    p = ler_item(prin)
+    p.pop('versao_de', None)
+    salvar_item(p)
+    grupo = {principal(x) for x in ids} | set(ids)
+    mudou = []
+    for i in todos():
+        if i['id'] != prin and (i['id'] in grupo or i.get('versao_de') in grupo | {prin}):
+            i['versao_de'] = prin
+            salvar_item(i)
+            mudou.append(i['id'])
+    return mudou
+
+
+def separar(bid: str) -> None:
+    """Tira a mídia do grupo (volta a ser um card). Se ela era a principal, a versão mais nova passa a ser."""
+    i = ler_item(bid)
+    if i.pop('versao_de', None) is not None:
+        salvar_item(i)
+        return
+    vs = sorted((v for v in todos() if v.get('versao_de') == bid), key=lambda v: v.get('criado_em') or '', reverse=True)
+    if vs:
+        vs[0].pop('versao_de', None)
+        salvar_item(vs[0])
+        for v in vs[1:]:
+            v['versao_de'] = vs[0]['id']
+            salvar_item(v)
+
+
+def _promover_versoes(bid: str) -> None:
+    """Antes de uma principal sair do banco: a versão mais nova vira a principal das outras."""
+    if not (ler_json(RAIZ / bid / 'item.json') or {}).get('versao_de'):
+        separar(bid)
 
 
 def para_busca(t: str) -> str:
@@ -219,6 +328,7 @@ def limpar_recusados() -> list[str]:
         if any(em_uso.get(x) for x in ids):
             continue
         lixeira.mkdir(exist_ok=True)
+        _promover_versoes(i['id'])
         carimbo = datetime.now().strftime('%Y%m%d-%H%M%S')
         for x in ids:
             shutil.move(str(pasta_item(x)), str(lixeira / f'{x}-{carimbo}'))
@@ -232,6 +342,7 @@ def apagar(bid: str) -> list[str]:
     em_uso = {u for i in ids for u in usos().get(i, [])}
     if em_uso:
         raise SystemExit(f'{bid} está em uso ({", ".join(sorted(em_uso))}): tire dos inserts antes de apagar.')
+    _promover_versoes(bid)
     for i in ids:
         shutil.rmtree(pasta_item(i), ignore_errors=True)
     return ids
@@ -241,10 +352,12 @@ def listar_banco(busca: str = '') -> list[dict]:
     """Os originais, os mais novos primeiro, cada um com os seus trechos; `busca` procura no nome, na descrição e nas
     palavras-chave (do original ou de um trecho), sem diferenciar acentos (do 18: banco.listar_banco)."""
     termos = [para_busca(t) for t in busca.split() if para_busca(t)]
-    originais, trechos = [], {}
+    originais, trechos, versoes = [], {}, {}
     for i in todos():
         if i.get('pai'):
             trechos.setdefault(i['pai'], []).append(i)
+        elif i.get('versao_de') and principal(i['id']) != i['id']:
+            versoes.setdefault(principal(i['id']), []).append(i)
         else:
             i.setdefault('palavras', [])
             originais.append(i)
@@ -254,7 +367,8 @@ def listar_banco(busca: str = '') -> list[dict]:
                   for t in sorted(trechos.get(i['id'], []), key=lambda t: t['inicio'])]
         if termos:
             texto = ' '.join(para_busca(x) for x in ' '.join([i.get('nome') or '', i.get('descricao') or '', ' '.join(i['palavras']),
-                                                              *(t.get('nome') or '' for t in filhos)]).split())
+                                                              *(t.get('nome') or '' for t in filhos),
+                                                              *(f"{v.get('nome') or ''} {v.get('descricao') or ''}" for v in versoes.get(i['id'], []))]).split())
             if not all(t in texto for t in termos):
                 continue
         itens.append({**i, 'trechos': filhos})
@@ -299,13 +413,19 @@ def adicionar(arquivo: Path, nome: str | None = None, descricao: str = '', palav
         raise
     if origem is None:
         origem = {'tipo': 'upload', 'nome_original': arquivo.name} if not fonte.startswith('http') else {'tipo': 'web', 'url': fonte}
-    return salvar_item({
+    item = salvar_item({
         'id': bid, 'nome': (nome or arquivo.stem).strip()[:200], 'descricao': descricao.strip()[:2000],
         'palavras': list(dict.fromkeys(p.strip().lower()[:40] for p in palavras if p.strip()))[:30],
         'tipo': tipo, 'arquivo': alvo.name, 'proxy': 'proxy.mp4' if tipo == 'video' else None, 'proxy_v': VERSAO_PROXY,
         'largura': info.get('largura'), 'altura': info.get('altura'), 'duracao': (info.get('duracao') or 0.0) if tipo == 'video' else 0.0,
         'formato': formato_de(info.get('largura'), info.get('altura')), 'origem': origem, 'fonte': fonte, 'projeto': projeto,
         'criado_em': datetime.now().isoformat(timespec='seconds'), 'ia': {'status': 'pendente', 'erro': None}})
+    # o mesmo clipe que já está no banco (outro corte, outra duração): entra como versão dele, num card só
+    if (iguais := parecidas(bid, LIMITE_SOZINHA)):
+        outro = iguais[0][2] if iguais[0][1] == bid else iguais[0][1]
+        item['versao_de'] = principal(outro)
+        salvar_item(item)
+    return item
 
 
 def criar_trecho(pai: str, inicio: float, fim: float, nome: str | None = None) -> dict:
@@ -413,8 +533,14 @@ def mostrar(itens: list[dict]) -> None:
         print('Nada no banco com esses termos.')
         return
     onde, est = usos(), estados()
+    versoes: dict[str, list[dict]] = {}
+    for i in todos():
+        if i.get('versao_de') and principal(i['id']) != i['id']:
+            versoes.setdefault(principal(i['id']), []).append(i)
     for i in itens:
         print(linha(i, onde, est))
+        for v in versoes.get(i['id'], []):
+            print(f'  ≡ versão: {linha(v, onde, est)}')
         for t in i.get('trechos') or []:
             u = f'  [em {", ".join(onde[t["id"]])}]' if onde.get(t['id']) else ''
             e = est.get(t['id'], {}).get('estado')
@@ -443,6 +569,13 @@ if __name__ == '__main__':
     d.add_argument('id')
     x = sub.add_parser('apagar')
     x.add_argument('ids', nargs='+')
+    pa = sub.add_parser('parecidas')
+    pa.add_argument('id', nargs='?')
+    ve = sub.add_parser('versoes')
+    ve.add_argument('principal')
+    ve.add_argument('ids', nargs='+')
+    se = sub.add_parser('separar')
+    se.add_argument('ids', nargs='+')
     args = ap.parse_args()
     if args.cmd == 'adicionar':
         item = adicionar(Path(args.arquivo), args.nome, args.descricao, args.palavras.split(','), args.fonte, args.projeto)
@@ -457,6 +590,16 @@ if __name__ == '__main__':
     elif args.cmd == 'apagar':
         for bid in args.ids:
             print('apagado:', ' '.join(apagar(bid)))
+    elif args.cmd == 'parecidas':
+        for d, a, b in parecidas(args.id):
+            ia, ib = ler_item(a), ler_item(b)
+            print(f'{d:4}  {a} {ia.get("nome")}\n      {b} {ib.get("nome")}')
+    elif args.cmd == 'versoes':
+        print('versões de', args.principal + ':', ' '.join(agrupar(args.principal, args.ids)))
+    elif args.cmd == 'separar':
+        for bid in args.ids:
+            separar(bid)
+            print('separada:', bid)
     elif args.cmd == 'descrever':
         item = descrever(args.id)
         print(f'{item["id"]}  {item["nome"]}\nDescrição (IA): {item["descricao_ia"]}\nPalavras-chave: {", ".join(item["palavras"])}')

@@ -1319,3 +1319,14 @@ button.tag:hover { background: rgba(185, 166, 242, 0.26); }
 .mencao-corpo.com-tags .mencao-grade.em-pe { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .mencao-busca { width: 300px; flex: none; }
 .mencao-abas .pilula.sem-resultado { opacity: .45; }
+/* as versões de uma mídia (o mesmo clipe, outro corte): no modal do Banco e no seletor do @ */
+.lista-versoes li { display: flex; align-items: center; gap: 8px; }
+.lista-versoes img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; flex: none; }
+.lista-versoes li > span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campo-versao { width: 110px; height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: rgba(0, 0, 0, .2);
+  color: var(--color-cream); font: 600 12px var(--font-mono, ui-monospace, monospace); }
+.mencao-versoes { align-self: flex-start; margin-top: 2px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: none;
+  color: var(--color-fog); font-size: 11px; cursor: pointer; }
+.mencao-versoes:hover { color: var(--color-cream); border-color: var(--color-cream-50); }
+.mencao-card.mencao-versao .mencao-mini { outline: 1px dashed var(--color-line-strong); outline-offset: 2px; }
+.mencao-rotulo b i { font-style: normal; font-weight: 400; opacity: .8; }

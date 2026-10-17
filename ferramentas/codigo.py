@@ -402,6 +402,8 @@ def marcaveis() -> list[dict]:
             x['texto'] = ' '.join(filter(None, [dono.get('descricao'), *(dono.get('palavras') or []), dono.get('fonte')]))  # para a busca
             if item.get('pai'):
                 x['trecho'] = True
+            elif item.get('versao_de') and (B / 'banco' / item['versao_de'] / 'item.json').is_file():
+                x['versao_de'] = item['versao_de']  # o mesmo clipe com outro corte: aparece dentro da principal
         elif tipo == 'preset':
             p = ler_json(B / 'presets' / f'{id_}.json')
             if not p:

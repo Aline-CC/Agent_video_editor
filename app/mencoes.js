@@ -15,21 +15,27 @@ const ORDENS = { uso: 'Usados recentemente', novos: 'Mais novos', nome: 'Nome', 
 const MENCAO = /@((?:PRE|MOT|TRA|TRI|BAN|SOM|CTA)-\d+(?:\.\d+)?|REF-\d+·p\d+)/g
 const iconeAba = (destino) => (destino && document.querySelector(`.abas [data-aba="${destino}"] svg`)?.outerHTML) || ICONE.tocar
 
-let itens = null // [{codigo, tipo, id, nome, mini?, clipe?, inicio?, fim?, audio?, tags?, usado_em?}]
+let itens = null // [{codigo, tipo, id, nome, mini?, clipe?, inicio?, fim?, audio?, tags?, usado_em?, versao_de?}]
 let porCodigo = new Map()
+let versoesDe = new Map() // id da principal → as versões dela (o mesmo clipe com outro corte)
 let aba = 'midia'
 const tagDa = {} // a tag escolhida em cada aba (no seletor)
-const daAba = (k) => {
-  const tipos = ABAS.find((a) => a[0] === k)[3]
-  return itens.filter((x) => tipos.includes(x.tipo))
-}
+const ehVersao = (x) => x.tipo === 'midia' && versoesDe.has(x.versao_de) && x.versao_de !== x.id
+const codigoDaPrincipal = (x) => itens.find((p) => p.tipo === 'midia' && p.id === x.versao_de)?.codigo || ''
+const tiposDa = (k) => ABAS.find((a) => a[0] === k)[3]
+/** O que a aba mostra: as versões ficam dentro da principal (o "+N versões" do card abre). */
+const daAba = (k) => itens.filter((x) => tiposDa(k).includes(x.tipo) && !ehVersao(x))
 
 /** Carrega a lista uma vez (os chips dos comentários usam o nome). */
 export async function carregarMarcaveis() {
   if (itens) return itens
   itens = (await json('/api/marcaveis', { itens: [] })).itens || []
-  // o texto da busca: o código, o nome, as tags e a descrição (sem acentos)
+  // o texto da busca: o código, o nome, as tags e a descrição (sem acentos); a principal acha também pelas versões
   for (const x of itens) x.busca = semAcento([x.codigo, x.nome, ...(x.tags || []).map((t) => `#${t}`), x.texto].join(' '))
+  const ids = new Set(itens.filter((x) => x.tipo === 'midia').map((x) => x.id))
+  versoesDe = new Map()
+  for (const x of itens) if (x.versao_de && ids.has(x.versao_de)) versoesDe.set(x.versao_de, [...(versoesDe.get(x.versao_de) || []), x])
+  for (const x of itens) if (versoesDe.has(x.id) && !x.versao_de) x.busca += ' ' + versoesDe.get(x.id).map((v) => v.busca).join(' ')
   porCodigo = new Map(itens.map((x) => [x.codigo, x]))
   return itens
 }
@@ -90,7 +96,9 @@ async function abrirSeletor(campo, posArroba) {
     }[ordem]
     return [...l].sort(por)
   }
+  const abertas = new Set() // as principais com as versões abertas
   const lista = () => ordenar(daAba(aba).filter((x) => (!tagDa[aba] || temTag(x.tags, tagDa[aba])) && acha(x)))
+    .flatMap((x) => (abertas.has(x.id) ? [x, ...versoesDe.get(x.id)] : [x]))
   // a prévia: vídeo (o trecho, em laço), motion (a animação) ou áudio; uma de cada vez
   let tocando = null
   function parar() {
@@ -141,7 +149,7 @@ async function abrirSeletor(campo, posArroba) {
     b.textContent = marcados.size ? `Importar ${marcados.size} ${marcados.size === 1 ? 'elemento' : 'elementos'}` : 'Importar'
     for (const c of $$('.mencao-card', el)) c.classList.toggle('marcado', marcados.has(c.dataset.mencao))
     for (const t of $$('[data-aba-mencao]', el)) {
-      const n = daAba(t.dataset.abaMencao).filter((x) => marcados.has(x.codigo)).length
+      const n = itens.filter((x) => tiposDa(t.dataset.abaMencao).includes(x.tipo) && marcados.has(x.codigo)).length
       t.classList.toggle('com-marcados', n > 0)
       t.dataset.marcados = n || ''
     }
@@ -165,12 +173,14 @@ async function abrirSeletor(campo, posArroba) {
     const quando = (d) => (d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '')
     const emPe = aba === 'referencia' || aba === 'motion' || aba === 'cta'
     $('.mencao-grade', el).classList.toggle('em-pe', emPe)
-    $('.mencao-grade', el).innerHTML = l.length ? l.map((x) => `<div class="mencao-card" data-mencao="${esc(x.codigo)}" title="${esc(x.nome)}">
+    const nVersoes = (x) => (ehVersao(x) ? 0 : versoesDe.get(x.id)?.length || 0)
+    $('.mencao-grade', el).innerHTML = l.length ? l.map((x) => `<div class="mencao-card${ehVersao(x) ? ' mencao-versao' : ''}" data-mencao="${esc(x.codigo)}" title="${esc(x.nome)}">
         <span class="mencao-mini${emPe ? ' em-pe' : ''}">${x.mini ? `<img src="${esc(x.mini)}" alt="" loading="lazy">` : `<span class="mencao-icone">${x.audio ? ICONE.tocar : iconeAba(x.tipo === 'motion' ? 'motions' : x.tipo === 'preset' ? 'presets' : 'transicoes')}</span>`}
           <span class="mencao-check" aria-hidden="true">${ICONE.check}</span>
           ${x.clipe || x.audio || x.tipo === 'motion' ? `<button class="mencao-play" data-previa title="Tocar a prévia">${ICONE.tocar}</button>` : ''}
           ${x.usado_em ? `<span class="mencao-uso" title="Usado por último em ${esc(quando(x.usado_em))}">usado ${esc(quando(x.usado_em))}</span>` : ''}</span>
-        <span class="mencao-rotulo"><b>${esc(x.codigo)}</b><span>${esc(x.nome)}</span></span></div>`).join('')
+        <span class="mencao-rotulo"><b>${esc(x.codigo)}${ehVersao(x) ? ` <i>versão de ${esc(codigoDaPrincipal(x))}</i>` : ''}</b><span>${esc(x.nome)}</span>
+          ${nVersoes(x) ? `<button class="mencao-versoes" data-versoes="${esc(x.id)}">${abertas.has(x.id) ? 'esconder' : `+${nVersoes(x)}`} ${nVersoes(x) === 1 ? 'versão' : 'versões'}</button>` : ''}</span></div>`).join('')
       : `<p class="vazio">${busca.trim() ? 'Nada com essa busca.' : 'Nada aqui ainda.'}</p>`
     desenharEscolhidos()
   }
@@ -235,6 +245,11 @@ async function abrirSeletor(campo, posArroba) {
     const t = e.target.closest('[data-aba-mencao]')
     if (t) {
       aba = abaEscolhida = t.dataset.abaMencao
+      return desenhar()
+    }
+    const ver = e.target.closest('[data-versoes]')
+    if (ver) {
+      abertas.has(ver.dataset.versoes) ? abertas.delete(ver.dataset.versoes) : abertas.add(ver.dataset.versoes)
       return desenhar()
     }
     const c = e.target.closest('.mencao-card')

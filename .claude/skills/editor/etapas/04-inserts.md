@@ -19,7 +19,8 @@ uv run ferramentas/inserts.py juntar <slug>      # liga as mídias achadas a cad
 1. **Materiais do criador** (`projetos/<slug>/apoio/`): se servem, use-os (suba ao banco).
 2. **O banco** (`banco.py buscar "<termos>"`): mídias já usadas em outros vídeos, com descrição, fonte e selo. Prefira
    as **★ usado em vídeo aprovado** e as **✓ aprovado** (o criador já gostou delas); evite as **✗ recusado** (ficaram de
-   fora de um vídeo aprovado).
+   fora de um vídeo aprovado). O mesmo clipe com outro corte aparece como **≡ versão** da principal: reaproveite uma
+   delas (ou crie um trecho) em vez de baixar de novo; se precisar de outro corte, o `adicionar` já o junta à principal.
 3. **Captura do site real** (`captura.py <url>`), quando a fala cita um site, ferramenta, produto ou repositório: grava
    a página rolando/carregando, como ela é. 16:9 para tela dividida; 9:16 (um computador em pé) para tela cheia.
 4. **Web, fontes oficiais**: o site, o blog, o changelog, o X ou o YouTube **do próprio produto** (vídeo: `yt-dlp` só do

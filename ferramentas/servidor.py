@@ -26,6 +26,8 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
   em todos) · GET /api/estados (selos do banco e usos dos motions nos
   vídeos aprovados) · POST /api/limpar-recusados · GET|POST /api/ctas · PUT|DELETE /api/ctas/<id> (os CTAs) · PUT /api/ctas-produtos {produtos} · POST /api/banco (subir: o arquivo cru, nome em X-Nome) ·
   POST /api/banco/<id>/trechos {inicio, fim, nome} · GET /api/banco/<id>/tira · PUT /api/motions/<id>/aprovar.
+  Versões (o mesmo clipe, outro corte): o GET /api/banco/<id> traz `versoes` e `principal` · POST /api/banco/<id>/versao-de
+  {principal: id ou BAN-…} junta · POST /api/banco/<id>/principal · DELETE /api/banco/<id>/versao-de separa.
 - Recusar: GET /api/presets/<id>/usos e /api/motions/<id>/usos (os projetos que usam) · POST /api/presets/<id>/recusar
   e /api/motions/<id>/recusar {motivo}: o arquivo vai para _recusados/ (com recusado_em e motivo), o preset sai do
   ordem.json e os inserts que o usavam voltam ao 1º favorito da situação (presets.py escolher).
@@ -652,8 +654,58 @@ def ler_midia(b, id_: str) -> dict:
 def _midia(h, q, id_):
     b = _banco()
     item, usos = ler_midia(b, id_), b.usos()
-    trechos = sorted((t for t in b.todos() if t.get('pai') == id_), key=lambda t: t.get('inicio', 0))
-    return {'item': item, 'usos': usos.get(id_, []), 'trechos': [{**t, 'usos': usos.get(t['id'], [])} for t in trechos]}
+    todos = b.todos()
+    trechos = sorted((t for t in todos if t.get('pai') == id_), key=lambda t: t.get('inicio', 0))
+    # as versões (o mesmo clipe com outro corte): as do grupo dela, menos ela; e a principal, se ela é uma versão
+    prin = b.principal(id_)
+    grupo = [i for i in todos if not i.get('pai') and i['id'] != id_ and (i['id'] == prin or b.principal(i['id']) == prin)]
+    campos = ('id', 'nome', 'tipo', 'duracao', 'largura', 'altura', 'formato', 'criado_em', 'projeto')
+    versoes = [{**{k: v.get(k) for k in campos}, 'principal': v['id'] == prin, 'usos': usos.get(v['id'], [])}
+               for v in sorted(grupo, key=lambda v: (v['id'] != prin, v.get('criado_em') or ''))]
+    return {'item': item, 'usos': usos.get(id_, []), 'trechos': [{**t, 'usos': usos.get(t['id'], [])} for t in trechos],
+            'versoes': versoes, 'principal': prin}
+
+
+@rota('POST', r'/api/banco/(\w+)/versao-de')
+def _juntar_versao(h, q, id_):
+    """Junta esta mídia (com as versões dela) como versão de outra: {principal: id ou código BAN-…}."""
+    b = _banco()
+    ler_midia(b, id_)
+    alvo = str(h.corpo().get('principal') or '').strip().upper().lstrip('@')
+    if re.fullmatch(r'BAN-?\d+', alvo):
+        import codigo
+        alvo = next((v['id'] for c, v in codigo.atribuir().items() if c.replace('-', '') == alvo.replace('-', '') and v['tipo'] == 'midia'), '')
+    alvo = alvo.lower()
+    if not b.existe(alvo):
+        raise Erro('Não achei essa mídia (use o código, ex.: BAN-286).', 422)
+    alvo = b.principal(alvo)
+    if alvo == b.principal(id_):
+        raise Erro('As duas já estão no mesmo grupo.', 422)
+    try:
+        b.agrupar(alvo, [id_])
+    except SystemExit as e:
+        raise Erro(str(e), 422) from e
+    return {'principal': alvo}
+
+
+@rota('POST', r'/api/banco/(\w+)/principal')
+def _tornar_principal(h, q, id_):
+    """Esta versão passa a ser a principal do grupo (o card do Banco mostra ela)."""
+    b = _banco()
+    ler_midia(b, id_)
+    prin = b.principal(id_)
+    if prin != id_:
+        b.agrupar(id_, [prin])
+    return {'principal': id_}
+
+
+@rota('DELETE', r'/api/banco/(\w+)/versao-de')
+def _separar_versao(h, q, id_):
+    """Tira a mídia do grupo (volta a ser um card; se era a principal, a versão mais nova passa a ser)."""
+    b = _banco()
+    ler_midia(b, id_)
+    b.separar(id_)
+    return {'ok': True}
 
 
 @rota('POST', '/api/banco')

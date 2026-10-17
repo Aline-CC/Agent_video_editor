@@ -96,12 +96,20 @@ async function bancoInserts(el, tipo = 'inserts') {
   const ids = tipo === 'motions' ? [] : nomes.filter((n) => n.endsWith('/') && !n.startsWith('_')).map((n) => n.slice(0, -1)) // _lixeira etc. não são mídias
   const itens = (await Promise.all(ids.map((id) => json(`/biblioteca/banco/${id}/item.json`).then((it) => it && { ...it, id: it.id || id })))).filter(Boolean)
   if (vez !== vezBanco) return
-  const originais = itens.filter((i) => !i.pai).sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
+  // as versões (o mesmo clipe com outro corte, banco.py versoes): entram no card da principal
+  const existe = new Set(itens.map((i) => i.id))
+  const ehVersao = (i) => !i.pai && i.versao_de && existe.has(i.versao_de)
+  const versoes = {}
+  for (const v of itens.filter(ehVersao)) (versoes[v.versao_de] ||= []).push(v)
+  const originais = itens.filter((i) => !i.pai && !ehVersao(i)).sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
   const trechos = {}
   for (const t of itens.filter((i) => i.pai)) (trechos[t.pai] ||= []).push(t)
   for (const l of Object.values(trechos)) l.sort((a, b) => a.inicio - b.inicio)
 
-  const estadoDe = (it) => estados[it.id]?.estado || 'sem'
+  // o selo do card: o da principal, ou "usado" se uma versão entrou num vídeo aprovado; os usos, de todas
+  const doGrupo = (it) => [it, ...(versoes[it.id] || [])]
+  const estadoDe = (it) => (doGrupo(it).some((x) => estados[x.id]?.estado === 'usado') ? 'usado' : estados[it.id]?.estado || 'sem')
+  const usosDe = (it) => doGrupo(it).flatMap((x) => estados[x.id]?.usos || [])
   // as tags: a página do Banco filtra as mídias; a de Motions, os motions (cada uma com a sua barra)
   const doTipo = tipo === 'motions' ? ms : originais
   const pref = tipo === 'motions' ? 'motions' : 'banco'
@@ -114,19 +122,21 @@ async function bancoInserts(el, tipo = 'inserts') {
   const conta = (k) => (k === 'todos' ? midiasT.length + motionsT.length : midiasT.filter((it) => estadoDe(it) === k).length + motionsT.filter((m) => estadoMotion(m) === k).length)
   if (!conta(filtro)) filtro = 'todos' // um filtro vazio some da barra (ex.: Em edição sem projeto em edição)
   const cardsMidia = midiasT.filter((it) => filtro === 'todos' || estadoDe(it) === filtro).map((it) => {
-    const e = estados[it.id] || {}
+    const e = { estado: estadoDe(it) === 'sem' ? null : estadoDe(it), usos: usosDe(it) }
     const [rotulo, cor] = SELOS[e.estado] || []
     const base = `/biblioteca/banco/${it.id}/`
     const video = it.tipo === 'video'
     const ts = trechos[it.id] || []
-    const busca = semAcento([it.nome, it.descricao, it.fonte, ...(it.palavras || []), cod[it.id], ...ts.flatMap((t) => [t.nome, cod[t.id]]), ...(it.tags || []).map((t) => `#${t}`)].join(' '))
+    const vs = versoes[it.id] || []
+    const busca = semAcento([it.nome, it.descricao, it.fonte, ...(it.palavras || []), cod[it.id], ...ts.flatMap((t) => [t.nome, cod[t.id]]),
+      ...vs.flatMap((v) => [v.nome, v.descricao, cod[v.id]]), ...(it.tags || []).map((t) => `#${t}`)].join(' '))
     return `<article class="card-banco" data-id="${it.id}" data-busca="${esc(busca)}">
       <div class="mini mini-169"><img src="${base}miniatura.jpg" alt="" loading="lazy">
         ${video ? `<video muted loop playsinline preload="none" data-src="${base}${it.proxy || 'proxy.mp4'}"></video>` : ''}
         <span class="selo ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
         ${video && it.duracao ? `<span class="duracao">${seg(it.duracao)}</span>` : ''}
         ${rotulo ? `<span class="selo-linha selo-na-thumb ${cor}">${rotulo}</span>` : ''}
-        <span class="chip-tipo">Insert${ts.length ? ` · ${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}` : ''}</span></div>
+        <span class="chip-tipo">Insert${vs.length ? ` · ${vs.length + 1} versões` : ''}${ts.length ? ` · ${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}` : ''}</span></div>
       <div class="card-titulo"><h3 title="${esc([it.descricao, it.fonte].filter(Boolean).join('\n'))}">${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
       ${e.usos?.length ? `<div class="estado-banco">${chipsDeUso(e.usos, cods)}</div>` : ''}
       ${htmlTagsCard(it.tags)}
@@ -248,7 +258,7 @@ async function bancoInserts(el, tipo = 'inserts') {
 
   for (const card of $$('.card-banco', el)) {
     if (card.dataset.motion) continue
-    card.addEventListener('click', (e) => !e.target.closest('a, .tags-card') && detalheBanco(card.dataset.id, () => bancoInserts(el, tipo), cod, estados[card.dataset.id], cods))
+    card.addEventListener('click', (e) => !e.target.closest('a, .tags-card') && detalheBanco(card.dataset.id, () => bancoInserts(el, tipo), cod, estados[card.dataset.id], cods, estados))
     const v = $('video', card)
     if (!v) continue
     let trecho = null // [ini, fim] enquanto o mouse está num trecho
@@ -283,7 +293,7 @@ async function bancoInserts(el, tipo = 'inserts') {
 }
 
 /** O detalhe de uma mídia: corrigir nome, descrição e palavras-chave, ver onde é usada e apagar. */
-async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
+async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}, estados = {}) {
   let d
   try {
     d = await enviar('GET', `/api/banco/${id}`)
@@ -322,6 +332,13 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
           ${video && !it.pai ? `<button class="botao" type="button" data-marcar-trechos title="Selecione na linha do tempo os pedaços que servem: cada trecho vira uma mídia com código próprio">${ICONE.tesoura} Marcar trechos</button>` : ''}
           <button class="botao botao-perigo-contorno" type="button" data-apagar>${ICONE.lixo} Apagar do banco</button></div>
         <p class="erro-linha" hidden></p>
+        <div class="bloco-lista"><span class="eyebrow">Versões${d.versoes.length ? ` · ${d.versoes.length + 1}` : ''} <span class="apagado">· o mesmo clipe com outro corte, duração ou velocidade</span></span>
+          ${d.versoes.length ? `<ul class="lista-simples lista-versoes">${d.versoes.map((v) => `<li><img src="/biblioteca/banco/${v.id}/miniatura.jpg" alt="" loading="lazy"><span>${esc(v.nome)}</span>${chipCodigo(cod[v.id], v.nome)}
+              <span class="apagado">${v.tipo === 'video' ? `${seg(v.duracao || 0)} · ` : ''}${v.largura}×${v.altura}${v.principal ? ' · principal' : ''}${v.usos.length ? ` · em ${v.usos.length}` : ''}</span>
+              <button class="botao pequeno" type="button" data-abrir-versao="${v.id}">Abrir</button></li>`).join('')}</ul>` : '<p class="dica">Nenhuma outra versão.</p>'}
+          <div class="acoes-linha">${d.versoes.length && id !== d.principal ? '<button class="botao pequeno" type="button" data-tornar-principal title="O card do Banco passa a mostrar esta">Tornar principal</button>' : ''}
+            ${d.versoes.length ? '<button class="botao pequeno" type="button" data-separar title="Esta volta a ser um card sozinha">Separar desta</button>' : ''}
+            <input class="campo-versao" data-juntar placeholder="BAN-…" aria-label="Código da outra mídia"><button class="botao pequeno" type="button" data-juntar-btn title="Junta esta mídia como versão de outra (o código dela)">Juntar como versão de</button></div></div>
         ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
         <div class="bloco-lista"><span class="eyebrow">Usada em · ${usos.length}</span>
           ${usos.length ? `<ul class="lista-simples">${usos.map((u) => `<li><a href="#/p/${encodeURIComponent(projetoDe(u))}" data-fechar>${esc(u)}</a></li>`).join('')}</ul>` : '<p class="dica">Nenhum projeto usa esta mídia.</p>'}</div>
@@ -375,11 +392,35 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}) {
       erro.textContent = x.message
     }
   })
+  // as versões: abrir outra, tornar principal, separar e juntar a outra mídia (pelo código)
+  const mudarVersao = async (metodo, url, corpo, texto) => {
+    try {
+      await enviar(metodo, url, corpo)
+      aviso(texto)
+      fechar()
+      recarregar()
+    } catch (x) {
+      erro.hidden = false
+      erro.textContent = x.message
+    }
+  }
+  for (const b of $$('[data-abrir-versao]', el)) b.addEventListener('click', () => {
+    fechar()
+    detalheBanco(b.dataset.abrirVersao, recarregar, cod, estados[b.dataset.abrirVersao], cods, estados)
+  })
+  $('[data-tornar-principal]', el)?.addEventListener('click', () => mudarVersao('POST', `/api/banco/${id}/principal`, {}, 'Agora é a principal do grupo'))
+  $('[data-separar]', el)?.addEventListener('click', () => mudarVersao('DELETE', `/api/banco/${id}/versao-de`, undefined, 'Separada: voltou a ser um card'))
+  const juntar = () => {
+    const alvo = $('[data-juntar]', el).value.trim()
+    if (alvo) mudarVersao('POST', `/api/banco/${id}/versao-de`, { principal: alvo }, `Juntada como versão de ${alvo.toUpperCase()}`)
+  }
+  $('[data-juntar-btn]', el).addEventListener('click', juntar)
+  $('[data-juntar]', el).addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), juntar()))
   $('[data-marcar-trechos]', el)?.addEventListener('click', () => {
     fechar()
     marcarTrechos(it, d.trechos, () => {
       recarregar()
-      detalheBanco(id, recarregar, cod, est, cods)
+      detalheBanco(id, recarregar, cod, est, cods, estados)
     })
   })
   for (const b of $$('[data-selo]', el)) b.addEventListener('click', async () => {
