@@ -32,15 +32,15 @@ criador corrigiu num vídeo não pode se repetir no próximo.
      (`projetos/<slug>/revisoes/anexos/…`) ou um quadro do vídeo (ffmpeg) para `aprendizados/imagens/<prj>-<cN>.png`
      e mostre-o no bullet (um "certo" e um "errado" lado a lado é o melhor exemplo).
    - Aprendizados de **direção** (que plano, quando, abertura, ritmo, lettering como decisão de roteiro) vão para as
-     **Regras do criador** em `exemplos/regras.md` (o criador também as edita na página Heurística do app), não para
-     esta pasta.
+     **Regras do criador** em `exemplos/<categoria>/regras.md`, a categoria do vídeo (o criador também as edita na página
+     Heurística do app), não para esta pasta.
    - Preset, transição, motion ou trilha que o criador não quer mais: tire das favoritas/recomendados (`ordem.json`) ou
      recuse (página Presets/Motions do app) — e anote o porquê no arquivo da área.
 
 | Área | Arquivo | Lido em |
 |---|---|---|
 | Cortes | `aprendizados/cortes.md` | `02-cortes.md` |
-| Direção | `exemplos/regras.md` (Regras do criador) | `03-direcao.md` |
+| Direção | `exemplos/<categoria>/regras.md` (Regras do criador) | `03-direcao.md` |
 | Inserts (busca, captura de tela, escolha da mídia) | `aprendizados/inserts.md` | `04-inserts.md` e o prompt dos subagentes |
 | Enriquecimento (presets, Full ator, fundo) | `aprendizados/enriquecimento.md` | `05-enriquecimento.md` |
 | Motions | `aprendizados/motions.md` | `06-…` e o prompt do subagente de motion |

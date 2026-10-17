@@ -3,20 +3,30 @@
 Você escreve o **roteiro dirigido** do vídeo já cortado: o que aparece na tela em cada momento da fala, do jeito que o
 criador dirige. Não mexe em mídia: só a "partitura visual". Inserts, motions, transições e legenda partem dela.
 
-> **Antes de começar, leia `../aprendizados/elementos.md` (lettering e elementos); os de direção estão nas Regras do criador, em `exemplos/regras.md`**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
+> **Antes de começar, leia `../aprendizados/elementos.md` (lettering e elementos); os de direção estão nas Regras do criador, em `exemplos/<categoria>/regras.md`**: o que o criador já corrigiu em vídeos anteriores. Não repita esses erros.
 
 ## Antes de escrever: aprenda o estilo
 
-1. Leia `exemplos/criador.md` (quem grava e do que o canal fala) e `exemplos/regras.md` inteiro. As **Regras do
-   criador** são obrigatórias; as sugeridas são guia.
-2. Leia `exemplos/favoritos.md`: os planos que o criador marcou com ★ na galeria de Referências do app. São os melhores
-   exemplos dele: quando um momento do vídeo novo se parece com um deles, siga aquele padrão.
-3. Leia **todos** os roteiros de `exemplos/roteiros/` como um editor novo lê os roteiros anotados do chefe: entenda, pela
-   fala, por que cada coisa aparece onde aparece. O que está sendo dito manda. Os marcados "(revisado)" foram corrigidos
-   pelo criador e valem mais que os outros.
+A direção vem **sempre e só da categoria do vídeo em edição** (📱 Reels, 📺 VSL…, a mesma do card do projeto no app):
+nunca misture exemplos de outra categoria. Descubra qual é e onde estão os exemplos dela:
 
-Esses arquivos são gerados pela Calibragem do app (`calibragem.py roteiros`): quando o criador revisa uma referência,
-favorita um plano ou sobe um Reel novo, eles mudam. Não os edite à mão (as regras, sim: `regras.md`).
+```bash
+uv run ferramentas/calibragem.py exemplos <slug>    # a categoria do projeto, a pasta e quantos vídeos estão ativos
+```
+Os exemplos são os vídeos da categoria que estão **Ativos** na Calibragem: o criador decide quais servem, então leia
+todos. Sem nenhum vídeo ativo da categoria, dirija pelas regras dela e avise o criador na entrega.
+
+1. Leia `exemplos/criador.md` (quem grava e do que o canal fala) e `exemplos/<categoria>/regras.md` inteiro. As
+   **Regras do criador** são obrigatórias; as sugeridas são guia.
+2. Leia `exemplos/<categoria>/favoritos.md`: os planos que o criador marcou com ★ na galeria de Referências do app. São
+   os melhores exemplos dele: quando um momento do vídeo novo se parece com um deles, siga aquele padrão.
+3. Leia **todos** os roteiros de `exemplos/<categoria>/roteiros/` como um editor novo lê os roteiros anotados do chefe:
+   entenda, pela fala, por que cada coisa aparece onde aparece. O que está sendo dito manda. Os marcados "(revisado)"
+   foram corrigidos pelo criador e valem mais que os outros.
+
+Esses arquivos são gerados pela Calibragem do app (`calibragem.py roteiros`): quando o criador liga ou desliga o Ativo
+de um vídeo, muda a categoria dele, revisa uma referência ou favorita um plano, eles mudam. Não os edite à mão (as
+regras, sim: `regras.md`, que o criador também edita na Heurística do app, uma por categoria).
 
 ## Rodar
 

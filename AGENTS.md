@@ -9,7 +9,7 @@ Responda em PT-BR, direto. Separe o que existe do que é plano.
 ## Estrutura
 
 - `.claude/skills/editor/`: `SKILL.md` (os fluxos), `etapas/` (um .md por etapa, lido na hora), `exemplos/` (as regras e
-  os roteiros dirigidos do criador, gerados pela Calibragem), `aprendizados/` (um .md por área com as correções do
+  os roteiros dirigidos do criador, uma pasta por categoria de vídeo, gerados pela Calibragem), `aprendizados/` (um .md por área com as correções do
   criador vídeo a vídeo, e `imagens/`), `edicao.md` (o contrato do `edicao.json`).
 - `ferramentas/`: um script por etapa, `uv run ferramentas/<script>.py` (dependências no próprio arquivo, PEP 723).
   `base.py` e `servidor.py` são o comum.
