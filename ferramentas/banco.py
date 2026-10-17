@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from base import BIBLIOTECA, PROJETOS, ffmpeg, gravar_json, inspecionar, ler_json  # noqa: E402
+from base import BIBLIOTECA, PROJETOS, ffmpeg, gravar_json, inspecionar, ler_json, renomear_tags  # noqa: E402
 
 RAIZ = BIBLIOTECA / 'banco'
 EXT_VIDEO = ('.mp4', '.mov', '.m4v', '.webm')
@@ -93,6 +93,23 @@ def todos() -> list[dict]:
         except ValueError:
             continue
     return out
+
+
+def renomear_tag(de: str, para: str) -> int:
+    """Troca a tag `de` (e as de dentro dela: "fia" leva "fia/reels") por `para` em todas as mídias; `para` vazio tira.
+    Devolve quantas mídias mudaram."""
+    n = 0
+    for i in todos():
+        tags = i.get('tags') or []
+        novas = renomear_tags(tags, de, para)
+        if novas != tags:
+            if novas:
+                i['tags'] = novas
+            else:
+                i.pop('tags', None)
+            salvar_item(i)
+            n += 1
+    return n
 
 
 def para_busca(t: str) -> str:

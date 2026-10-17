@@ -28,6 +28,10 @@ export const lista = (pasta) => json(`/api/lista?pasta=${encodeURIComponent(past
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
+/** Para a busca: minúsculas e sem acentos. */
+export const semAcento = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+/** O texto (já sem acentos) tem todas as palavras da busca. */
+export const achaBusca = (texto, busca) => semAcento(busca).split(/\s+/).filter(Boolean).every((p) => texto.includes(p))
 export const num = (x, casas = 1) =>
   Number(x || 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 

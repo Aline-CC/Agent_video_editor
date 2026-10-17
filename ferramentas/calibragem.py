@@ -45,11 +45,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import gemini  # noqa: E402
-from base import BIBLIOTECA, PROJETOS, RAIZ, env, ffmpeg, gravar_json, inspecionar, ler_json  # noqa: E402
+from base import BIBLIOTECA, PROJETOS, RAIZ, env, ffmpeg, gravar_json, inspecionar, ler_json, renomear_tags, tags_limpas  # noqa: E402
 
 REFS = BIBLIOTECA / 'referencias'
 LIXEIRA = REFS / '_lixeira'
 FAVORITOS = REFS / '_favoritos.json'
+TAGS = REFS / '_tags.json'  # as tags dos planos da galeria: [{ref, inicio, fim, tags}]
 EXEMPLOS = RAIZ / '.claude' / 'skills' / 'editor' / 'exemplos'
 ROTEIROS = EXEMPLOS / 'roteiros'
 URL = '/biblioteca/referencias'  # como o servidor serve a pasta
@@ -352,6 +353,38 @@ def mesmo_trecho(f: dict, ref: str, inicio: float, fim: float) -> bool:
     return f['ref'] == ref and abs(f['inicio'] - inicio) < 0.05 and abs(f['fim'] - fim) < 0.05
 
 
+def ler_tags() -> list[dict]:
+    try:
+        return json.loads(TAGS.read_text(encoding='utf-8'))
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def marcar_tags(ref: str, inicio: float, fim: float, tags: list[str]) -> dict:
+    """As tags de um plano da galeria (pela referência e pelo intervalo, como o favorito); lista vazia tira."""
+    tags = tags_limpas(tags)
+    with _trava():
+        l = [t for t in ler_tags() if not mesmo_trecho(t, ref, float(inicio), float(fim))]
+        if tags:
+            l.append({'ref': ref, 'inicio': round(float(inicio), 3), 'fim': round(float(fim), 3), 'tags': tags})
+        gravar_json(TAGS, l)
+    return {'tags': tags}
+
+
+def renomear_tag(de: str, para: str) -> int:
+    """Renomeia (ou tira) uma tag, com as de dentro dela, em todos os planos da galeria."""
+    n = 0
+    with _trava():
+        l = []
+        for t in ler_tags():
+            novas = renomear_tags(t['tags'], de, para)
+            n += novas != t['tags']
+            if novas:
+                l.append({**t, 'tags': novas})
+        gravar_json(TAGS, l)
+    return n
+
+
 def favoritar(ref: str, inicio: float, fim: float, favorito: bool) -> dict:
     """Marca ou desmarca um plano como favorito. Identificado pela referência e pelo intervalo (o id do plano muda quando o
     vídeo é reanalisado), com uma cópia dos dados do plano no momento."""
@@ -430,9 +463,10 @@ def clipes() -> dict:
     for r, itens, palavras in _analisadas():
         lista, origens[r['id']] = _clipes_de(r, itens, palavras)
         todos += lista
-    favoritos = ler_favoritos()
+    favoritos, tags = ler_favoritos(), ler_tags()
     for c in todos:
         c['favorito'] = any(mesmo_trecho(f, c['ref'], c['inicio'], c['fim']) for f in favoritos)
+        c['tags'] = next((t['tags'] for t in tags if mesmo_trecho(t, c['ref'], c['inicio'], c['fim'])), [])
     return {'clipes': todos, 'origens': origens, 'categorias': PLANOS, 'elementos': ELEMENTOS}
 
 

@@ -1,6 +1,6 @@
 // O app de revisão: roteamento pelo endereço e o início (os projetos). As páginas: #/ (projetos), #/p/<slug>[/vN] (a
 // revisão de uma versão), #/calibragem[/<id>], #/referencias, #/heuristica, #/aprendizados[/<área>] e as da biblioteca
-// (#/presets, #/transicoes[/<de>><para>], #/banco[/inserts|/motions], #/trilhas).
+// (#/presets, #/transicoes[/<de>><para>], #/banco, #/motions, #/trilhas).
 import { $, $$, ICONE, abasAbertas, aviso, preferencia, chipCodigo, codigos, confirmar, copiar, enviar, esc, fecharAba, json, mmss } from './comum.js'
 import { abrirRevisao } from './revisao.js'
 import { abrirCtas } from './ctas.js'
@@ -169,7 +169,7 @@ async function rotear() {
   velha.replaceWith(tela)
   $('#barra-versao').innerHTML = ''
   desenharAbas()
-  const aba = partes[0] === 'motions' ? 'banco' : partes[0] // os projetos abrem pela marca; num projeto, acende a aba dele
+  const aba = partes[0] === 'banco' && partes[1] === 'motions' ? 'motions' : partes[0] // os projetos abrem pela marca; num projeto, acende a aba dele
   for (const a of $$('.abas a')) a.classList.toggle('ativa', a.dataset.aba === aba)
   document.body.classList.toggle('em-revisao', (partes[0] === 'p' || partes[0] === 'calibragem') && !!partes[1])
   let s

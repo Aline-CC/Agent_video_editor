@@ -1142,3 +1142,65 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .cta-titulo { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cta-titulo .cta-nome { flex: 1; min-width: 0; }
 .cta-titulo .codigo { flex: none; }
+
+/* ---------- Banco: as tags (como no Obsidian: #grupo/tag), na barra lateral, nos cards e no modal ---------- */
+.banco-com-tags { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
+.banco-com-tags .grade-banco { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tags-banco { position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 6px; }
+.tags-banco > .eyebrow { margin: 0 0 8px 6px; }
+.tags-banco .dica { margin: 8px 6px; font-size: 12px; }
+.tags-arvore, .tags-arvore ul { list-style: none; margin: 0; padding: 0; }
+.tag-linha { display: flex; align-items: center; gap: 4px; padding: 5px 8px 5px calc(6px + var(--nivel, 0) * 16px); border-radius: 8px;
+  font-size: 13px; color: var(--color-cream); cursor: pointer; user-select: none; }
+.tag-linha:hover { background: rgba(250, 247, 238, 0.06); }
+.tag-linha.ativa { background: var(--color-cream); color: var(--color-ink); }
+.tag-linha.ativa .conta { color: rgba(24, 45, 42, 0.6); }
+.tag-linha .tag-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-linha .conta { font-size: 12px; color: var(--color-fog); font-variant-numeric: tabular-nums; }
+.tag-seta { width: 16px; height: 16px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  border: 0; background: none; color: inherit; opacity: 0.6; font-size: 15px; line-height: 1; cursor: pointer; transition: transform .15s ease; }
+button.tag-seta:hover { opacity: 1; }
+.tag-seta.aberta { transform: rotate(90deg); }
+.tag-fixa .tag-nome { color: inherit; }
+.tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px; border: 0;
+  background: rgba(185, 166, 242, 0.14); color: var(--color-lilac); font: 500 12px/1 var(--font-sans, inherit); white-space: nowrap; }
+button.tag { cursor: pointer; }
+button.tag:hover { background: rgba(185, 166, 242, 0.26); }
+.tags-card { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.tags-card .tag { padding: 0 4px 0 8px; gap: 2px; }
+.tags-card .tag-texto, .tags-card .tag-tirar { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.tags-card .tag-tirar { width: 14px; opacity: 0; font-size: 13px; line-height: 1; transition: opacity .12s; }
+.tags-card .tag:hover .tag-tirar { opacity: 0.7; }
+.tags-card .tag-tirar:hover { opacity: 1 !important; }
+.tags-card .tag-mais { padding: 0 8px; background: none; border: 1px dashed rgba(185, 166, 242, 0.35); color: var(--color-fog); opacity: 0; transition: opacity .12s; }
+.card-banco:hover .tag-mais, .card-clipe:hover .tag-mais, .tags-card .tag-mais:focus-visible { opacity: 1; }
+.tags-card .tag-mais:hover { color: var(--color-lilac); border-color: var(--color-lilac); }
+.tag-campo { height: 22px; width: 130px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--color-lilac); background: rgba(0, 0, 0, 0.2);
+  color: var(--color-cream); font: 500 12px/1 inherit; outline: none; }
+.tags-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 8px; border-radius: 10px;
+  border: 1px solid var(--color-line-strong); background: rgba(0, 0, 0, 0.12); }
+.tags-editor:focus-within { border-color: var(--color-cream); }
+.tags-editor [data-tags-chips] { display: contents; }
+.tags-editor .tag button { border: 0; background: none; padding: 0 0 0 2px; color: inherit; opacity: 0.7; cursor: pointer; font-size: 14px; line-height: 1; }
+.tags-editor .tag button:hover { opacity: 1; }
+.tags-editor input { flex: 1; min-width: 120px; border: 0; background: none; color: inherit; font: inherit; outline: none; padding: 4px 2px; }
+@media (max-width: 1400px) { .banco-com-tags .grade-banco { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .banco-com-tags .grade-banco { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .banco-com-tags { grid-template-columns: 1fr; } .tags-banco { position: static; max-height: none; } }
+.selo-na-thumb { position: absolute; top: 10px; bottom: auto; left: 10px; z-index: 2; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); }
+
+/* editar as tags pela barra lateral do banco: lápis e x no hover de cada tag */
+.tag-acoes { display: none; gap: 2px; margin-left: 2px; }
+.tag-linha:hover .tag-acoes { display: inline-flex; }
+.tag-linha:hover .conta { display: none; }
+.tag-linha.editando .conta, .tag-linha.editando .tag-acoes { display: none; }
+.tag-acao { width: 20px; height: 20px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: inherit; opacity: 0.6; cursor: pointer; }
+.tag-acao:hover { opacity: 1; background: rgba(250, 247, 238, 0.1); }
+.tag-linha.ativa .tag-acao:hover { background: rgba(24, 45, 42, 0.12); }
+.tag-acao svg { width: 13px; height: 13px; }
+.tag-campo-barra { flex: 1; width: auto; min-width: 0; height: 24px; }
+
+/* a busca do Banco e dos Motions */
+.busca { width: 240px; height: 32px; padding: 0 12px; border: 1px solid var(--color-line-dark); border-radius: 999px; background: rgba(0, 0, 0, 0.2); color: var(--color-cream); font: inherit; font-size: 12px; }
+.busca:focus { outline: none; border-color: var(--color-coral); }
+.pagina-referencias .tags-banco { top: calc(var(--alto-barra) + 76px); max-height: calc(100vh - var(--alto-barra) - 88px); }
