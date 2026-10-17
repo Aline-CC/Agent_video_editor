@@ -127,10 +127,10 @@ export function fundo(id: string, chave = 'fundo'): V {
 
 // ---------------------------------------------------------------- a mídia (do 18: inserts/InsertNoLugar.tsx, VideoNoTempo)
 
-/** Um vídeo do banco parado no quadro do instante (um trecho toca o original do início ao fim dele). Uma mídia mais
- *  curta que o insert fica parada no último quadro. `topo`: cortada, mostra a parte de cima (mídias em pé). */
+/** Um vídeo do banco parado no quadro do instante (um trecho toca o original do início ao fim dele, na velocidade dele).
+ *  Uma mídia mais curta que o insert fica parada no último quadro. `topo`: cortada, mostra a parte de cima (mídias em pé). */
 function videoNoTempo(m: MidiaLigada, item: ItemBanco, rel: number, topo?: boolean): V {
-  const alvo = Math.min((item.inicio ?? 0) + rel, item.fim ?? Infinity)
+  const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1), item.fim ?? Infinity)
   return {
     chave: `m:${m.id}`,
     tag: 'video',

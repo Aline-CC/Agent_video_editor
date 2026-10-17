@@ -64,9 +64,11 @@ criador corrigiu num vídeo não pode se repetir no próximo.
    palavras-chave pelos assuntos em que ela serve (edite o `item.json`, ou `banco.py descrever <id>` para a IA sugerir e
    depois corrija). Se só um pedaço do vídeo é bom, crie o trecho (`banco.py trecho`).
 4. **Junte as repetidas**: `banco.py parecidas` lista as mídias que mostram a mesma coisa. Olhe os quadros das
-   candidatas (imagens parecidas de propósito, como as variações de uma ficha, não são o mesmo clipe) e junte as que
-   são o mesmo clipe com `banco.py versoes <principal> <id…>` (a de maior resolução como principal). Nada é apagado: cada
-   projeto continua usando a sua versão; no app, elas viram um card só.
+   candidatas (imagens parecidas de propósito, como as variações de uma ficha, não são o mesmo clipe). Se é o mesmo
+   vídeo com outro tempo ou outra velocidade, ele vira trecho do mais longo: `banco.py alinhar <id> <maior>` mostra onde
+   cai (e o erro) e `banco.py virar-trecho <id> <maior>` converte (o mesmo id e o mesmo código; os arquivos vão para a
+   lixeira do banco). Se é o mesmo clipe com outro enquadramento, ou uma imagem, junte como versão:
+   `banco.py versoes <principal> <id…>` (a de maior resolução como principal). No app, cada grupo vira um card só.
 
 ## 3. Consolidar (a cada 5 vídeos aprovados)
 

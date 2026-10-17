@@ -82,7 +82,8 @@ export async function itemBanco(id: string): Promise<ItemBanco | null> {
     let i = await json<Record<string, unknown>>(`/biblioteca/banco/${id}/item.json`)
     if (i.pai) {
       const pai = await json<Record<string, unknown>>(`/biblioteca/banco/${i.pai}/item.json`)
-      i = { ...Object.fromEntries(HERDADOS.map((k) => [k, pai[k]])), ...i, duracao: Math.round(((i.fim as number) - (i.inicio as number)) * 1000) / 1000 }
+      const vel = (i.velocidade as number) || 1
+      i = { ...Object.fromEntries(HERDADOS.map((k) => [k, pai[k]])), ...i, duracao: Math.round((((i.fim as number) - (i.inicio as number)) / vel) * 1000) / 1000 }
     }
     const base = `/biblioteca/banco/${(i.pai as string) || id}`
     const tipo = (i.tipo as string) === 'imagem' ? 'imagem' : 'video'

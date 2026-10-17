@@ -69,7 +69,7 @@ export async function marcarTrechos(item, trechos, aoSalvar, op = {}) {
     $('#te-lista', el).innerHTML = lista.length
       ? lista.map((t, k) => `<div class="te-item${k === sel ? ' sel' : ''}" data-k="${k}"><b>${k + 1}</b>
           <input value="${esc(t.nome)}" data-nome="${k}" aria-label="Nome do trecho ${k + 1}">
-          <span class="dica">${num(t.fim - t.inicio, 1)} s</span>
+          <span class="dica">${num((t.fim - t.inicio) / (t.velocidade || 1), 1)} s${t.velocidade && t.velocidade !== 1 ? ` · ${num(t.velocidade, 2)}×` : ''}</span>
           <button class="botao-icone pequeno" data-tocar-trecho="${k}" title="Tocar o trecho">${ICONE.tocar}</button>
           <button class="botao-icone pequeno" data-apagar-trecho="${k}" title="Apagar o trecho">${ICONE.lixo}</button></div>`).join('')
       : '<p class="dica">Arraste na linha do tempo para criar um trecho.</p>'

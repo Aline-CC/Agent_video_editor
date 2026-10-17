@@ -119,6 +119,7 @@ async function abrirSeletor(campo, posArroba) {
       v.src = x.clipe
       v.className = 'mencao-video'
       if (x.inicio == null) v.loop = true
+      v.defaultPlaybackRate = v.playbackRate = x.velocidade || 1 // o trecho na velocidade dele (o load volta ao padrão)
       v.addEventListener('timeupdate', () => x.inicio != null && v.currentTime >= x.fim - 0.05 && (v.currentTime = x.inicio))
       v.addEventListener('loadedmetadata', () => { if (x.inicio != null) v.currentTime = x.inicio; v.play().catch(() => {}) }, { once: true })
       mini.append(v)

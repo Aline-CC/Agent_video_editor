@@ -47,6 +47,8 @@ export type ItemBanco = {
   pai?: string
   inicio?: number
   fim?: number
+  /** A velocidade do trecho (2 = toca o dobro do original em metade do tempo); sem ela, 1. */
+  velocidade?: number
   /** O endereço do arquivo da exportação (o `exportacao.mp4`, quadro-chave a cada 6 quadros; senão o original). */
   url: string
 }

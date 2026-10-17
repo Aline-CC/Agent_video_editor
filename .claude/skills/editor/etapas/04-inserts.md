@@ -19,8 +19,9 @@ uv run ferramentas/inserts.py juntar <slug>      # liga as mídias achadas a cad
 1. **Materiais do criador** (`projetos/<slug>/apoio/`): se servem, use-os (suba ao banco).
 2. **O banco** (`banco.py buscar "<termos>"`): mídias já usadas em outros vídeos, com descrição, fonte e selo. Prefira
    as **★ usado em vídeo aprovado** e as **✓ aprovado** (o criador já gostou delas); evite as **✗ recusado** (ficaram de
-   fora de um vídeo aprovado). O mesmo clipe com outro corte aparece como **≡ versão** da principal: reaproveite uma
-   delas (ou crie um trecho) em vez de baixar de novo; se precisar de outro corte, o `adicionar` já o junta à principal.
+   fora de um vídeo aprovado). **O mesmo vídeo com outro tempo é um trecho, nunca um arquivo novo**: se o vídeo já está no
+   banco, use `banco.py trecho <id> <ini> <fim> [--velocidade 1.5]` (o pedaço e a velocidade de que este plano precisa)
+   em vez de cortar, acelerar e subir outra cópia. Um enquadramento diferente (outro recorte) fica como **≡ versão**.
 3. **Captura do site real** (`captura.py <url>`), quando a fala cita um site, ferramenta, produto ou repositório: grava
    a página rolando/carregando, como ela é. 16:9 para tela dividida; 9:16 (um computador em pé) para tela cheia.
 4. **Web, fontes oficiais**: o site, o blog, o changelog, o X ou o YouTube **do próprio produto** (vídeo: `yt-dlp` só do
@@ -54,7 +55,7 @@ precisa durar pelo menos a duração do insert. Proporção: horizontal para div
 horizontal, serve).
 Confira o que achou: olhe os quadros (`folha.py <video>` e leia a imagem; imagens, leia direto). Para um vídeo baixado
 cujo conteúdo você não consegue julgar pelos quadros, pergunte ao `gemini.py <video> "<pergunta>"`.
-Se só um trecho do vídeo serve, crie um trecho: `banco.py trecho <id> <ini> <fim>` e use o id do trecho. Capturas
+Se só um trecho do vídeo serve, crie um trecho: `banco.py trecho <id> <ini> <fim> [--velocidade V]` e use o id do trecho. Capturas
 começam em branco enquanto a página carrega: corte o começo branco com um trecho.
 Apague do banco o que você capturou ou baixou e NÃO usou: `banco.py apagar <id…>`.
 Se nada real servir, não monte um mockup seu: diga na nota (quem decide a troca é o editor).

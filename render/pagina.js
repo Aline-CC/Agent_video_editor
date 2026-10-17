@@ -369,7 +369,8 @@
       let i = await json(`/biblioteca/banco/${id}/item.json`);
       if (i.pai) {
         const pai = await json(`/biblioteca/banco/${i.pai}/item.json`);
-        i = { ...Object.fromEntries(HERDADOS.map((k) => [k, pai[k]])), ...i, duracao: Math.round((i.fim - i.inicio) * 1e3) / 1e3 };
+        const vel = i.velocidade || 1;
+        i = { ...Object.fromEntries(HERDADOS.map((k) => [k, pai[k]])), ...i, duracao: Math.round((i.fim - i.inicio) / vel * 1e3) / 1e3 };
       }
       const base = `/biblioteca/banco/${i.pai || id}`;
       const tipo = i.tipo === "imagem" ? "imagem" : "video";
@@ -1284,7 +1285,7 @@
     };
   }
   function videoNoTempo(m, item, rel, topo) {
-    const alvo = Math.min((item.inicio ?? 0) + rel, item.fim ?? Infinity);
+    const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1), item.fim ?? Infinity);
     return {
       chave: `m:${m.id}`,
       tag: "video",

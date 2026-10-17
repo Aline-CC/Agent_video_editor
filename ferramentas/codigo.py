@@ -120,7 +120,8 @@ def atribuir() -> dict:
         do_banco = {v['id']: c for c, v in reg.items() if v['tipo'] == 'midia'}
         for chave, _ in ex['trecho']:
             pai, id_ = chave.split('/')
-            if ('trecho', id_) in tem or pai not in do_banco:
+            # uma mídia que virou trecho de outra (banco.py virar-trecho) fica com o código que já tinha
+            if ('trecho', id_) in tem or ('midia', id_) in tem or pai not in do_banco:
                 continue
             base = do_banco[pai]
             sub[base] = sub.get(base, 0) + 1
@@ -269,7 +270,7 @@ def resolver(texto: str) -> None:
         usos = B.usos().get(id_, [])
         linhas = [f'arquivo: {rel(base / (i.get("arquivo") or "miniatura.jpg"))} · miniatura: {rel(base / "miniatura.jpg")}',
                   f'{i.get("tipo")} {i.get("formato")} · {i.get("largura")}×{i.get("altura")}' + (f' · {i.get("duracao")} s' if i.get('duracao') else ''),
-                  *([f'trecho de {reg_codigo(reg, "midia", i["pai"])} «{i.get("nome_pai")}» · {tempo(i["inicio"])}–{tempo(i["fim"])}'] if i.get('pai') else []),
+                  *([f'trecho de {reg_codigo(reg, "midia", i["pai"])} «{i.get("nome_pai")}» · {tempo(i["inicio"])}–{tempo(i["fim"])}{f' a {i["velocidade"]}×' if i.get('velocidade') else ''}'] if i.get('pai') else []),
                   f'descrição: {i.get("descricao") or "—"}', f'palavras: {", ".join(i.get("palavras") or []) or "—"}',
                   f'usado em: {", ".join(usos) or "nenhum projeto"}']
     elif tipo == 'referencia':
@@ -396,7 +397,7 @@ def marcaveis() -> list[dict]:
             if dono.get('tipo') == 'video':
                 x['clipe'] = f"/biblioteca/banco/{pai}/{dono.get('proxy') or 'proxy.mp4'}"
                 if item.get('pai'):
-                    x['inicio'], x['fim'] = item.get('inicio'), item.get('fim')
+                    x['inicio'], x['fim'], x['velocidade'] = item.get('inicio'), item.get('fim'), item.get('velocidade') or 1
             x['criado_em'] = item.get('criado_em') or ''
             x['tags'] = item.get('tags') or dono.get('tags') or []
             x['texto'] = ' '.join(filter(None, [dono.get('descricao'), *(dono.get('palavras') or []), dono.get('fonte')]))  # para a busca

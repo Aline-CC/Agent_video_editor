@@ -7,15 +7,20 @@
 
     uv run ferramentas/banco.py adicionar <arquivo> [--nome N] [--descricao D] [--palavras "a,b"] [--fonte url|upload|captura] [--projeto slug]
     uv run ferramentas/banco.py buscar <termos…>          nome, descrição e palavras-chave, sem diferenciar acentos
-    uv run ferramentas/banco.py trecho <id> <ini> <fim> [--nome N]   um pedaço de um vídeo (sem arquivo próprio)
+    uv run ferramentas/banco.py trecho <id> <ini> <fim> [--nome N] [--velocidade V]   um pedaço de um vídeo (sem arquivo próprio)
     uv run ferramentas/banco.py apagar <id…>              apaga mídias que não serviram (recusa se alguma está em uso)
     uv run ferramentas/banco.py listar
     uv run ferramentas/banco.py descrever <id>            o Gemini descreve e sugere palavras-chave
     uv run ferramentas/banco.py parecidas [<id>]          as mídias que mostram a mesma coisa (candidatas a versão)
     uv run ferramentas/banco.py versoes <principal> <id…> junta como versões da principal (um card só no app)
     uv run ferramentas/banco.py separar <id…>             tira uma versão do grupo (volta a ser um card)
+    uv run ferramentas/banco.py alinhar <id> <maior>      onde o vídeo <id> cai dentro de <maior>: início, velocidade, erro
+    uv run ferramentas/banco.py virar-trecho <id> <maior> [--forcar]   o vídeo vira um trecho do maior (o arquivo vai para
+                                                          a lixeira do banco; os projetos seguem com o mesmo id)
 
 Trechos (do 18): itens com `pai`, `inicio` e `fim`, que tocam o original e herdam dele a descrição, as palavras e o formato.
+Um trecho pode ter `velocidade` (2 = o dobro, em metade do tempo; 0,8 = mais devagar): a duração dele é (fim − início) ÷
+velocidade. Assim o mesmo vídeo serve a vários cortes sem arquivo novo (`trecho … --velocidade`).
 Versões: o mesmo clipe com outro corte, outra duração ou outra velocidade (cada projeto usa a sua; nada é apagado). A
 versão leva `versao_de` (o id da principal) e aparece dentro do card da principal. A comparação é um hash de até 5
 quadros (`assinatura`, guardada no item.json); ao entrar, uma mídia quase idêntica a outra já vira versão dela.
@@ -80,7 +85,12 @@ def _completar(i: dict) -> dict:
     if not i.get('pai'):
         return i
     pai = ler_json(RAIZ / i['pai'] / 'item.json') or {}
-    return {**{k: pai.get(k) for k in HERDADOS}, **i, 'duracao': round(i['fim'] - i['inicio'], 3), 'nome_pai': pai.get('nome')}
+    return {**{k: pai.get(k) for k in HERDADOS}, **i, 'duracao': duracao_trecho(i), 'nome_pai': pai.get('nome')}
+
+
+def duracao_trecho(t: dict) -> float:
+    """Quanto o trecho dura no vídeo: o intervalo no original dividido pela velocidade."""
+    return round((t['fim'] - t['inicio']) / (t.get('velocidade') or 1), 3)
 
 
 def ler_item(bid: str) -> dict:
@@ -219,6 +229,89 @@ def _promover_versoes(bid: str) -> None:
     """Antes de uma principal sair do banco: a versão mais nova vira a principal das outras."""
     if not (ler_json(RAIZ / bid / 'item.json') or {}).get('versao_de'):
         separar(bid)
+
+
+# ---------------------------------------------------------------- de versão a trecho (o mesmo vídeo, outro tempo)
+
+N_ALINHA = 16  # o hash de cada quadro no alinhamento (16×16 = 256 bits)
+ERRO_TRECHO = 16  # erro médio (bits de 256) até onde o vídeo é mesmo um pedaço do maior
+
+
+def _quadros(i: dict, fps: float | None = None) -> tuple[list[int], float]:
+    """Os hashes 16×16 de todos os quadros (ou a `fps`) do vídeo, e a taxa."""
+    arq = RAIZ / i['id'] / (i.get('proxy') or i['arquivo'])
+    if fps is None:
+        r = subprocess.run(['ffprobe', '-v', 'quiet', '-select_streams', 'v:0', '-show_entries', 'stream=avg_frame_rate', '-of', 'csv=p=0', str(arq)],
+                           capture_output=True, text=True).stdout.strip()
+        taxa = next((x for x in r.split() if re.fullmatch(r'\d+/\d+', x) and not x.endswith('/0')), '30/1')
+        fps = int(taxa.split('/')[0]) / int(taxa.split('/')[1])
+    n = N_ALINHA
+    px = subprocess.run(['ffmpeg', '-v', 'quiet', '-i', str(arq), '-vf', f'fps={fps},scale={n + 1}:{n}:flags=area,format=gray', '-f', 'rawvideo', '-'],
+                        capture_output=True).stdout
+    tam, out = (n + 1) * n, []
+    for k in range(len(px) // tam):
+        f = px[k * tam:(k + 1) * tam]
+        out.append(sum(1 << j for j, (r, c) in enumerate((r, c) for r in range(n) for c in range(n)) if f[r * (n + 1) + c] > f[r * (n + 1) + c + 1]))
+    return out, fps
+
+
+def _custo(qv: list[int], qm: list[int], fps: float, inicio: float, vel: float) -> float:
+    """O erro médio de pôr o quadro k do vídeo no instante inicio + k/fps × vel do maior (o que passa do fim conta cheio)."""
+    soma = 0
+    for k, h in enumerate(qv):
+        j = round((inicio + k / fps * vel) * fps)
+        soma += bin(h ^ qm[j]).count('1') if 0 <= j < len(qm) else N_ALINHA * N_ALINHA
+    return soma / max(len(qv), 1)
+
+
+def alinhar(vid: str, maior: str) -> dict:
+    """Onde o vídeo `vid` cai dentro de `maior`: o início (s), a velocidade e o erro médio (bits de 256; até ERRO_TRECHO,
+    é o mesmo vídeo). Primeiro numa grade grossa (10 quadros/s), depois no quadro do maior."""
+    v, m = ler_item(vid), ler_item(maior)
+    if v.get('tipo') != 'video' or m.get('tipo') != 'video' or v.get('pai') or m.get('pai'):
+        raise SystemExit('Só dois vídeos inteiros se alinham')
+    qv, _ = _quadros(v, 10)
+    qm, _ = _quadros(m, 10)
+    grossas = (0.5, 0.6, 0.667, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.333, 1.5, 1.75, 2.0)
+    erro, vel, ini = min((_custo(qv, qm, 10, o / 10, s), s, o / 10) for s in grossas for o in range(len(qm)))
+    qm, fps = _quadros(m)
+    qv, _ = _quadros(v, fps)
+    finas = [round(vel + d / 100, 3) for d in range(-8, 9) if vel + d / 100 > 0.2]
+    erro, vel, ini = min((_custo(qv, qm, fps, max(ini + d / fps, 0), s), s, round(max(ini + d / fps, 0), 3))
+                         for s in finas for d in range(-4, 5))
+    # perto de 1× (0,98, 1,01…) é o mesmo vídeo na mesma velocidade: a sobra é ruído da medição
+    if vel != 1 and abs(vel - 1) <= 0.03:
+        e1, i1 = min((_custo(qv, qm, fps, max(ini + d / fps, 0), 1.0), round(max(ini + d / fps, 0), 3)) for d in range(-6, 7))
+        if e1 <= erro + 1.5:
+            erro, vel, ini = e1, 1.0, i1
+    vel = round(vel, 2)
+    fim = round(min(ini + (v.get('duracao') or 0) * vel, m.get('duracao') or 0), 3)
+    return {'inicio': ini, 'fim': fim, 'velocidade': vel, 'erro': round(erro, 1), 'fps': fps}
+
+
+def virar_trecho(vid: str, maior: str, forcar: bool = False) -> dict:
+    """O vídeo `vid` vira um trecho de `maior` (o mesmo id, que os projetos já usam): os arquivos dele vão para a
+    lixeira do banco (`_lixeira/<id>-arquivos-<data>/`, recuperável) e ele passa a tocar o pedaço do maior, na
+    velocidade achada. Recusa se o encaixe não é bom (o erro passa de ERRO_TRECHO), salvo `forcar`."""
+    a = alinhar(vid, maior)
+    if a['erro'] > ERRO_TRECHO and not forcar:
+        raise SystemExit(f'{vid} não encaixa em {maior} (erro {a["erro"]} > {ERRO_TRECHO}): não é o mesmo vídeo')
+    v = ler_item(vid)
+    lixo = RAIZ / '_lixeira' / f'{vid}-arquivos-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+    lixo.mkdir(parents=True)
+    for arq in (RAIZ / vid).iterdir():
+        if arq.name != 'item.json':
+            shutil.move(str(arq), str(lixo / arq.name))
+    shutil.copy2(RAIZ / vid / 'item.json', lixo / 'item.json')
+    fica = {k: v[k] for k in ('id', 'nome', 'criado_em', 'projeto', 'tags', 'estado', 'do_criador', 'fonte') if v.get(k)}
+    fica.update({k: v[k] for k in ('descricao', 'palavras') if v.get(k)})  # a descrição dele, se tinha (senão herda)
+    novo = {**fica, 'pai': maior, 'inicio': a['inicio'], 'fim': a['fim'], **velocidade_campo(a['velocidade']),
+            'virou_trecho': {'em': datetime.now().isoformat(timespec='seconds'), 'erro': a['erro'], 'arquivos': str(lixo.relative_to(RAIZ))}}
+    gravar_json(RAIZ / vid / 'item.json', novo)
+    m = ler_item(maior)
+    ffmpeg('-ss', f'{(a["inicio"] + a["fim"]) / 2:.3f}', '-i', str(RAIZ / maior / (m.get('proxy') or m['arquivo'])), '-frames:v', '1',
+           '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / vid / 'miniatura.jpg'))
+    return {**ler_item(vid), 'alinhamento': a}
 
 
 def para_busca(t: str) -> str:
@@ -363,7 +456,7 @@ def listar_banco(busca: str = '') -> list[dict]:
             originais.append(i)
     itens = []
     for i in originais:
-        filhos = [{**{k: i.get(k) for k in HERDADOS}, **t, 'duracao': round(t['fim'] - t['inicio'], 3), 'nome_pai': i.get('nome')}
+        filhos = [{**{k: i.get(k) for k in HERDADOS}, **t, 'duracao': duracao_trecho(t), 'nome_pai': i.get('nome')}
                   for t in sorted(trechos.get(i['id'], []), key=lambda t: t['inicio'])]
         if termos:
             texto = ' '.join(para_busca(x) for x in ' '.join([i.get('nome') or '', i.get('descricao') or '', ' '.join(i['palavras']),
@@ -428,8 +521,8 @@ def adicionar(arquivo: Path, nome: str | None = None, descricao: str = '', palav
     return item
 
 
-def criar_trecho(pai: str, inicio: float, fim: float, nome: str | None = None) -> dict:
-    """Um trecho de um vídeo do banco (sem arquivo próprio: toca o original). Do 18: banco.criar_trecho."""
+def criar_trecho(pai: str, inicio: float, fim: float, nome: str | None = None, velocidade: float = 1.0) -> dict:
+    """Um trecho de um vídeo do banco (sem arquivo próprio: toca o original, na `velocidade`). Do 18: banco.criar_trecho."""
     original = ler_item(pai)
     if original.get('pai') or original['tipo'] != 'video':
         raise SystemExit('Só vídeos originais têm trechos')
@@ -440,10 +533,19 @@ def criar_trecho(pai: str, inicio: float, fim: float, nome: str | None = None) -
     tid = uuid.uuid4().hex[:10]
     (RAIZ / tid).mkdir(parents=True)
     salvar_item({'id': tid, 'pai': pai, 'inicio': ini, 'fim': fim, 'nome': (nome or '').strip()[:200] or f'{original["nome"]} · trecho {n}',
-                 'criado_em': datetime.now().isoformat(timespec='milliseconds')})
+                 'criado_em': datetime.now().isoformat(timespec='milliseconds'), **velocidade_campo(velocidade)})
     ffmpeg('-ss', f'{(ini + fim) / 2:.3f}', '-i', str(RAIZ / pai / (original.get('proxy') or original['arquivo'])), '-frames:v', '1',
            '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / tid / 'miniatura.jpg'))
     return ler_item(tid)
+
+
+VELOCIDADES = (0.25, 4.0)
+
+
+def velocidade_campo(v) -> dict:
+    """O campo `velocidade` do trecho: só quando não é 1 (dentro de 0,25× a 4×)."""
+    v = round(min(max(float(v or 1), VELOCIDADES[0]), VELOCIDADES[1]), 3)
+    return {} if v == 1 else {'velocidade': v}
 
 
 def editar_trecho(tid: str, inicio: float, fim: float) -> dict:
@@ -544,7 +646,8 @@ def mostrar(itens: list[dict]) -> None:
         for t in i.get('trechos') or []:
             u = f'  [em {", ".join(onde[t["id"]])}]' if onde.get(t['id']) else ''
             e = est.get(t['id'], {}).get('estado')
-            print(f'  └ {t["id"]}  trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s ({num(t["duracao"])} s)  {t.get("nome")}{u}{f"  ({SELO[e]})" if e else ""}')
+            vel = f' a {num(t["velocidade"], 2)}×' if t.get('velocidade') else ''
+            print(f'  └ {t["id"]}  trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s{vel} ({num(t["duracao"])} s)  {t.get("nome")}{u}{f"  ({SELO[e]})" if e else ""}')
 
 
 if __name__ == '__main__':
@@ -564,6 +667,7 @@ if __name__ == '__main__':
     t.add_argument('ini', type=float)
     t.add_argument('fim', type=float)
     t.add_argument('--nome')
+    t.add_argument('--velocidade', type=float, default=1.0)
     sub.add_parser('listar')
     d = sub.add_parser('descrever')
     d.add_argument('id')
@@ -576,6 +680,13 @@ if __name__ == '__main__':
     ve.add_argument('ids', nargs='+')
     se = sub.add_parser('separar')
     se.add_argument('ids', nargs='+')
+    al = sub.add_parser('alinhar')
+    al.add_argument('id')
+    al.add_argument('maior')
+    vt = sub.add_parser('virar-trecho')
+    vt.add_argument('id')
+    vt.add_argument('maior')
+    vt.add_argument('--forcar', action='store_true')
     args = ap.parse_args()
     if args.cmd == 'adicionar':
         item = adicionar(Path(args.arquivo), args.nome, args.descricao, args.palavras.split(','), args.fonte, args.projeto)
@@ -583,8 +694,9 @@ if __name__ == '__main__':
     elif args.cmd == 'buscar':
         mostrar(listar_banco(' '.join(args.termos)))
     elif args.cmd == 'trecho':
-        item = criar_trecho(args.id, args.ini, args.fim, args.nome)
-        print(f'{item["id"]}  trecho {num(item["inicio"], 2)}–{num(item["fim"], 2)} s de {args.id}  {item["nome"]}')
+        item = criar_trecho(args.id, args.ini, args.fim, args.nome, args.velocidade)
+        vel = f' a {num(item["velocidade"], 2)}×' if item.get('velocidade') else ''
+        print(f'{item["id"]}  trecho {num(item["inicio"], 2)}–{num(item["fim"], 2)} s de {args.id}{vel} ({num(item["duracao"], 2)} s)  {item["nome"]}')
     elif args.cmd == 'listar':
         mostrar(listar_banco())
     elif args.cmd == 'apagar':
@@ -600,6 +712,14 @@ if __name__ == '__main__':
         for bid in args.ids:
             separar(bid)
             print('separada:', bid)
+    elif args.cmd == 'alinhar':
+        a = alinhar(args.id, args.maior)
+        ok = 'é um trecho dele' if a['erro'] <= ERRO_TRECHO else 'não é o mesmo vídeo'
+        print(f"{args.id} em {args.maior}: {num(a['inicio'], 3)}–{num(a['fim'], 3)} s a {num(a['velocidade'], 3)}× · erro {num(a['erro'])} ({ok})")
+    elif args.cmd == 'virar-trecho':
+        t = virar_trecho(args.id, args.maior, args.forcar)
+        a = t['alinhamento']
+        print(f"{args.id} agora é trecho de {args.maior}: {num(a['inicio'], 3)}–{num(a['fim'], 3)} s a {num(a['velocidade'], 3)}× (erro {num(a['erro'])}); arquivos em _lixeira/")
     elif args.cmd == 'descrever':
         item = descrever(args.id)
         print(f'{item["id"]}  {item["nome"]}\nDescrição (IA): {item["descricao_ia"]}\nPalavras-chave: {", ".join(item["palavras"])}')

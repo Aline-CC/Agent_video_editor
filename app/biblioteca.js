@@ -70,6 +70,9 @@ function origemDe(o) {
 
 /** Os selos do banco e dos motions (o que entrou num vídeo aprovado, o aprovado à mão, o recusado). */
 const SELOS = { usado: ['Usado em vídeo', 'selo-menta'], aprovado: ['Aprovado', 'selo-azul'], recusado: ['Recusado', 'selo-coral'] }
+/** A duração de um trecho no vídeo (o intervalo no original dividido pela velocidade) e o "· 2×" quando não é 1. */
+const durTrecho = (t) => (t.fim - t.inicio) / (t.velocidade || 1)
+const velTrecho = (t) => (t.velocidade && t.velocidade !== 1 ? ` · ${num(t.velocidade, 2).replace(/,?0+$/, '')}×` : '')
 const FILTROS_BANCO = { todos: ['Todos', null], usado: ['Usados', 'usado'], aprovado: ['Aprovados', 'check'], recusado: ['Recusados', 'fechar'], sem: ['Em edição', 'semSelo'] }
 /** Os chips de onde a peça entrou nos vídeos aprovados ("PRJ-05·p3"): abrem a revisão da versão aprovada naquele plano. */
 const chipsDeUso = (usos, cods) => (usos || []).map((u) => {
@@ -140,7 +143,7 @@ async function bancoInserts(el, tipo = 'inserts') {
       <div class="card-titulo"><h3 title="${esc([it.descricao, it.fonte].filter(Boolean).join('\n'))}">${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
       ${e.usos?.length ? `<div class="estado-banco">${chipsDeUso(e.usos, cods)}</div>` : ''}
       ${htmlTagsCard(it.tags)}
-      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)}</span></li>`).join('')}</ul>` : ''}
+      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}" data-vel="${t.velocidade || 1}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(durTrecho(t))}${velTrecho(t)}</span></li>`).join('')}</ul>` : ''}
     </article>`
   })
   // os motions na mesma grade: a prévia em pé no meio do card, o chip "Motion" e os selos do mesmo jeito
@@ -282,10 +285,12 @@ async function bancoInserts(el, tipo = 'inserts') {
       li.addEventListener('mouseenter', () => {
         trecho = [+li.dataset.ini, +li.dataset.fim]
         v.currentTime = trecho[0]
+        v.playbackRate = +li.dataset.vel || 1 // o trecho na velocidade dele
         li.classList.add('ativo')
       })
       li.addEventListener('mouseleave', () => {
         trecho = null
+        v.playbackRate = 1
         li.classList.remove('ativo')
       })
     }
@@ -339,7 +344,7 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}, est
           <div class="acoes-linha">${d.versoes.length && id !== d.principal ? '<button class="botao pequeno" type="button" data-tornar-principal title="O card do Banco passa a mostrar esta">Tornar principal</button>' : ''}
             ${d.versoes.length ? '<button class="botao pequeno" type="button" data-separar title="Esta volta a ser um card sozinha">Separar desta</button>' : ''}
             <input class="campo-versao" data-juntar placeholder="BAN-…" aria-label="Código da outra mídia"><button class="botao pequeno" type="button" data-juntar-btn title="Junta esta mídia como versão de outra (o código dela)">Juntar como versão de</button></div></div>
-        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(t.fim - t.inicio)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
+        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(durTrecho(t))}${velTrecho(t)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
         <div class="bloco-lista"><span class="eyebrow">Usada em · ${usos.length}</span>
           ${usos.length ? `<ul class="lista-simples">${usos.map((u) => `<li><a href="#/p/${encodeURIComponent(projetoDe(u))}" data-fechar>${esc(u)}</a></li>`).join('')}</ul>` : '<p class="dica">Nenhum projeto usa esta mídia.</p>'}</div>
       </form>
