@@ -1,5 +1,6 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
+import { carregarMarcaveis, htmlComMencoes, seDigitouArroba } from './mencoes.js'
 import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, preferencia, tempo } from './comum.js'
 
 const QUADRO = 1 / 24
@@ -171,7 +172,7 @@ class Revisao {
             <button class="botao-icone pequeno" data-acao="soltar" id="nova-soltar" hidden title="Soltar: a caixa volta a acompanhar o vídeo">${ICONE.fechar}</button></div>
           <textarea id="nova-texto" rows="3" placeholder="O que mudar aqui? Ao escrever, o vídeo pausa e o comentário fica neste instante."></textarea>
           <div id="nova-anexos"></div>
-          <div class="editor-acoes">${clipe('nova')}<span class="dica">Enter grava · Shift+Enter quebra a linha · ⌘V cola print ou vídeo</span>
+          <div class="editor-acoes">${clipe('nova')}<span class="dica">Enter grava · Shift+Enter quebra a linha · @ marca elementos · ⌘V cola print ou vídeo</span>
             <button class="botao pequeno botao-coral" data-acao="salvar-nova">Comentar</button></div></div>
       </aside>
     </div>`
@@ -351,7 +352,7 @@ class Revisao {
         ${c.geral ? '<span class="chip-tempo estatico">Geral</span>' : `<button class="chip-tempo" data-ir="${c.t}">${quando(c)}</button>`}
         <span class="item-acoes"><button class="botao-icone pequeno" data-editar="${c.id}" title="Editar">${ICONE.lapis}</button>
         <button class="botao-icone pequeno" data-apagar="${c.id}" title="Apagar">${ICONE.lixo}</button></span></header>
-      ${c.texto ? `<p class="texto">${esc(c.texto)}</p>` : ''}${this.htmlAnexos(c.anexos, c.id)}
+      ${c.texto ? `<p class="texto">${htmlComMencoes(c.texto)}</p>` : ''}${this.htmlAnexos(c.anexos, c.id)}
       ${this.htmlResposta(c)}
     </article>`
   }
@@ -1003,6 +1004,9 @@ class Revisao {
     $('#barra-versao').addEventListener('click', this.cliques)
     this.teclas = (e) => this.tecla(e)
     window.addEventListener('keydown', this.teclas)
+    // o @ nas caixas de comentário (a nova e a do editor) abre o seletor de elementos (mencoes.js)
+    carregarMarcaveis().then(() => this.renderLista?.())
+    this.tela.addEventListener('input', (e) => e.target.matches?.('#nova-texto, #editor-texto') && seDigitouArroba(e.target, e))
     this.redim = () => this.ajustar && this.renderLinha()
     window.addEventListener('resize', this.redim)
     this.saida = () => {

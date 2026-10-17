@@ -342,6 +342,112 @@ def resolver(texto: str) -> None:
         print(f'  {l}')
 
 
+def usos_recentes() -> dict[tuple[str, str], str]:
+    """Quando cada coisa foi usada pela última vez: {(tipo, id): data da versão}, olhando a última versão de cada projeto
+    (mídias dos inserts e os pais dos trechos, presets, motions, transições e a trilha)."""
+    out: dict[tuple[str, str], str] = {}
+
+    def marca(tipo, id_, quando):
+        if id_ and quando > out.get((tipo, id_), ''):
+            out[(tipo, id_)] = quando
+    for p in PROJETOS.iterdir():
+        vs = sorted((int(d.name[1:]) for d in (p / 'versoes').glob('v*') if d.name[1:].isdigit()), reverse=True) if (p / 'versoes').is_dir() else []
+        if not vs:
+            continue
+        v = p / 'versoes' / f'v{vs[0]}'
+        e, quando = ler_json(v / 'edicao.json', {}) or {}, (ler_json(v / 'info.json', {}) or {}).get('criado_em') or ''
+        for q in (e.get('inserts') or {}).get('pedidos') or []:
+            for m in q.get('midias') or []:
+                marca('midia', m.get('banco'), quando)
+                marca('midia', (ler_json(BIBLIOTECA / 'banco' / str(m.get('banco')) / 'item.json', {}) or {}).get('pai'), quando)
+            marca('preset', (q.get('enriquecimento') or {}).get('preset'), quando)
+        for m in (e.get('motions') or {}).values():
+            marca('motion', m.get('preset'), quando)
+        for t in (e.get('transicoes') or {}).values():
+            marca('transicao', t.get('id'), quando)
+        marca('trilha', (e.get('audio') or {}).get('fundo'), quando)
+    return out
+
+
+def marcaveis() -> list[dict]:
+    """O que se marca com @ num comentário da revisão: {codigo, tipo, id, nome, mini (imagem), clipe (vídeo, com inicio e
+    fim quando é um trecho), audio, tags, usado_em}, só do que ainda existe na biblioteca (o registro guarda os apagados).
+    As tags são as do Banco e dos Motions; nos outros, as do próprio item (o formato do preset, a família do som,
+    produto/categoria do CTA), só para filtrar."""
+    B = BIBLIOTECA
+    trilhas = ler_json(B / 'trilhas' / 'catalogo.json', {}) or {}
+    trilhas = {f['id']: f for f in (trilhas.get('faixas', trilhas) if isinstance(trilhas, dict) else trilhas)}
+    sons = {s['id']: s for s in ler_json(B / 'sons' / 'catalogo.json', []) or []}
+    tags_motion = ler_json(B / 'motions' / '_tags.json', {}) or {}
+    formatos = {'dividida': 'tela-dividida', 'vertical': 'tela-cheia'}
+    usos = usos_recentes()
+    out = []
+    for c, v in atribuir().items():
+        tipo, id_ = v['tipo'], v['id']
+        x = {'codigo': c, 'tipo': 'midia' if tipo == 'trecho' else tipo, 'id': id_}
+        if tipo in ('midia', 'trecho'):
+            item = ler_json(B / 'banco' / id_ / 'item.json')
+            if not item:
+                continue
+            pai = item.get('pai') or id_
+            dono = ler_json(B / 'banco' / pai / 'item.json', {}) or {}
+            x['nome'] = item.get('nome') or id_
+            x['mini'] = f'/biblioteca/banco/{pai}/miniatura.jpg'
+            if dono.get('tipo') == 'video':
+                x['clipe'] = f"/biblioteca/banco/{pai}/{dono.get('proxy') or 'proxy.mp4'}"
+                if item.get('pai'):
+                    x['inicio'], x['fim'] = item.get('inicio'), item.get('fim')
+            x['criado_em'] = item.get('criado_em') or ''
+            x['tags'] = item.get('tags') or dono.get('tags') or []
+            if item.get('pai'):
+                x['trecho'] = True
+        elif tipo == 'preset':
+            p = ler_json(B / 'presets' / f'{id_}.json')
+            if not p:
+                continue
+            x['clipe'] = f'/biblioteca/presets/clipes/{id_}.mp4' if (B / 'presets' / 'clipes' / f'{id_}.mp4').is_file() else None
+            x['tags'] = [formatos.get(p.get('formato'), p.get('formato'))] if p.get('formato') else []
+            x['criado_em'] = p.get('criado_em') or ''
+        elif tipo == 'motion':
+            arq = B / 'motions' / 'presets' / f'{id_}.html'
+            if not arq.is_file():
+                continue
+            x['tags'] = tags_motion.get(id_, [])
+            x['criado_em'] = dados_motion(arq).get('criado_em') or ''
+        elif tipo == 'transicao':
+            if not (B / 'transicoes' / f'{id_}.json').is_file():
+                continue
+            x['clipe'] = f'/biblioteca/transicoes/clipes/{id_}.mp4' if (B / 'transicoes' / 'clipes' / f'{id_}.mp4').is_file() else None
+        elif tipo == 'trilha':
+            if id_ not in trilhas:
+                continue
+            x['audio'] = f'/biblioteca/trilhas/{id_}.m4a'
+            x['tags'] = ['trilhas']
+        elif tipo == 'som':
+            if id_ not in sons:
+                continue
+            x['audio'] = f'/biblioteca/sons/{id_}.m4a'
+            x['tags'] = [f"sons/{sons[id_].get('familia') or 'outros'}".lower()]
+        elif tipo == 'cta':
+            cta = ler_json(B / 'ctas' / id_ / 'cta.json')
+            if not cta:
+                continue
+            base = f'/biblioteca/ctas/{id_}/'
+            x['nome'] = cta.get('nome') or id_
+            x['mini'] = base + 'miniatura.jpg'
+            x['clipe'] = base + 'proxy.mp4'
+            if cta.get('inicio') is not None:
+                x['inicio'], x['fim'] = cta.get('inicio'), cta.get('fim')
+            x['tags'] = ['/'.join(t for t in (cta.get('produto'), cta.get('categoria')) if t)] if cta.get('produto') or cta.get('categoria') else []
+            x['criado_em'] = cta.get('criado_em') or ''
+        else:
+            continue  # projetos e referências inteiras não se marcam aqui (os planos das referências vêm do servidor)
+        x.setdefault('nome', nome_de(tipo, id_))
+        x['usado_em'] = usos.get((x['tipo'], id_), '')
+        out.append(x)
+    return sorted(out, key=lambda x: [int(n) if n.isdigit() else n for n in re.split(r'(\d+)', x['codigo'])])  # BAN-074.2 antes do .10
+
+
 def reg_codigo(reg: dict, tipo: str, id_: str | None) -> str:
     return next((c for c, v in reg.items() if v['tipo'] == tipo and v['id'] == id_), '?')
 

@@ -33,7 +33,7 @@ Rotas (JSON; um erro volta como {"erro": "…"}, com 422 numa validação):
   /api/projetos/<slug>: a pasta vai para projetos/_lixeira/<slug>-AAAAMMDD-HHMMSS (nada sai do disco).
 - Anexos da revisão: POST /api/revisao/<slug>/v<N>/anexo?comentario=<c3|geral> (a imagem ou o vídeo cru no corpo) →
   {caminho: "revisoes/anexos/c3-1.png"} · DELETE /api/revisao/<slug>/v<N>/anexo?caminho=revisoes/anexos/c3-1.png.
-- GET /api/codigos: {tipo: {id: código}} (ferramentas/codigo.py; dá o próximo número aos itens novos).
+- GET /api/marcaveis: o que o @ dos comentários marca (codigo.marcaveis e os planos das Referências). · GET /api/codigos: {tipo: {id: código}} (ferramentas/codigo.py; dá o próximo número aos itens novos).
 """
 import hashlib
 import json
@@ -258,6 +258,22 @@ TRAVA_ANEXO = threading.Lock()
 def _codigos(h, q):
     import codigo
     return codigo.mapa()
+
+
+@rota('GET', '/api/marcaveis')
+def _marcaveis(h, q):
+    """O que se marca com @ nos comentários da revisão (codigo.marcaveis) e os planos das Referências (REF-NN·pK)."""
+    import codigo
+    itens = codigo.marcaveis()
+    refs = codigo.mapa().get('referencia') or {}
+    for c in calibragem().clipes()['clipes']:
+        if c['ref'] not in refs or c.get('tipo') in ('full_ator', 'full_ator_lettering'):
+            continue  # só o ator não é exemplo de edição
+        itens.append({'codigo': f"{refs[c['ref']]}·{c['id']}", 'tipo': 'referencia', 'id': f"{c['ref']}/{c['id']}",
+                      'nome': f"{c['ref_nome']} · {c['descricao'][:70]}" if c.get('descricao') else c['ref_nome'],
+                      'mini': c.get('miniatura'), 'clipe': c.get('video'), 'inicio': c['inicio'], 'fim': c['fim'],
+                      'tags': c.get('tags') or [], 'favorito': c.get('favorito'), 'usado_em': ''})
+    return {'itens': itens}
 
 
 # ---- calibragem e referências
