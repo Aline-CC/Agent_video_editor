@@ -20,7 +20,9 @@
 
 Trechos (do 18): itens com `pai`, `inicio` e `fim`, que tocam o original e herdam dele a descrição, as palavras e o formato.
 Um trecho pode ter `velocidade` (2 = o dobro, em metade do tempo; 0,8 = mais devagar): a duração dele é (fim − início) ÷
-velocidade. Assim o mesmo vídeo serve a vários cortes sem arquivo novo (`trecho … --velocidade`).
+velocidade. Assim o mesmo vídeo serve a vários cortes sem arquivo novo (`trecho … --velocidade`). Uma imagem não tem
+tempo (quanto ela fica na tela é a edição que diz): a mesma imagem em outra resolução vira um item com `pai` e sem
+intervalo (início e fim 0), que mostra a imagem do pai, com o id e o código que já tinha.
 Versões: o mesmo clipe com outro corte, outra duração ou outra velocidade (cada projeto usa a sua; nada é apagado). A
 versão leva `versao_de` (o id da principal) e aparece dentro do card da principal. A comparação é um hash de até 5
 quadros (`assinatura`, guardada no item.json); ao entrar, uma mídia quase idêntica a outra já vira versão dela.
@@ -89,8 +91,8 @@ def _completar(i: dict) -> dict:
 
 
 def duracao_trecho(t: dict) -> float:
-    """Quanto o trecho dura no vídeo: o intervalo no original dividido pela velocidade."""
-    return round((t['fim'] - t['inicio']) / (t.get('velocidade') or 1), 3)
+    """Quanto o trecho dura no vídeo: o intervalo no original dividido pela velocidade (a imagem igual: 0)."""
+    return round(((t.get('fim') or 0) - (t.get('inicio') or 0)) / (t.get('velocidade') or 1), 3)
 
 
 def ler_item(bid: str) -> dict:
@@ -289,14 +291,38 @@ def alinhar(vid: str, maior: str) -> dict:
     return {'inicio': ini, 'fim': fim, 'velocidade': vel, 'erro': round(erro, 1), 'fps': fps}
 
 
+def igual_imagem(vid: str, maior: str) -> dict:
+    """Se a imagem `vid` é a mesma que `maior` noutra resolução: a mesma proporção (até 1%) e o mesmo desenho (o hash
+    32×32 a até LIMITE_SOZINHA bits)."""
+    v, m = ler_item(vid), ler_item(maior)
+    if v.get('tipo') != 'imagem' or m.get('tipo') != 'imagem' or v.get('pai') or m.get('pai'):
+        raise SystemExit('Só duas imagens inteiras se comparam')
+    prop = abs(math.log((v['largura'] / v['altura']) / (m['largura'] / m['altura'])))
+    erro = distancia(assinatura(v), assinatura(m))
+    return {'inicio': 0, 'fim': 0, 'velocidade': 1, 'erro': erro, 'mesma': prop <= 0.01 and erro <= LIMITE_SOZINHA,
+            'menor': v['largura'] * v['altura'] <= m['largura'] * m['altura']}
+
+
 def virar_trecho(vid: str, maior: str, forcar: bool = False) -> dict:
     """O vídeo `vid` vira um trecho de `maior` (o mesmo id, que os projetos já usam): os arquivos dele vão para a
     lixeira do banco (`_lixeira/<id>-arquivos-<data>/`, recuperável) e ele passa a tocar o pedaço do maior, na
-    velocidade achada. Recusa se o encaixe não é bom (o erro passa de ERRO_TRECHO), salvo `forcar`."""
-    a = alinhar(vid, maior)
-    if a['erro'] > ERRO_TRECHO and not forcar:
-        raise SystemExit(f'{vid} não encaixa em {maior} (erro {a["erro"]} > {ERRO_TRECHO}): não é o mesmo vídeo')
+    velocidade achada. Recusa se o encaixe não é bom (o erro passa de ERRO_TRECHO), salvo `forcar`. Duas imagens: a
+    `vid` passa a mostrar a `maior` (a mesma imagem, sem tempo), se é mesmo a mesma noutra resolução."""
+    if ler_item(vid).get('tipo') == 'imagem':
+        a = igual_imagem(vid, maior)
+        if not a['mesma'] and not forcar:
+            raise SystemExit(f'{vid} não é a mesma imagem que {maior} (proporção ou desenho diferentes, erro {a["erro"]})')
+    else:
+        a = alinhar(vid, maior)
+        if a['erro'] > ERRO_TRECHO and not forcar:
+            raise SystemExit(f'{vid} não encaixa em {maior} (erro {a["erro"]} > {ERRO_TRECHO}): não é o mesmo vídeo')
     v = ler_item(vid)
+    filhos = [i for i in todos() if i.get('pai') == vid]
+    if filhos and v.get('tipo') == 'video':
+        raise SystemExit(f'{vid} tem trechos próprios ({", ".join(i["id"] for i in filhos)}): os tempos deles mudariam')
+    for i in filhos + [i for i in todos() if i.get('versao_de') == vid]:  # quem apontava para ela passa a apontar para a maior
+        i['pai' if i.get('pai') == vid else 'versao_de'] = maior
+        salvar_item(i)
     lixo = RAIZ / '_lixeira' / f'{vid}-arquivos-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
     lixo.mkdir(parents=True)
     for arq in (RAIZ / vid).iterdir():
@@ -309,8 +335,11 @@ def virar_trecho(vid: str, maior: str, forcar: bool = False) -> dict:
             'virou_trecho': {'em': datetime.now().isoformat(timespec='seconds'), 'erro': a['erro'], 'arquivos': str(lixo.relative_to(RAIZ))}}
     gravar_json(RAIZ / vid / 'item.json', novo)
     m = ler_item(maior)
-    ffmpeg('-ss', f'{(a["inicio"] + a["fim"]) / 2:.3f}', '-i', str(RAIZ / maior / (m.get('proxy') or m['arquivo'])), '-frames:v', '1',
-           '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / vid / 'miniatura.jpg'))
+    if m.get('tipo') == 'imagem':
+        shutil.copy2(RAIZ / maior / 'miniatura.jpg', RAIZ / vid / 'miniatura.jpg')
+    else:
+        ffmpeg('-ss', f'{(a["inicio"] + a["fim"]) / 2:.3f}', '-i', str(RAIZ / maior / (m.get('proxy') or m['arquivo'])), '-frames:v', '1',
+               '-vf', 'scale=-2:360', '-q:v', '4', str(RAIZ / vid / 'miniatura.jpg'))
     return {**ler_item(vid), 'alinhamento': a}
 
 
@@ -513,10 +542,14 @@ def adicionar(arquivo: Path, nome: str | None = None, descricao: str = '', palav
         'largura': info.get('largura'), 'altura': info.get('altura'), 'duracao': (info.get('duracao') or 0.0) if tipo == 'video' else 0.0,
         'formato': formato_de(info.get('largura'), info.get('altura')), 'origem': origem, 'fonte': fonte, 'projeto': projeto,
         'criado_em': datetime.now().isoformat(timespec='seconds'), 'ia': {'status': 'pendente', 'erro': None}})
-    # o mesmo clipe que já está no banco (outro corte, outra duração): entra como versão dele, num card só
+    # o mesmo clipe que já está no banco (outro corte, outra duração): entra como versão dele, num card só; a mesma
+    # imagem noutra resolução: fica só a maior (a outra passa a mostrá-la, com o id e o código dela)
     if (iguais := parecidas(bid, LIMITE_SOZINHA)):
-        outro = iguais[0][2] if iguais[0][1] == bid else iguais[0][1]
-        item['versao_de'] = principal(outro)
+        outro = principal(iguais[0][2] if iguais[0][1] == bid else iguais[0][1])
+        if tipo == 'imagem' and (ig := igual_imagem(bid, outro))['mesma']:
+            virar_trecho(*((bid, outro) if ig['menor'] else (outro, bid)))
+            return ler_item(bid)
+        item['versao_de'] = outro
         salvar_item(item)
     return item
 
@@ -647,7 +680,8 @@ def mostrar(itens: list[dict]) -> None:
             u = f'  [em {", ".join(onde[t["id"]])}]' if onde.get(t['id']) else ''
             e = est.get(t['id'], {}).get('estado')
             vel = f' a {num(t["velocidade"], 2)}×' if t.get('velocidade') else ''
-            print(f'  └ {t["id"]}  trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s{vel} ({num(t["duracao"])} s)  {t.get("nome")}{u}{f"  ({SELO[e]})" if e else ""}')
+            onde_ = 'a mesma imagem' if i.get('tipo') == 'imagem' else f'trecho {num(t["inicio"], 2)}–{num(t["fim"], 2)} s{vel} ({num(t["duracao"])} s)'
+            print(f'  └ {t["id"]}  {onde_}  {t.get("nome")}{u}{f"  ({SELO[e]})" if e else ""}')
 
 
 if __name__ == '__main__':
@@ -719,7 +753,10 @@ if __name__ == '__main__':
     elif args.cmd == 'virar-trecho':
         t = virar_trecho(args.id, args.maior, args.forcar)
         a = t['alinhamento']
-        print(f"{args.id} agora é trecho de {args.maior}: {num(a['inicio'], 3)}–{num(a['fim'], 3)} s a {num(a['velocidade'], 3)}× (erro {num(a['erro'])}); arquivos em _lixeira/")
+        if t.get('tipo') == 'imagem':
+            print(f"{args.id} agora mostra a imagem de {args.maior} (a mesma, erro {a['erro']}); o arquivo foi para _lixeira/")
+        else:
+            print(f"{args.id} agora é trecho de {args.maior}: {num(a['inicio'], 3)}–{num(a['fim'], 3)} s a {num(a['velocidade'], 3)}× (erro {num(a['erro'])}); arquivos em _lixeira/")
     elif args.cmd == 'descrever':
         item = descrever(args.id)
         print(f'{item["id"]}  {item["nome"]}\nDescrição (IA): {item["descricao_ia"]}\nPalavras-chave: {", ".join(item["palavras"])}')

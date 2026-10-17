@@ -67,7 +67,8 @@ criador corrigiu num vídeo não pode se repetir no próximo.
    candidatas (imagens parecidas de propósito, como as variações de uma ficha, não são o mesmo clipe). Se é o mesmo
    vídeo com outro tempo ou outra velocidade, ele vira trecho do mais longo: `banco.py alinhar <id> <maior>` mostra onde
    cai (e o erro) e `banco.py virar-trecho <id> <maior>` converte (o mesmo id e o mesmo código; os arquivos vão para a
-   lixeira do banco). Se é o mesmo clipe com outro enquadramento, ou uma imagem, junte como versão:
+   lixeira do banco). A mesma imagem noutra resolução (a mesma proporção) também: `virar-trecho <menor> <maior>` faz a
+   menor mostrar a maior, com o código que tinha. Se é o mesmo clipe com outro enquadramento, junte como versão:
    `banco.py versoes <principal> <id…>` (a de maior resolução como principal). No app, cada grupo vira um card só.
 
 ## 3. Consolidar (a cada 5 vídeos aprovados)

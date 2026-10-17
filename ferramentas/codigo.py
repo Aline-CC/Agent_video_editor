@@ -270,7 +270,8 @@ def resolver(texto: str) -> None:
         usos = B.usos().get(id_, [])
         linhas = [f'arquivo: {rel(base / (i.get("arquivo") or "miniatura.jpg"))} · miniatura: {rel(base / "miniatura.jpg")}',
                   f'{i.get("tipo")} {i.get("formato")} · {i.get("largura")}×{i.get("altura")}' + (f' · {i.get("duracao")} s' if i.get('duracao') else ''),
-                  *([f'trecho de {reg_codigo(reg, "midia", i["pai"])} «{i.get("nome_pai")}» · {tempo(i["inicio"])}–{tempo(i["fim"])}{f' a {i["velocidade"]}×' if i.get('velocidade') else ''}'] if i.get('pai') else []),
+                  *([f'a mesma imagem que {reg_codigo(reg, "midia", i["pai"])} «{i.get("nome_pai")}» (mostra a dela)' if i.get('tipo') == 'imagem' else
+                     f'trecho de {reg_codigo(reg, "midia", i["pai"])} «{i.get("nome_pai")}» · {tempo(i["inicio"])}–{tempo(i["fim"])}{vel_trecho(i)}'] if i.get('pai') else []),
                   f'descrição: {i.get("descricao") or "—"}', f'palavras: {", ".join(i.get("palavras") or []) or "—"}',
                   f'usado em: {", ".join(usos) or "nenhum projeto"}']
     elif tipo == 'referencia':
@@ -403,6 +404,7 @@ def marcaveis() -> list[dict]:
             x['texto'] = ' '.join(filter(None, [dono.get('descricao'), *(dono.get('palavras') or []), dono.get('fonte')]))  # para a busca
             if item.get('pai'):
                 x['trecho'] = True
+                x['pai'] = item['pai']  # no seletor do @, dentro do card do vídeo (ou da imagem) de onde vem
             elif item.get('versao_de') and (B / 'banco' / item['versao_de'] / 'item.json').is_file():
                 x['versao_de'] = item['versao_de']  # o mesmo clipe com outro corte: aparece dentro da principal
         elif tipo == 'preset':
@@ -454,6 +456,10 @@ def marcaveis() -> list[dict]:
         x['usado_em'] = usos.get((x['tipo'], id_), '')
         out.append(x)
     return sorted(out, key=lambda x: [int(n) if n.isdigit() else n for n in re.split(r'(\d+)', x['codigo'])])  # BAN-074.2 antes do .10
+
+
+def vel_trecho(i: dict) -> str:
+    return f" a {i['velocidade']}×" if i.get('velocidade') else ''
 
 
 def reg_codigo(reg: dict, tipo: str, id_: str | None) -> str:

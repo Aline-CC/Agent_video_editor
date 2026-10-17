@@ -139,11 +139,11 @@ async function bancoInserts(el, tipo = 'inserts') {
         <span class="selo ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
         ${video && it.duracao ? `<span class="duracao">${seg(it.duracao)}</span>` : ''}
         ${rotulo ? `<span class="selo-linha selo-na-thumb ${cor}">${rotulo}</span>` : ''}
-        <span class="chip-tipo">Insert${vs.length ? ` · ${vs.length + 1} versões` : ''}${ts.length ? ` · ${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}` : ''}</span></div>
+        <span class="chip-tipo">Insert${video ? `${vs.length ? ` · ${vs.length + 1} versões` : ''}${ts.length ? ` · ${ts.length} ${ts.length === 1 ? 'trecho' : 'trechos'}` : ''}` : vs.length + ts.length ? ` · ${vs.length + ts.length + 1} versões` : ''}</span></div>
       <div class="card-titulo"><h3 title="${esc([it.descricao, it.fonte].filter(Boolean).join('\n'))}">${esc(it.nome)}</h3>${chipCodigo(cod[it.id], it.nome)}</div>
       ${e.usos?.length ? `<div class="estado-banco">${chipsDeUso(e.usos, cods)}</div>` : ''}
       ${htmlTagsCard(it.tags)}
-      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}" data-vel="${t.velocidade || 1}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(durTrecho(t))}${velTrecho(t)}</span></li>`).join('')}</ul>` : ''}
+      ${ts.length ? `<ul class="trechos">${ts.map((t) => `<li data-ini="${t.inicio}" data-fim="${t.fim}" data-vel="${t.velocidade || 1}"><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${video ? `${seg(durTrecho(t))}${velTrecho(t)}` : 'a mesma imagem'}</span></li>`).join('')}</ul>` : ''}
     </article>`
   })
   // os motions na mesma grade: a prévia em pé no meio do card, o chip "Motion" e os selos do mesmo jeito
@@ -309,7 +309,7 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}, est
   const base = `/biblioteca/banco/${id}/`
   const video = it.tipo === 'video'
   const projetoDe = (u) => u.split('/')[0]
-  const usos = d.usos.concat(d.trechos.flatMap((t) => t.usos.map((u) => `${u} · trecho “${t.nome}”`)))
+  const usos = d.usos.concat(d.trechos.flatMap((t) => t.usos.map((u) => `${u} · ${it.tipo === 'video' ? 'trecho' : 'como'} “${t.nome}”`)))
   const { el, fechar } = janela(`
     <header class="janela-cabeca"><span class="selo-linha ${video ? 'selo-azul' : 'selo-menta'}">${video ? 'Vídeo' : 'Imagem'} · ${esc(it.formato || '')}</span>
       ${chipCodigo(cod[id], it.nome)}<span class="dica">${esc(id)}</span><button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
@@ -344,7 +344,7 @@ async function detalheBanco(id, recarregar, cod = {}, est = null, cods = {}, est
           <div class="acoes-linha">${d.versoes.length && id !== d.principal ? '<button class="botao pequeno" type="button" data-tornar-principal title="O card do Banco passa a mostrar esta">Tornar principal</button>' : ''}
             ${d.versoes.length ? '<button class="botao pequeno" type="button" data-separar title="Esta volta a ser um card sozinha">Separar desta</button>' : ''}
             <input class="campo-versao" data-juntar placeholder="BAN-…" aria-label="Código da outra mídia"><button class="botao pequeno" type="button" data-juntar-btn title="Junta esta mídia como versão de outra (o código dela)">Juntar como versão de</button></div></div>
-        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">Trechos · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${seg(durTrecho(t))}${velTrecho(t)} · ${mmss(t.inicio)}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
+        ${d.trechos.length ? `<div class="bloco-lista"><span class="eyebrow">${video ? 'Trechos' : 'A mesma imagem, com outro código'} · ${d.trechos.length}</span><ul class="lista-simples">${d.trechos.map((t) => `<li><span>${esc(t.nome)}</span>${chipCodigo(cod[t.id], t.nome)}<span class="apagado">${video ? `${seg(durTrecho(t))}${velTrecho(t)} · ${mmss(t.inicio)}` : 'mostra esta imagem'}${t.usos.length ? ` · em ${t.usos.length}` : ''}</span></li>`).join('')}</ul></div>` : ''}
         <div class="bloco-lista"><span class="eyebrow">Usada em · ${usos.length}</span>
           ${usos.length ? `<ul class="lista-simples">${usos.map((u) => `<li><a href="#/p/${encodeURIComponent(projetoDe(u))}" data-fechar>${esc(u)}</a></li>`).join('')}</ul>` : '<p class="dica">Nenhum projeto usa esta mídia.</p>'}</div>
       </form>

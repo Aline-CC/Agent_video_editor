@@ -21,7 +21,9 @@ uv run ferramentas/inserts.py juntar <slug>      # liga as mídias achadas a cad
    as **★ usado em vídeo aprovado** e as **✓ aprovado** (o criador já gostou delas); evite as **✗ recusado** (ficaram de
    fora de um vídeo aprovado). **O mesmo vídeo com outro tempo é um trecho, nunca um arquivo novo**: se o vídeo já está no
    banco, use `banco.py trecho <id> <ini> <fim> [--velocidade 1.5]` (o pedaço e a velocidade de que este plano precisa)
-   em vez de cortar, acelerar e subir outra cópia. Um enquadramento diferente (outro recorte) fica como **≡ versão**.
+   em vez de cortar, acelerar e subir outra cópia. Imagem não tem tempo: quanto ela fica na tela é a edição que diz, então
+   use a que já está no banco (a mesma imagem noutra resolução entra sozinha apontando para a maior). Um enquadramento
+   diferente (outro recorte) fica como **≡ versão**.
 3. **Captura do site real** (`captura.py <url>`), quando a fala cita um site, ferramenta, produto ou repositório: grava
    a página rolando/carregando, como ela é. 16:9 para tela dividida; 9:16 (um computador em pé) para tela cheia.
 4. **Web, fontes oficiais**: o site, o blog, o changelog, o X ou o YouTube **do próprio produto** (vídeo: `yt-dlp` só do

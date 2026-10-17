@@ -20,8 +20,9 @@ let porCodigo = new Map()
 let versoesDe = new Map() // id da principal → as versões dela (o mesmo clipe com outro corte)
 let aba = 'midia'
 const tagDa = {} // a tag escolhida em cada aba (no seletor)
-const ehVersao = (x) => x.tipo === 'midia' && versoesDe.has(x.versao_de) && x.versao_de !== x.id
-const codigoDaPrincipal = (x) => itens.find((p) => p.tipo === 'midia' && p.id === x.versao_de)?.codigo || ''
+const ehVersao = (x) => x.tipo === 'midia' && versoesDe.has(dono(x)) && dono(x) !== x.id
+const dono = (x) => x.versao_de || x.pai // a principal da versão, ou o vídeo (a imagem) do trecho
+const codigoDaPrincipal = (x) => itens.find((p) => p.tipo === 'midia' && p.id === dono(x))?.codigo || ''
 const tiposDa = (k) => ABAS.find((a) => a[0] === k)[3]
 /** O que a aba mostra: as versões ficam dentro da principal (o "+N versões" do card abre). */
 const daAba = (k) => itens.filter((x) => tiposDa(k).includes(x.tipo) && !ehVersao(x))
@@ -34,8 +35,9 @@ export async function carregarMarcaveis() {
   for (const x of itens) x.busca = semAcento([x.codigo, x.nome, ...(x.tags || []).map((t) => `#${t}`), x.texto].join(' '))
   const ids = new Set(itens.filter((x) => x.tipo === 'midia').map((x) => x.id))
   versoesDe = new Map()
-  for (const x of itens) if (x.versao_de && ids.has(x.versao_de)) versoesDe.set(x.versao_de, [...(versoesDe.get(x.versao_de) || []), x])
-  for (const x of itens) if (versoesDe.has(x.id) && !x.versao_de) x.busca += ' ' + versoesDe.get(x.id).map((v) => v.busca).join(' ')
+  // dentro do card de cada mídia: as versões dela e os trechos (a mesma imagem, numa imagem)
+  for (const x of itens) if (dono(x) && ids.has(dono(x))) versoesDe.set(dono(x), [...(versoesDe.get(dono(x)) || []), x])
+  for (const x of itens) if (versoesDe.has(x.id) && !dono(x)) x.busca += ' ' + versoesDe.get(x.id).map((v) => v.busca).join(' ')
   porCodigo = new Map(itens.map((x) => [x.codigo, x]))
   return itens
 }
@@ -180,8 +182,8 @@ async function abrirSeletor(campo, posArroba) {
           <span class="mencao-check" aria-hidden="true">${ICONE.check}</span>
           ${x.clipe || x.audio || x.tipo === 'motion' ? `<button class="mencao-play" data-previa title="Tocar a prévia">${ICONE.tocar}</button>` : ''}
           ${x.usado_em ? `<span class="mencao-uso" title="Usado por último em ${esc(quando(x.usado_em))}">usado ${esc(quando(x.usado_em))}</span>` : ''}</span>
-        <span class="mencao-rotulo"><b>${esc(x.codigo)}${ehVersao(x) ? ` <i>versão de ${esc(codigoDaPrincipal(x))}</i>` : ''}</b><span>${esc(x.nome)}</span>
-          ${nVersoes(x) ? `<button class="mencao-versoes" data-versoes="${esc(x.id)}">${abertas.has(x.id) ? 'esconder' : `+${nVersoes(x)}`} ${nVersoes(x) === 1 ? 'versão' : 'versões'}</button>` : ''}</span></div>`).join('')
+        <span class="mencao-rotulo"><b>${esc(x.codigo)}${ehVersao(x) ? ` <i>${x.pai ? (x.clipe ? 'trecho de' : 'a mesma de') : 'versão de'} ${esc(codigoDaPrincipal(x))}</i>` : ''}</b><span>${esc(x.nome)}</span>
+          ${nVersoes(x) ? `<button class="mencao-versoes" data-versoes="${esc(x.id)}">${abertas.has(x.id) ? 'esconder' : `+${nVersoes(x)}`} ${nVersoes(x) === 1 ? 'corte' : 'cortes'}</button>` : ''}</span></div>`).join('')
       : `<p class="vazio">${busca.trim() ? 'Nada com essa busca.' : 'Nada aqui ainda.'}</p>`
     desenharEscolhidos()
   }
