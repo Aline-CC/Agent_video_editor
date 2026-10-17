@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-lc", "uv run ferramentas/servidor.py"],
+      "port": 8719
+    }
+  ]
+}
