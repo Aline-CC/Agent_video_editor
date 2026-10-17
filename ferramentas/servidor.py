@@ -272,7 +272,8 @@ def _marcaveis(h, q):
         itens.append({'codigo': f"{refs[c['ref']]}·{c['id']}", 'tipo': 'referencia', 'id': f"{c['ref']}/{c['id']}",
                       'nome': f"{c['ref_nome']} · {c['descricao'][:70]}" if c.get('descricao') else c['ref_nome'],
                       'mini': c.get('miniatura'), 'clipe': c.get('video'), 'inicio': c['inicio'], 'fim': c['fim'],
-                      'tags': c.get('tags') or [], 'favorito': c.get('favorito'), 'usado_em': ''})
+                      'tags': c.get('tags') or [], 'favorito': c.get('favorito'), 'usado_em': '',
+                      'texto': ' '.join(filter(None, [c.get('descricao'), c.get('texto'), c.get('fala')]))})  # para a busca
     return {'itens': itens}
 
 

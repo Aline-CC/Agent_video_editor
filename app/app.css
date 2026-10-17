@@ -1317,3 +1317,5 @@ button.tag:hover { background: rgba(185, 166, 242, 0.26); }
 /* os cards em pé (Referências, Motions, CTAs): mais colunas, para não ficarem enormes */
 .mencao-grade.em-pe { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .mencao-corpo.com-tags .mencao-grade.em-pe { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.mencao-busca { width: 300px; flex: none; }
+.mencao-abas .pilula.sem-resultado { opacity: .45; }

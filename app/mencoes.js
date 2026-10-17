@@ -2,7 +2,7 @@
 // barra de cima (Banco, Referências, Motions, Presets, Transições, Áudio, CTAs) e as tags à esquerda; marque quantos
 // quiser (em várias abas) e Importar (ou Enter) põe no texto os códigos (@BAN-074 @MOT-03), que o Claude resolve com
 // codigo.py. No card do comentário, cada código vira um chip com o nome.
-import { $, $$, ICONE, esc, janela, json, preferencia } from './comum.js'
+import { $, $$, ICONE, achaBusca, esc, janela, json, preferencia, semAcento } from './comum.js'
 import { barraDeTags, temTag } from './tags.js'
 
 // [aba, nome, o ícone (o da aba de cima com o mesmo destino), os tipos dos itens que ela mostra]
@@ -28,6 +28,8 @@ const daAba = (k) => {
 export async function carregarMarcaveis() {
   if (itens) return itens
   itens = (await json('/api/marcaveis', { itens: [] })).itens || []
+  // o texto da busca: o código, o nome, as tags e a descrição (sem acentos)
+  for (const x of itens) x.busca = semAcento([x.codigo, x.nome, ...(x.tags || []).map((t) => `#${t}`), x.texto].join(' '))
   porCodigo = new Map(itens.map((x) => [x.codigo, x]))
   return itens
 }
@@ -54,25 +56,30 @@ async function abrirSeletor(campo, posArroba) {
   let importou = false
   const marcados = new Map() // código → item, na ordem em que foram marcados
   let ordem = ORDENS[preferencia('mencao.ordem', 'uso')] ? preferencia('mencao.ordem', 'uso') : 'uso'
+  let busca = ''
+  let abaEscolhida = aba // a que o criador clicou: a busca só sai dela enquanto ela não tem resultado
+  const acha = (x) => !busca.trim() || achaBusca(x.busca, busca)
   const { el, fechar } = janela(`<div class="seletor-mencao">
       <header class="janela-cabeca"><nav class="mencao-abas">${ABAS.map(([k, n, ic]) => `<button class="pilula pequena" data-aba-mencao="${k}">${iconeAba(ic)}${n} <span class="conta">${daAba(k).length}</span></button>`).join('')}</nav>
+        <input class="busca mencao-busca" type="search" data-busca-mencao placeholder="Buscar (nome, descrição, código, #tag)" autocomplete="off">
         <label class="caixa mencao-ordem">Ordenar <select data-ordem-mencao>${Object.entries(ORDENS).map(([k, n]) => `<option value="${k}"${k === ordem ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
         <button class="botao-icone" data-fechar title="Fechar (Esc)">${ICONE.fechar}</button></header>
       <div class="mencao-corpo"><div class="mencao-tags"></div><div class="mencao-grade"></div></div>
       <footer class="mencao-pe"><div class="mencao-escolhidos"></div>
-        <span class="dica">Clique para marcar · ▶ toca a prévia · Enter importa · Esc fecha</span>
+        <span class="dica">Clique para marcar · ▶ toca a prévia · Enter importa · Esc limpa a busca e fecha</span>
         <button class="botao botao-coral" data-importar disabled>Importar</button></footer></div>`, {
     classe: 'janela-mencao',
     aoFechar: () => {
+      aba = abaEscolhida // abre de novo na aba que o criador escolheu, não na que a busca mostrou
       parar()
       document.removeEventListener('keydown', tecla, true)
       campo.focus()
       if (!importou) campo.setSelectionRange(posArroba + 1, posArroba + 1)
     },
   })
-  // o foco sai da caixa do comentário (as teclas não escrevem nela por baixo do modal)
-  el.tabIndex = -1
-  el.focus()
+  // o foco vai para a busca (as teclas não escrevem na caixa do comentário por baixo do modal)
+  const campoBusca = $('[data-busca-mencao]', el)
+  campoBusca.focus()
   const ordenar = (l) => {
     const cod = (x) => x.codigo.split(/(\d+)/).map((n) => (/^\d+$/.test(n) ? n.padStart(6, '0') : n)).join('')
     const por = {
@@ -83,7 +90,7 @@ async function abrirSeletor(campo, posArroba) {
     }[ordem]
     return [...l].sort(por)
   }
-  const lista = () => ordenar(daAba(aba).filter((x) => !tagDa[aba] || temTag(x.tags, tagDa[aba])))
+  const lista = () => ordenar(daAba(aba).filter((x) => (!tagDa[aba] || temTag(x.tags, tagDa[aba])) && acha(x)))
   // a prévia: vídeo (o trecho, em laço), motion (a animação) ou áudio; uma de cada vez
   let tocando = null
   function parar() {
@@ -141,11 +148,18 @@ async function abrirSeletor(campo, posArroba) {
   }
   const desenhar = () => {
     parar()
-    for (const t of $$('[data-aba-mencao]', el)) t.classList.toggle('ativa', t.dataset.abaMencao === aba)
+    // com busca: cada aba conta o que acha, e a aba sem nada passa para a primeira que tem
+    aba = !busca.trim() || daAba(abaEscolhida).some(acha) ? abaEscolhida : ABAS.find(([k]) => daAba(k).some(acha))?.[0] || abaEscolhida
+    for (const t of $$('[data-aba-mencao]', el)) {
+      t.classList.toggle('ativa', t.dataset.abaMencao === aba)
+      const n = daAba(t.dataset.abaMencao).filter(acha).length
+      $('.conta', t).textContent = n
+      t.classList.toggle('sem-resultado', !!busca.trim() && !n)
+    }
     // as tags no canto: só filtram aqui; editar é na página de cada um
     const comTags = daAba(aba).some((x) => x.tags?.length)
     if (tagDa[aba] && !daAba(aba).some((x) => temTag(x.tags, tagDa[aba]))) tagDa[aba] = ''
-    $('.mencao-tags', el).innerHTML = comTags ? barraDeTags(daAba(aba).map((x) => ({ chave: x.codigo, tags: x.tags })), tagDa[aba] || '', `mencao.${aba}`, { editar: false }) : ''
+    $('.mencao-tags', el).innerHTML = comTags ? barraDeTags(daAba(aba).filter(acha).map((x) => ({ chave: x.codigo, tags: x.tags })), tagDa[aba] || '', `mencao.${aba}`, { editar: false }) : ''
     $('.mencao-corpo', el).classList.toggle('com-tags', comTags)
     const l = lista()
     const quando = (d) => (d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '')
@@ -157,7 +171,7 @@ async function abrirSeletor(campo, posArroba) {
           ${x.clipe || x.audio || x.tipo === 'motion' ? `<button class="mencao-play" data-previa title="Tocar a prévia">${ICONE.tocar}</button>` : ''}
           ${x.usado_em ? `<span class="mencao-uso" title="Usado por último em ${esc(quando(x.usado_em))}">usado ${esc(quando(x.usado_em))}</span>` : ''}</span>
         <span class="mencao-rotulo"><b>${esc(x.codigo)}</b><span>${esc(x.nome)}</span></span></div>`).join('')
-      : '<p class="vazio">Nada aqui ainda.</p>'
+      : `<p class="vazio">${busca.trim() ? 'Nada com essa busca.' : 'Nada aqui ainda.'}</p>`
     desenharEscolhidos()
   }
   const alternar = (codigo) => {
@@ -179,12 +193,24 @@ async function abrirSeletor(campo, posArroba) {
   }
   // Enter importa (menos no seletor de ordem); a revisão ignora as teclas com o modal aberto
   function tecla(e) {
+    // Esc na busca: com texto, limpa; vazia, fecha (a janela, antes, só tira o foco do campo)
+    if (e.key === 'Escape' && e.target === campoBusca) {
+      e.stopPropagation()
+      if (!campoBusca.value) return fechar()
+      campoBusca.value = busca = ''
+      desenhar()
+      return campoBusca.focus()
+    }
     if (e.key !== 'Enter' || e.isComposing || e.target.closest?.('select')) return
     e.preventDefault()
     e.stopPropagation()
     importar()
   }
   document.addEventListener('keydown', tecla, true)
+  campoBusca.addEventListener('input', () => {
+    busca = campoBusca.value
+    desenhar()
+  })
   el.addEventListener('change', (e) => {
     if (!e.target.matches('[data-ordem-mencao]')) return
     ordem = preferencia('mencao.ordem', 'uso', e.target.value)
@@ -208,7 +234,7 @@ async function abrirSeletor(campo, posArroba) {
     }
     const t = e.target.closest('[data-aba-mencao]')
     if (t) {
-      aba = t.dataset.abaMencao
+      aba = abaEscolhida = t.dataset.abaMencao
       return desenhar()
     }
     const c = e.target.closest('.mencao-card')

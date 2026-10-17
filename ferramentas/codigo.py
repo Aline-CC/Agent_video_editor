@@ -399,6 +399,7 @@ def marcaveis() -> list[dict]:
                     x['inicio'], x['fim'] = item.get('inicio'), item.get('fim')
             x['criado_em'] = item.get('criado_em') or ''
             x['tags'] = item.get('tags') or dono.get('tags') or []
+            x['texto'] = ' '.join(filter(None, [dono.get('descricao'), *(dono.get('palavras') or []), dono.get('fonte')]))  # para a busca
             if item.get('pai'):
                 x['trecho'] = True
         elif tipo == 'preset':
@@ -408,12 +409,15 @@ def marcaveis() -> list[dict]:
             x['clipe'] = f'/biblioteca/presets/clipes/{id_}.mp4' if (B / 'presets' / 'clipes' / f'{id_}.mp4').is_file() else None
             x['tags'] = [formatos.get(p.get('formato'), p.get('formato'))] if p.get('formato') else []
             x['criado_em'] = p.get('criado_em') or ''
+            x['texto'] = p.get('descricao') or ''
         elif tipo == 'motion':
             arq = B / 'motions' / 'presets' / f'{id_}.html'
             if not arq.is_file():
                 continue
             x['tags'] = tags_motion.get(id_, [])
-            x['criado_em'] = dados_motion(arq).get('criado_em') or ''
+            dados = dados_motion(arq)
+            x['criado_em'] = dados.get('criado_em') or ''
+            x['texto'] = dados.get('descricao') or ''
         elif tipo == 'transicao':
             if not (B / 'transicoes' / f'{id_}.json').is_file():
                 continue
@@ -423,6 +427,7 @@ def marcaveis() -> list[dict]:
                 continue
             x['audio'] = f'/biblioteca/trilhas/{id_}.m4a'
             x['tags'] = ['trilhas']
+            x['texto'] = trilhas[id_].get('clima') or ''
         elif tipo == 'som':
             if id_ not in sons:
                 continue
