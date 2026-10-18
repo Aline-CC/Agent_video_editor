@@ -1826,9 +1826,19 @@ ${b}` };
       return { modo: "ator", f: 1, rosto: rostoEm?.(ini, fim) ?? null };
     };
     const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]));
+    const entreDuasMidias = (mo) => {
+      if (!mo) return null;
+      if (mo.preset === "card-comparativo") return 0.5;
+      if (mo.preset !== "grade" || mo.valores?.arranjo === "lado" || mo.valores?.arranjo === "mosaico") return null;
+      if (String(mo.valores?.midias || "").split("|").filter((x) => x.trim()).length !== 2) return null;
+      const ys = String(mo.valores?.posicoes || "").split(";").map((x) => Number(x.split(",")[1])).filter((y) => isFinite(y));
+      return ys.length === 2 ? (ys[0] + ys[1]) / 2 : (parseFloat(mo.valores?.limite || "") || 1) / 2;
+    };
     const zonasDosPlanos = () => planos.flatMap((pl) => {
       const mo = motions[pl.id];
       if (mo?.legenda_y) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: mo.legenda_y }];
+      const meio = entreDuasMidias(mo);
+      if (meio != null) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: meio }];
       const tr = mo && trechos.find((t) => t.divisao?.modo === "atras" && Math.abs(t.ini - pl.inicio) < 0.01);
       if (tr && tr.divisao) return [{ ini: pl.inicio, fim: pl.fim, divisao: tr.divisao, ator: tr.divisao.ator ?? null, card: null }];
       if (!ehFullAtor(pl.tipo)) return [];

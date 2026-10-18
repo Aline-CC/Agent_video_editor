@@ -144,9 +144,20 @@ async function iniciar() {
   const originais = new Map((edicao.direcao?.itens ?? []).map((i) => [i.id, i]))
   // a legenda por plano: a altura escolhida num motion (`legenda_y` no motion), o ator embaixo dos motions e, no ator em
   // tela cheia, abaixo do queixo (o rosto medido, com folga para o zoom do plano)
+  /** Duas mídias empilhadas no motion (a grade em pilha com duas, o comparativo): a legenda fica no meio, entre elas. */
+  const entreDuasMidias = (mo?: { preset?: string; valores?: Record<string, string> }): number | null => {
+    if (!mo) return null
+    if (mo.preset === 'card-comparativo') return 0.5
+    if (mo.preset !== 'grade' || mo.valores?.arranjo === 'lado' || mo.valores?.arranjo === 'mosaico') return null
+    if (String(mo.valores?.midias || '').split('|').filter((x) => x.trim()).length !== 2) return null
+    const ys = String(mo.valores?.posicoes || '').split(';').map((x) => Number(x.split(',')[1])).filter((y) => isFinite(y))
+    return ys.length === 2 ? (ys[0] + ys[1]) / 2 : (parseFloat(mo.valores?.limite || '') || 1) / 2
+  }
   const zonasDosPlanos = (): Zona[] => planos.flatMap((pl): Zona[] => {
-    const mo = motions[pl.id] as { legenda_y?: number } | undefined
+    const mo = motions[pl.id] as { legenda_y?: number; preset?: string; valores?: Record<string, string> } | undefined
     if (mo?.legenda_y) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: mo.legenda_y }]
+    const meio = entreDuasMidias(mo)
+    if (meio != null) return [{ ini: pl.inicio, fim: pl.fim, divisao: null, card: null, y: meio }]
     const tr = mo && trechos.find((t) => t.divisao?.modo === 'atras' && Math.abs(t.ini - pl.inicio) < 0.01)
     if (tr && tr.divisao) return [{ ini: pl.inicio, fim: pl.fim, divisao: tr.divisao, ator: (tr.divisao as { ator?: Geometria | null }).ator ?? null, card: null }]
     if (!ehFullAtor(pl.tipo)) return []

@@ -85,7 +85,23 @@ def main(slug: str, versao: str | None, preferida: float | None = None) -> None:
     alturas = edicao.setdefault('legenda', {}).setdefault('alturas', {})
     planos = json.loads((pasta / 'planos.json').read_text())
     mudou = 0
+    # duas mídias empilhadas (a grade em pilha com duas, o comparativo): a legenda fica entre elas, posta pelo render
+    def entre_duas(m: dict | None) -> bool:
+        if not m:
+            return False
+        v = m.get('valores') or {}
+        if m.get('preset') == 'card-comparativo':
+            return True
+        return (m.get('preset') == 'grade' and v.get('arranjo') not in ('lado', 'mosaico')
+                and len([x for x in str(v.get('midias') or '').split('|') if x.strip()]) == 2)
+    motions = edicao.get('motions') or {}
     for pl in planos:
+        if entre_duas(motions.get(pl['id'])) and not (motions.get(pl['id']) or {}).get('legenda_y'):
+            for b in blocos:
+                if b.get('palavra') and pl['ini'] - 0.2 <= b['ini'] < pl['fim'] - 0.05:
+                    alturas.pop(b['palavra'], None)
+            print(f"  {pl['id']:>4} {pl['ini']:6.2f}s: duas mídias empilhadas, a legenda fica entre elas")
+            continue
         bs = [b for b in blocos if b.get('palavra') and pl['ini'] - 0.2 <= b['ini'] < pl['fim'] - 0.05]
         if not bs:
             continue
