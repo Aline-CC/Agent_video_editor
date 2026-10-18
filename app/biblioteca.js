@@ -564,6 +564,36 @@ function tocarPar(v, f, { comSom, rep }) {
   }
 }
 
+/** Um efeito copiado de um reel (tipo `efeito`: prévia + script, sem receita para o motor): à esquerda a prévia da
+ *  recriação na gravação do criador; à direita o link do reel, no tempo do efeito. */
+const tempoRef = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+function cardEfeito(p, codigo) {
+  const f = p.fontes?.[0] || {}
+  return `<article class="card-preset card-efeito" data-id="${p.id}">
+      <div class="mini mini-par" title="Clique para tocar com som">
+        <div class="lado"><video class="v-ref" playsinline loop preload="metadata" src="/biblioteca/presets/${p.previa}#t=0.6"></video><span class="sem-clipe">sem prévia</span><span class="rotulo">Recriação</span></div>
+        <a class="lado lado-link-ref" data-link-ref href="${esc(f.url || '#')}" target="_blank" rel="noopener" title="Abrir o reel de referência">
+          <span class="eyebrow">Referência</span><b>Abrir o reel ↗</b>${f.inicio != null ? `<span class="dica">${tempoRef(f.inicio)}–${tempoRef(f.fim)}</span>` : ''}</a>
+        <span class="selo ${p.aprovado ? 'selo-menta' : 'selo-coral'}">${p.aprovado ? 'Aprovado' : 'A revisar'}</span>
+        <span class="video-tocar">${ICONE.tocar}</span></div>
+      <div class="card-titulo"><h3 title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>${botaoAprovar(p.aprovado)}${botaoRecusar(p)}</div>
+      <div class="card-pe">${chipCodigo(codigo, p.nome)}<span class="dica">Efeito · o render ainda não aplica</span></div>
+    </article>`
+}
+/** Toca a prévia de um efeito (muda ou com som); devolve a função que para. */
+function tocarPrevia(v, comSom) {
+  v.muted = !comSom
+  v.currentTime = 0
+  v.play().catch(() => {
+    v.muted = true
+    v.play().catch(() => {})
+  })
+  return () => {
+    v.pause()
+    v.currentTime = 0.6
+  }
+}
+
 async function presets(el) {
   const [ps, ordem0, cods] = await Promise.all([jsons('biblioteca/presets', ['ordem.json']), json('/biblioteca/presets/ordem.json', {}), codigos()])
   const sons = await nomesDosSons()
@@ -592,13 +622,14 @@ async function presets(el) {
     }
     pararCard()
     const p = ps.find((x) => x.id === c.dataset.id)
-    atual = { card: c, comSom, parar: tocarPar(v, $('iframe', c), { comSom, rep: repousoDe(p) }) }
+    atual = { card: c, comSom, parar: p.tipo === 'efeito' ? tocarPrevia(v, comSom) : tocarPar(v, $('iframe', c), { comSom, rep: repousoDe(p) }) }
     c.classList.add('tocando')
     c.classList.toggle('com-som', comSom)
   }
   const fora = new IntersectionObserver((es) => es.forEach((e) => !e.isIntersecting && atual?.card === e.target && pararCard()))
 
   const card = (p) => {
+    if (p.tipo === 'efeito') return cardEfeito(p, cod[p.id])
     const nFav = favoritasDe(p).length
     const rep = repousoDe(p)
     return `<article class="card-preset" data-id="${p.id}">
@@ -619,7 +650,7 @@ async function presets(el) {
     const mini = $('.mini', c)
     mini.addEventListener('mouseenter', () => !atual?.comSom && tocarCard(c, false))
     mini.addEventListener('mouseleave', () => atual?.card === c && !atual.comSom && pararCard())
-    mini.addEventListener('click', () => (atual?.card === c && atual.comSom ? pararCard() : tocarCard(c, true)))
+    mini.addEventListener('click', (e) => !e.target.closest('[data-link-ref]') && (atual?.card === c && atual.comSom ? pararCard() : tocarCard(c, true)))
     fora.observe(c)
   }
   const desenhar = () => {
@@ -670,7 +701,7 @@ async function presets(el) {
     aoRecusar?.()
     desenhar()
   }
-  const abrirRecomendados = () => recomendados(ps, ordem, (o) => {
+  const abrirRecomendados = () => recomendados(ps.filter((p) => p.tipo !== 'efeito'), ordem, (o) => {
     ordem = o
     desenhar()
   })

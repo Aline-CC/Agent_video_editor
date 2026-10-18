@@ -73,3 +73,13 @@ Depois simule nas outras telas, num servidor seu (a 8719 é do criador):
 (`window.__sim.ir(t)` para cada instante). Confira 1, 2 e 3 mídias e as proporções marcadas no `usos`.
 
 Por fim, diga ao criador quais presets entraram "a revisar", de qual referência e onde valem.
+
+## Efeito copiado de um reel (tipo `efeito`)
+
+Quando o criador pede para copiar um efeito de um reel (lettering, antes e depois, órbita, capa de revista…), que não é
+movimento de insert: meça quadro a quadro (pausa com `v.onplay=()=>v.pause()`, pixels pelo canvas do vídeo), recrie num
+script sobre um trecho da gravação dele, compare lado a lado com a referência e só então grave. Fica em
+`biblioteca/presets/<id>.json` com `tipo: "efeito"`, `nome`, `descricao` (as medidas), `fontes` (`url`, `inicio`, `fim`),
+`previa` e `gif` (em `presets/efeitos/`), `script` (em `presets/efeitos/scripts/`, com o `comum.py`), `aprovado: false`.
+A página Presets mostra a prévia e o link do reel; `presets.py` não os lista (o render ainda não os aplica: ligar um
+efeito ao render é trabalho à parte, com o ok do criador).

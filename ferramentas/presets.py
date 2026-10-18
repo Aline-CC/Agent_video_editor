@@ -25,8 +25,9 @@ NOME_PROPORCAO = {'pe': 'em pé', 'quadrada': 'quadrada', 'deitada': 'horizontal
 
 
 def biblioteca() -> list[dict]:
-    """Os presets, na ordem do 18 (presets.py listar: formato, nº de cards, nome)."""
-    out = [p for a in PASTA.glob('*.json') if len(a.stem) == 10 and (p := ler_json(a))]
+    """Os presets, na ordem do 18 (presets.py listar: formato, nº de cards, nome). Os do tipo `efeito` (efeitos copiados
+    de reels, com prévia e script, sem receita) não entram: o motor ainda não os desenha."""
+    out = [p for a in PASTA.glob('*.json') if len(a.stem) == 10 and (p := ler_json(a)) and p.get('tipo') != 'efeito']
     return sorted(out, key=lambda p: (p['formato'], len(p['receita']['cards']), p.get('nome', '')))
 
 

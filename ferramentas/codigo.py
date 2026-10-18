@@ -206,6 +206,11 @@ def resumo_preset(id_: str, reg_inv: dict) -> list[str]:
     if recusado:
         a = BIBLIOTECA / 'presets' / '_recusados' / f'{id_}.json'
     p = ler_json(a, {}) or {}
+    if p.get('tipo') == 'efeito':
+        return [f'estado: {"aprovado" if p.get("aprovado") else "a revisar"} · efeito (prévia + script; o render ainda não o aplica)',
+                *([f'descrição: {p["descricao"]}'] if p.get('descricao') else []),
+                *[f'referência: {f.get("url")} ({f.get("inicio")}–{f.get("fim")} s)' for f in p.get('fontes') or []],
+                f'prévia: biblioteca/presets/{p.get("previa")} · script: biblioteca/presets/{p.get("script")}']
     u = P.usos_de(p)
     props = ', '.join(P.NOME_PROPORCAO.get(x, x) for x in u.get('proporcoes') or []) or 'todas'
     estado = f'RECUSADO em {p.get("recusado_em")}' + (f' — motivo: {p["motivo"]}' if p.get('motivo') else '') if recusado \
