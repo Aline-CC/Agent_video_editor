@@ -879,10 +879,8 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .mini-par .lado { position: relative; overflow: hidden; background: #000; }
 .mini-par .lado > video, .mini-par .lado > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
 .mini-par iframe { pointer-events: none; }
-/* o card de efeito: no lugar da referência, o link do reel */
-.mini-par .lado-link-ref { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center; color: var(--color-fog); text-decoration: none; background: #0b1714; }
-.mini-par .lado-link-ref b { color: var(--color-paper, #fff); font-weight: 600; }
-.mini-par .lado-link-ref:hover b { color: var(--color-yellow); }
+/* o card de efeito: o link do reel original no título */
+.card-efeito .card-titulo a.botao-icone { text-decoration: none; font-size: 15px; }
 .card-efeito .card-pe { display: flex; align-items: center; gap: 8px; }
 .rotulo {
   position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 0;

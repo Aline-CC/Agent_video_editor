@@ -564,33 +564,37 @@ function tocarPar(v, f, { comSom, rep }) {
   }
 }
 
-/** Um efeito copiado de um reel (tipo `efeito`: prévia + script, sem receita para o motor): à esquerda a prévia da
- *  recriação na gravação do criador; à direita o link do reel, no tempo do efeito. */
-const tempoRef = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+/** Um efeito copiado de um reel (tipo `efeito`: vídeos + script, sem receita para o motor), no formato dos outros
+ *  presets: à esquerda a referência (o efeito na gravação atual do criador), à direita a recriação com as mídias do
+ *  banco; o link do reel original fica no nome. */
 function cardEfeito(p, codigo) {
   const f = p.fontes?.[0] || {}
+  const sim = p.simulacao || p.previa
   return `<article class="card-preset card-efeito" data-id="${p.id}">
       <div class="mini mini-par" title="Clique para tocar com som">
-        <div class="lado"><video class="v-ref" playsinline loop preload="metadata" src="/biblioteca/presets/${p.previa}#t=0.6"></video><span class="sem-clipe">sem prévia</span><span class="rotulo">Recriação</span></div>
-        <a class="lado lado-link-ref" data-link-ref href="${esc(f.url || '#')}" target="_blank" rel="noopener" title="Abrir o reel de referência">
-          <span class="eyebrow">Referência</span><b>Abrir o reel ↗</b>${f.inicio != null ? `<span class="dica">${tempoRef(f.inicio)}–${tempoRef(f.fim)}</span>` : ''}</a>
+        <div class="lado"><video class="v-ref" playsinline loop preload="metadata" src="/biblioteca/presets/${p.previa}#t=1.2"></video><span class="sem-clipe">sem vídeo</span><span class="rotulo">Referência</span></div>
+        <div class="lado"><video class="v-sim" muted playsinline loop preload="metadata" src="/biblioteca/presets/${sim}#t=1.2"></video><span class="rotulo">Recriação</span></div>
         <span class="selo ${p.aprovado ? 'selo-menta' : 'selo-coral'}">${p.aprovado ? 'Aprovado' : 'A revisar'}</span>
         <span class="video-tocar">${ICONE.tocar}</span></div>
-      <div class="card-titulo"><h3 title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>${botaoAprovar(p.aprovado)}${botaoRecusar(p)}</div>
+      <div class="card-titulo"><h3 title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>
+        ${f.url ? `<a class="botao-icone pequeno" href="${esc(f.url)}" target="_blank" rel="noopener" title="Abrir o reel original">↗</a>` : ''}${botaoAprovar(p.aprovado)}${botaoRecusar(p)}</div>
       <div class="card-pe">${chipCodigo(codigo, p.nome)}<span class="dica">Efeito · o render ainda não aplica</span></div>
     </article>`
 }
-/** Toca a prévia de um efeito (muda ou com som); devolve a função que para. */
+/** Toca os dois vídeos de um efeito juntos (a referência com ou sem som, a recriação muda); devolve a função que para. */
 function tocarPrevia(v, comSom) {
+  const s = v.closest('.mini')?.querySelector('.v-sim')
   v.muted = !comSom
-  v.currentTime = 0
-  v.play().catch(() => {
-    v.muted = true
-    v.play().catch(() => {})
-  })
+  for (const x of [v, s]) {
+    if (!x) continue
+    x.currentTime = 0
+    x.play().catch(() => {
+      x.muted = true
+      x.play().catch(() => {})
+    })
+  }
   return () => {
-    v.pause()
-    v.currentTime = 0.6
+    for (const x of [v, s]) if (x) (x.pause(), (x.currentTime = 1.2))
   }
 }
 
@@ -650,7 +654,7 @@ async function presets(el) {
     const mini = $('.mini', c)
     mini.addEventListener('mouseenter', () => !atual?.comSom && tocarCard(c, false))
     mini.addEventListener('mouseleave', () => atual?.card === c && !atual.comSom && pararCard())
-    mini.addEventListener('click', (e) => !e.target.closest('[data-link-ref]') && (atual?.card === c && atual.comSom ? pararCard() : tocarCard(c, true)))
+    mini.addEventListener('click', () => (atual?.card === c && atual.comSom ? pararCard() : tocarCard(c, true)))
     fora.observe(c)
   }
   const desenhar = () => {

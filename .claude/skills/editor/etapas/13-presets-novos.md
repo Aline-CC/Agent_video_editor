@@ -80,6 +80,8 @@ Quando o criador pede para copiar um efeito de um reel (lettering, antes e depoi
 movimento de insert: meça quadro a quadro (pausa com `v.onplay=()=>v.pause()`, pixels pelo canvas do vídeo), recrie num
 script sobre um trecho da gravação dele, compare lado a lado com a referência e só então grave. Fica em
 `biblioteca/presets/<id>.json` com `tipo: "efeito"`, `nome`, `descricao` (as medidas), `fontes` (`url`, `inicio`, `fim`),
-`previa` e `gif` (em `presets/efeitos/`), `script` (em `presets/efeitos/scripts/`, com o `comum.py`), `aprovado: false`.
-A página Presets mostra a prévia e o link do reel; `presets.py` não os lista (o render ainda não os aplica: ligar um
+`previa` e `gif` (o efeito na gravação atual do criador) e `simulacao` e `gif_simulacao` (o mesmo script com `SIM=1`:
+as mídias do banco, via `banco_sim.py`), todos em `presets/efeitos/`; `script` (em `presets/efeitos/scripts/`, com o
+`comum.py` e o `banco_sim.py`), `aprovado: false`. A página Presets mostra referência (a prévia) e recriação (a
+simulação) tocando juntas, como os outros presets, e o link do reel no título; `presets.py` não os lista (o render ainda não os aplica: ligar um
 efeito ao render é trabalho à parte, com o ok do criador).
