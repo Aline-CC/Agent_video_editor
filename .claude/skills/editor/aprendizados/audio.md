@@ -12,6 +12,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 - **[técnica] Som junto da ação.** Som de apoio (tecla, clique) começa quando a ação aparece na tela, nunca antes: a
   digitação soa só enquanto as letras aparecem. _mvi-0717 · 2026-10-12_
+- **[técnica]** Eco de sala na voz: o isolador de voz da ElevenLabs tira (a limpeza DeepFilterNet não). A chave do `.env` precisa da permissão Audio Isolation, e o recurso tem custo: pergunte antes. _cta-vsl-ext · chat · 2026-10-18_
+
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
 
 - **[gosto]** O áudio de outra gravação (o CTA) soa igual ao da gravação principal: equalize uma pela outra (espectro médio da voz). _ficha-personagem-ia·v6.2 · 2026-10-15_

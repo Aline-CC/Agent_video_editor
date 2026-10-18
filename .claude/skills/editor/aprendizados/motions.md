@@ -24,3 +24,4 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
 
 - **[gosto]** Card de motion centralizado na tela quando não há título embaixo (`ficha-card`: campo `centro`). _cta-lp-ext·v8 c2 · 2026-10-15_
+- **[gosto]** Inconsistência: X vermelho grande (metade da foto) sobre as imagens erradas (`ficha-card`, marca `xs` + `tamanho_x`), ou o comparativo: a grade parada num card e duas fotos de rostos diferentes vindo para a frente, ampliadas, uma em cima da outra (`card-comparativo`). _gpt-image-glow·v3 c17, v11 c2–c4, v16 c3, v29 c2 · 2026-10-18_

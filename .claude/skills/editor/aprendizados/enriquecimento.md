@@ -11,6 +11,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   Instagram (fora da faixa da interface no topo); o ator fica da metade para baixo. _3-coisas-fai · 2026-10-14_
 - **[gosto] Zoom em imagem: suave, constante, do centro.** ~3%/s (ajuste "Zoom lento"), a partir do centro da imagem;
   nada de pulo, degrau ou imagem andando. _3-coisas-fai · 2026-10-14_
+- **[gosto]** Full ator com zoom seco: o rosto centralizado na tela (amplia até 1,4× se precisar) — corrigido em `render/src/pagina.ts` e `montagem/exportacao.py`. _gpt-image-glow·v3 c6, v6 c3 · 2026-10-18_
 
 ## Técnicos (do editor)
 
@@ -23,3 +24,5 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto]** A cabeça da criadora nunca é cortada; em todas as telas divididas, o mesmo recorte, com o cabelo saindo pela janela (`recorte.py`). _ficha-personagem-ia·v2, v6.7 · 2026-10-15_
 - **[gosto]** A mídia nunca é cortada para preencher a tela (cabeça cortada, vídeo cortado, fluxo recortado): mídia inteira e maior (ex.: `largura` 1.3 no Corte seco). Na gravação de um Space, use o trecho com a câmera afastada, em que o fluxo aparece inteiro, não o passeio ampliado com os nós cortados em cima e embaixo. _ficha-personagem-ia·v3, v4, v6.4; cta-lp-ext·v4 c5; gpt-image-glow·v16 c2, c5 · 2026-10-15_
 - **[gosto]** Fundo preto atrás dos cards (reforça o de cima). _ficha-personagem-ia·v4 · 2026-10-15_
+- **[gosto]** Fluxo de Space na altura toda da tela: só as laterais saem, nunca em cima e embaixo. _gpt-image-glow·v16 c2, c5; chat · 2026-10-18_
+- **[gosto]** Imagem com pessoa e produto: cabeça e produto inteiros; reduza a imagem se precisar. _gpt-image-glow·v29 c1 · 2026-10-18_

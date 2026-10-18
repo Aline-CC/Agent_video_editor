@@ -30,6 +30,8 @@ _Nenhum ainda._
   sombra): confira na folha de contato antes de mexer. _1º teste · 2026-10-10_
 - Nunca rode o render (ou algo que use multiprocessing) por `python -` (stdin): os processos-filho entram em laço e a
   máquina trava. Use um arquivo com `if __name__ == '__main__'`. _1º teste_
+- **[defeito] Zoom seco cortava sempre pela esquerda.** Com o tamanho mudando no meio do vídeo, o crop perdia a posição — corrigido com o zoompan em `montagem/exportacao.py`. _gpt-image-glow · 2026-10-18_
+
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica
 
 - **[gosto] Cor.** Parte da gravação, com ajuste leve: pele natural sem magenta, fundo cinza neutro, contraste meio-termo (nem lavado, nem forte). LUTs aprovadas: `lp-ext-ref2`, `vsl-ext-ref-lp`. _ficha-personagem-ia·v6.6, v6.9; cta-lp-ext·v1 c1, v4 c1; chat · 2026-10-15_

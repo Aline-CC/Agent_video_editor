@@ -17,6 +17,8 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto] Fluxo do Magnific: gravar a tela.** Abra o Space e grave a tela passeando pelos nós, mostrando o fluxo
   completo e os modelos de geração (a lista de modelos aberta), acelerado para caber no trecho. _3-coisas-fai · 2026-10-14_
 - **[gosto] Mesmo cenário e mesma modelo numa sequência.** As imagens de uma mesma sequência vêm do mesmo ensaio. _3-coisas-fai · 2026-10-14_
+- **[gosto] Banco sem repetição.** No banco fica só a mídia inteira (a imagem ou o vídeo original); recorte, enquadramento e trecho são feitos na edição. _chat · 2026-10-18_
+- **[gosto] Nome e tag.** O nome da mídia não leva o nome do projeto nem o número do plano; as criações levam a tag `criações/<produto>`. _chat · 2026-10-18_
 
 ## Técnicos (do editor)
 
