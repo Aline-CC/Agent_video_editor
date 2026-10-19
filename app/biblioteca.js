@@ -565,15 +565,15 @@ function tocarPar(v, f, { comSom, rep }) {
 }
 
 /** Um efeito copiado de um reel (tipo `efeito`: vídeos + script, sem receita para o motor), no formato dos outros
- *  presets: à esquerda a referência (o efeito na gravação atual do criador), à direita a recriação com as mídias do
- *  banco; o link do reel original fica no nome. */
+ *  presets: à esquerda o trecho do reel (`clipe_ref`, com o som dele), à direita a recriação na gravação do criador
+ *  (`previa`); o link do reel original fica no nome. */
 function cardEfeito(p, codigo) {
   const f = p.fontes?.[0] || {}
-  const sim = p.simulacao || p.previa
+  const ref = p.clipe_ref || p.previa
   return `<article class="card-preset card-efeito" data-id="${p.id}">
       <div class="mini mini-par" title="Clique para tocar com som">
-        <div class="lado"><video class="v-ref" playsinline loop preload="metadata" src="/biblioteca/presets/${p.previa}#t=1.2"></video><span class="sem-clipe">sem vídeo</span><span class="rotulo">Referência</span></div>
-        <div class="lado"><video class="v-sim" muted playsinline loop preload="metadata" src="/biblioteca/presets/${sim}#t=1.2"></video><span class="rotulo">Recriação</span></div>
+        <div class="lado"><video class="v-ref" playsinline loop preload="metadata" src="/biblioteca/presets/${ref}#t=0.3"></video><span class="sem-clipe">sem clipe</span><span class="rotulo">Referência</span></div>
+        <div class="lado"><video class="v-sim" muted playsinline loop preload="metadata" src="/biblioteca/presets/${p.previa}#t=1.2"></video><span class="rotulo">Recriação</span></div>
         <span class="selo ${p.aprovado ? 'selo-menta' : 'selo-coral'}">${p.aprovado ? 'Aprovado' : 'A revisar'}</span>
         <span class="video-tocar">${ICONE.tocar}</span></div>
       <div class="card-titulo"><h3 title="${esc(p.descricao || p.nome)}">${esc(p.nome)}</h3>
@@ -594,7 +594,7 @@ function tocarPrevia(v, comSom) {
     })
   }
   return () => {
-    for (const x of [v, s]) if (x) (x.pause(), (x.currentTime = 1.2))
+    for (const x of [v, s]) if (x) (x.pause(), (x.currentTime = x === v ? 0.3 : 1.2))
   }
 }
 
