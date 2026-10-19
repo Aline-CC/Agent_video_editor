@@ -82,6 +82,7 @@ script sobre um trecho da gravação dele, compare lado a lado com a referência
 `biblioteca/presets/<id>.json` com `tipo: "efeito"`, `nome`, `descricao` (as medidas), `fontes` (`url`, `inicio`, `fim`),
 `previa` e `gif` (o efeito na gravação atual do criador) e `simulacao` e `gif_simulacao` (o mesmo script com `SIM=1`:
 as mídias do banco, via `banco_sim.py`), todos em `presets/efeitos/`; `script` (em `presets/efeitos/scripts/`, com o
-`comum.py` e o `banco_sim.py`), `aprovado: false`. A página Presets mostra referência (a prévia) e recriação (a
-simulação) tocando juntas, como os outros presets, e o link do reel no título; `presets.py` não os lista (o render ainda não os aplica: ligar um
-efeito ao render é trabalho à parte, com o ok do criador).
+`comum.py` e o `banco_sim.py`), `clipe_ref` (o trecho do reel, `presets/efeitos/<id>_ref.mp4`), `aprovado: false`. A
+página Presets mostra o trecho do reel à esquerda e a recriação na gravação do criador (`previa`) à direita, tocando
+juntas, e o link do reel no título; `presets.py` não os lista (o render ainda não os aplica: ligar um efeito ao render
+é trabalho à parte, com o ok do criador).
