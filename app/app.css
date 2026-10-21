@@ -406,6 +406,9 @@ article h3, a h3 { margin-top: 12px; font-size: 15px; font-weight: 600; letter-s
 .palco { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 32px; padding: 24px 24px 16px; min-height: 0; }
 .video-caixa { position: relative; height: 100%; aspect-ratio: 9 / 16; border-radius: var(--radius-xl); overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--color-line-dark); }
 .video-caixa video { width: 100%; height: 100%; object-fit: contain; display: block; cursor: pointer; }
+/* vídeo horizontal: a janela deitada, na proporção do vídeo, ocupando a coluna do meio (mais larga) */
+.palco.deitado { grid-template-columns: minmax(160px, 0.7fr) minmax(0, 3fr) minmax(160px, 0.7fr); }
+.video-caixa.deitado { width: 100%; height: auto; max-height: 100%; align-self: center; justify-self: center; }
 .video-caixa .video-tocar { pointer-events: none; opacity: 0; }
 .video-caixa:hover .video-tocar:not(.escondido) { opacity: 0.9; }
 .lado { display: flex; flex-direction: column; gap: 24px; min-width: 0; padding-top: 4px; }

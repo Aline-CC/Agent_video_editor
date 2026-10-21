@@ -1,7 +1,7 @@
 // A Calibragem: os Reels já editados do criador (as referências). A IA descobre como cada um foi dirigido; aqui ele sobe
 // os vídeos, acompanha a análise e revisa a direção de cada um (planos-base, elementos, marcação). Cada referência
 // revisada vira um roteiro de exemplo que o Claude lê antes de dirigir (ferramentas/calibragem.py regenera sozinho).
-import { $, $$, ELEMENTOS, ICONE, PLANOS, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, preferencia, tempo, tocarTrecho, urlRef } from './comum.js'
+import { $, $$, ELEMENTOS, ICONE, janelaDoVideo, PLANOS, ajuda, aviso, chipCodigo, codigos, confirmar, dataHora, enviar, esc, modalAberto, mmss, nomePlano, num, preferencia, tempo, tocarTrecho, urlRef } from './comum.js'
 import { botaoCategorias, carregarCategorias, editarCategorias, pilulasCategoria, seletorCategoria } from './categorias.js'
 
 const STATUS = {
@@ -814,6 +814,7 @@ class RevisaoReferencia {
 
   ligar() {
     const v = this.video
+    v.addEventListener('loadedmetadata', () => janelaDoVideo(v))
     v.addEventListener('loadedmetadata', () => {
       if (isFinite(v.duration) && !this.ref.video?.duracao) {
         this.dur = v.duration

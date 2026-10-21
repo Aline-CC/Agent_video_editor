@@ -23,6 +23,15 @@ export async function enviar(metodo, url, corpo) {
 }
 
 /** Os nomes de uma pasta pública (pastas terminam em "/"). */
+/** A janela do player na proporção do vídeo: deitada quando o vídeo é horizontal (a coluna do meio do palco alarga). */
+export function janelaDoVideo(v) {
+  const caixa = v.closest('.video-caixa')
+  const deitado = v.videoWidth > v.videoHeight
+  caixa?.classList.toggle('deitado', deitado)
+  caixa?.closest('.palco')?.classList.toggle('deitado', deitado)
+  if (caixa) caixa.style.aspectRatio = v.videoWidth && v.videoHeight ? `${v.videoWidth} / ${v.videoHeight}` : ''
+}
+
 export const lista = (pasta) => json(`/api/lista?pasta=${encodeURIComponent(pasta)}`, [])
 
 export const esc = (s) =>

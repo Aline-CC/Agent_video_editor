@@ -1,7 +1,7 @@
 // A revisão de uma versão: o player do proxy, a linha do tempo (planos, fala, comentários e dúvidas do Claude) e os
 // comentários do criador, gravados sozinhos em projetos/<slug>/revisoes/vN.json (o Claude responde no mesmo arquivo).
 import { carregarMarcaveis, htmlComMencoes, seDigitouArroba } from './mencoes.js'
-import { $, $$, ICONE, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, preferencia, tempo } from './comum.js'
+import { $, $$, ICONE, janelaDoVideo, abrirAba, agora, aviso, chipCodigo, codigos, confirmar, copiar, dataHora, esc, fecharAba, janela, json, mmss, modalAberto, nomePlano, num, PLANOS, preferencia, tempo } from './comum.js'
 
 const QUADRO = 1 / 24
 const VELOCIDADES = [0.5, 1, 1.5, 2]
@@ -989,6 +989,7 @@ class Revisao {
     // volta ao instante onde o criador estava nesta versão (ao trocar de página e voltar, ou recarregar)
     const onde = preferencia(`posicao.${this.slug}.v${this.v}`, 0)
     v.addEventListener('loadedmetadata', () => onde > 0 && this.buscar(onde), { once: true })
+    v.addEventListener('loadedmetadata', () => janelaDoVideo(v))
     v.addEventListener('loadedmetadata', () => {
       if (isFinite(v.duration) && Math.abs(v.duration - this.dur) > 0.05) {
         this.dur = v.duration
