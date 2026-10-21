@@ -57,6 +57,8 @@ um trecho de referência: `etapas/13-presets-novos.md`.
 
 - **Aprenda com o passado:** antes de cada etapa, leia o `aprendizados/<área>.md` dela (a etapa diz qual). São as
   correções do criador em vídeos anteriores, com exemplos em `aprendizados/imagens/`: não as repita. Subagentes também.
+- **Contexto da campanha:** num projeto de categoria com `exemplos/<categoria>/contexto.md` (ex.: `black`), leia-o antes
+  de tudo e atualize o Estado dele ao entregar.
 - **Paralelize** o que não depende do resto (subagentes em segundo plano para inserts e motions; comandos independentes
   no mesmo turno). Não espere à toa: enquanto um subagente busca, faça outra etapa.
 - **Códigos**: quando o criador citar um código (`PRE-07`, `BAN-012.2`, `REF-03·p7`, `PRJ-02·v3`…), resolva com
