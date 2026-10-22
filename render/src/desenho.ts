@@ -130,7 +130,9 @@ export function fundo(id: string, chave = 'fundo'): V {
 /** Um vídeo do banco parado no quadro do instante (um trecho toca o original do início ao fim dele, na velocidade dele).
  *  Uma mídia mais curta que o insert fica parada no último quadro. `topo`: cortada, mostra a parte de cima (mídias em pé). */
 function videoNoTempo(m: MidiaLigada, item: ItemBanco, rel: number, topo?: boolean): V {
-  const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1), item.fim ?? Infinity)
+  // +15 ms: mira o meio do quadro (com o tempo exato na fronteira entre dois quadros, o vídeo às vezes mostra o anterior
+  // e o quadro sai repetido: o zoom e os movimentos "travam" em degraus); 15 ms fica dentro do quadro a 24, 30 e 60 q/s
+  const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1) + 0.015, item.fim ?? Infinity)
   return {
     chave: `m:${m.id}`,
     tag: 'video',
@@ -150,11 +152,23 @@ function videoNoTempo(m: MidiaLigada, item: ItemBanco, rel: number, topo?: boole
   }
 }
 
+/** A mídia só com a parte do `recorte` do trecho, esticada na caixa (o recorte tem a proporção da caixa). */
+function recortada(v: V, r: [number, number, number, number]): V {
+  const [x0, y0, x1, y1] = r
+  const w = x1 - x0, h = y1 - y0
+  return {
+    chave: `${v.chave}:r`,
+    classe: 'size-full overflow-hidden',
+    estilo: { position: 'relative' },
+    filhos: [{ ...v, classe: 'absolute', estilo: { maxWidth: 'none', width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-x0 / w) * 100}%`, top: `${(-y0 / h) * 100}%`, objectFit: 'fill' } }],
+  }
+}
+
 /** Uma mídia do banco no instante (vídeo parado no quadro, ou imagem); também a do print sobreposto (`elementos.ts`). */
 export function midia(m: MidiaLigada | undefined, banco: Map<string, ItemBanco>, rel: number, topo?: boolean): V | null {
   if (!m) return null
   const item = banco.get(m.banco)
-  if (item?.tipo === 'video') return videoNoTempo(m, item, rel, topo)
+  if (item?.tipo === 'video') return item.recorte ? recortada(videoNoTempo(m, item, rel, topo), item.recorte) : videoNoTempo(m, item, rel, topo)
   return {
     chave: `m:${m.id}`,
     tag: 'img',

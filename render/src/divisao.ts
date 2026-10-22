@@ -55,7 +55,9 @@ export function divisaoDe(
   // vários cards (empilhados, em sequência, mosaico): a área fica fixa e cada card se ajusta à sua mídia (receitaParaInsert)
   const varios = !!preset && (preset.receita.repete || preset.receita.cards.length > 1)
   if (varios && tipo !== 'area') return { modo: tipo === 'atras' ? 'atras' : 'metade', tipo, f: tipo === 'atras' ? JANELA.y0 / 100 : 0.56 }
-  if (tipo === 'area') return { modo: 'metade', tipo, f: a < 1 ? 0.5 : Math.min(Math.max(W_H / a, 0.28), 0.5625) }
+  // `enriquecimento.altura` (fração do quadro) fixa a área no insert, cortando as laterais (ex.: igual ao plano anterior)
+  const altura = (x.enriquecimento as { altura?: number } | undefined)?.altura
+  if (tipo === 'area') return { modo: 'metade', tipo, f: altura ?? (a < 1 ? 0.5 : Math.min(Math.max(W_H / a, 0.28), 0.5625)) }
   const livre = tipo === 'atras' ? JANELA.y0 / 100 : 0.62 // a altura máxima da área do insert
   let cw = 0.9 // largura do card, fração do quadro
   let ch = (cw * W_H) / a // altura do card, fração do quadro

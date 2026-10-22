@@ -11,6 +11,13 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
   Instagram (fora da faixa da interface no topo); o ator fica da metade para baixo. _3-coisas-fai · 2026-10-14_
 - **[gosto] Zoom em imagem: suave, constante, do centro.** ~3%/s (ajuste "Zoom lento"), a partir do centro da imagem;
   nada de pulo, degrau ou imagem andando. _3-coisas-fai · 2026-10-14_
+  Vale também para presets com movimento próprio depois da entrada (ex.: PRE-01 · Sobe desfocado, que por padrão
+  continua subindo): ponha `ajustes.camera: "Leve"` (zoom do centro, sem andar). E use o trecho da gravação de site já
+  parado, depois da animação de carregamento da página. _black-v8·v11 · 2026-10-22_
+- **[gosto] Zoom nunca trava.** O zoom "Leve" do render ainda anda aos degraus e as mídias a 30 q/s tropeçam no
+  vídeo a 24 q/s. Para todo insert: uma versão a 24 q/s com o zoom suave do centro já no arquivo (~3%/s, subpixel),
+  e `camera: "Parado"` no render; motions e comparativos feitos à mão, gerados direto a 24 q/s. Vale para todos os
+  vídeos, sem ela precisar pedir de novo. _3-niveis-7-dias·v1 (pedido repetido dos Black) · 2026-10-22_
 - **[gosto]** Full ator com zoom seco: o rosto centralizado na tela (amplia até 1,4× se precisar) — corrigido em `render/src/pagina.ts` e `montagem/exportacao.py`. _gpt-image-glow·v3 c6, v6 c3 · 2026-10-18_
 
 ## Técnicos (do editor)

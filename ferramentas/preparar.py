@@ -29,7 +29,7 @@ import enquadramento  # noqa: E402
 import rosto  # noqa: E402
 import voz  # noqa: E402
 from base import PROJETOS, env, gravar_json, inspecionar  # noqa: E402
-from transcricao import extrair_audio, silencios, transcrever  # noqa: E402
+from transcricao import extrair_audio, silencios, transcrever_local  # noqa: E402
 
 ROTULOS = {'enquadramento': 'enquadramento 9:16', 'proxy': 'proxy 720p e rosto', 'audio': 'áudio e silêncios',
            'transcricao': 'transcrição', 'voz': 'voz limpa (Leve)', 'nivel': 'nível da voz'}
@@ -197,10 +197,10 @@ def preparar(video: Path, nome: str, pasta: Path, briefing: str | None) -> None:
         ex.passo('audio', audio)
 
         def transcricao():
-            palavras = transcrever(pasta / 'audio.wav')
+            palavras = transcrever_local(pasta / 'audio.wav')  # a criadora não paga transcrição (2026-10-21): whisper local
             if not palavras:
                 raise Recusa('Não encontrei fala neste vídeo: a transcrição não achou nenhuma palavra. O editor precisa da fala para cortar.')
-            gravar_json(pasta / 'transcricao.json', {'motor': 'elevenlabs', 'palavras': palavras})
+            gravar_json(pasta / 'transcricao.json', {'motor': 'whisper-local', 'palavras': palavras})
             res['palavras'] = len(palavras)
             return {'resumo': f'{len(palavras)} palavras'}
         ex.passo('transcricao', transcricao)

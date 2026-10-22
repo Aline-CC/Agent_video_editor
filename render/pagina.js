@@ -772,7 +772,8 @@
     const a = i?.largura && i?.altura ? i.largura / i.altura : 16 / 9;
     const varios = !!preset && (preset.receita.repete || preset.receita.cards.length > 1);
     if (varios && tipo !== "area") return { modo: tipo === "atras" ? "atras" : "metade", tipo, f: tipo === "atras" ? JANELA.y0 / 100 : 0.56 };
-    if (tipo === "area") return { modo: "metade", tipo, f: a < 1 ? 0.5 : Math.min(Math.max(W_H / a, 0.28), 0.5625) };
+    const altura = x.enriquecimento?.altura;
+    if (tipo === "area") return { modo: "metade", tipo, f: altura ?? (a < 1 ? 0.5 : Math.min(Math.max(W_H / a, 0.28), 0.5625)) };
     const livre = tipo === "atras" ? JANELA.y0 / 100 : 0.62;
     let cw = 0.9;
     let ch = cw * W_H / a;
@@ -1285,7 +1286,7 @@
     };
   }
   function videoNoTempo(m, item, rel, topo) {
-    const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1), item.fim ?? Infinity);
+    const alvo = Math.min((item.inicio ?? 0) + rel * (item.velocidade || 1) + 0.015, item.fim ?? Infinity);
     return {
       chave: `m:${m.id}`,
       tag: "video",
@@ -1304,10 +1305,20 @@
       }
     };
   }
+  function recortada(v, r) {
+    const [x0, y0, x1, y1] = r;
+    const w = x1 - x0, h = y1 - y0;
+    return {
+      chave: `${v.chave}:r`,
+      classe: "size-full overflow-hidden",
+      estilo: { position: "relative" },
+      filhos: [{ ...v, classe: "absolute", estilo: { maxWidth: "none", width: `${100 / w}%`, height: `${100 / h}%`, left: `${-x0 / w * 100}%`, top: `${-y0 / h * 100}%`, objectFit: "fill" } }]
+    };
+  }
   function midia(m, banco, rel, topo) {
     if (!m) return null;
     const item = banco.get(m.banco);
-    if (item?.tipo === "video") return videoNoTempo(m, item, rel, topo);
+    if (item?.tipo === "video") return item.recorte ? recortada(videoNoTempo(m, item, rel, topo), item.recorte) : videoNoTempo(m, item, rel, topo);
     return {
       chave: `m:${m.id}`,
       tag: "img",
@@ -1518,7 +1529,8 @@ ${b}` };
     const linhas = quebrar(e.texto ?? "", CAIXINHA.pergunta, CAIXINHA.w - 0.1, 600);
     const h = (2 * CAIXINHA.padCab + CAIXINHA.cabecalho * 1.2 + 2 * CAIXINHA.pad + linhas.length * CAIXINHA.pergunta * 1.25) / 100;
     const l = e.lugar;
-    const y = l.modo === "metade" ? Math.max(l.f / 2, h / 2 + 0.03) : l.modo === "ator" ? Math.min(CAIXINHA.y, Math.max(olhos(l) - 0.03 - h / 2, h / 2 + 0.05)) : CAIXINHA.y;
+    const fixo = parseFloat((e.estilo ?? "").split("@")[1] ?? "");
+    const y = fixo > 0 ? fixo : l.modo === "metade" ? Math.max(l.f / 2, h / 2 + 0.03) : l.modo === "ator" ? Math.min(CAIXINHA.y, Math.max(olhos(l) - 0.03 - h / 2, h / 2 + 0.05)) : CAIXINHA.y;
     return { linhas, h, y };
   }
   function medidasPrint(e, item) {
@@ -1549,6 +1561,7 @@ ${b}` };
     return { left: "50%", top: `${y * 100}%`, transform: `translate(-50%, -50%) scale(${p.escala})`, opacity: p.opacidade };
   };
   function letteringNoAtor(e, rel) {
+    if (e.estilo?.startsWith("sticker")) return sticker(e);
     const serif = e.estilo?.startsWith("serif");
     const { tam, texto } = lettering(e.texto ?? "", TAM.grande * (serif ? 1.25 : 1));
     const y = Math.min(Math.max(queixo(e.lugar) + 0.08, 0.5), 0.6);
@@ -1598,6 +1611,31 @@ ${b}` };
         textShadow: "0 0.02em 0.12em rgba(0,0,0,0.35)"
       },
       texto
+    };
+  }
+  function sticker(e) {
+    const fixo = parseFloat((e.estilo ?? "").split("@")[1] ?? "");
+    const r = e.lugar.rosto;
+    const y = fixo > 0 ? fixo : r ? Math.min(Math.max(r.cy - r.h / 2 - 0.4 * r.h - 0.035, 0.09), 0.247) : 0.247;
+    return {
+      chave: e.id,
+      classe: "absolute",
+      estilo: {
+        left: "50%",
+        top: `${(y * 100).toFixed(2)}%`,
+        transform: "translate(-50%, -50%)",
+        fontFamily: FONTE,
+        fontWeight: 700,
+        color: "#000",
+        fontSize: "3.3cqh",
+        lineHeight: 1.15,
+        whiteSpace: "pre",
+        textAlign: "center",
+        background: "#fff",
+        padding: "0.32em 0.5em",
+        borderRadius: "0.35em"
+      },
+      texto: e.texto ?? ""
     };
   }
   var estiloLettering = (tam, estilo) => ({

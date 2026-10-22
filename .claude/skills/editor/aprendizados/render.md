@@ -9,6 +9,15 @@ _Nenhum ainda._
 
 ## Técnicos (do editor)
 
+- **[defeito] Zoom em escadinha e quadros repetidos.** O render posicionava o vídeo na fronteira entre dois quadros e
+  repetia quadros; o zoom lento andava em degraus de 1 pixel — corrigido em `render/src/desenho.ts` (+15 ms, o meio do
+  quadro); zoom lento de imagem/site/ingresso vai gerado no próprio arquivo (subpixel, supersampling, 24 q/s). _black-v8·v10–v11 · 2026-10-22_
+- **[defeito] Material acelerado piscando ou travando.** Gravação a 30 q/s num vídeo a 24 pula quadro; os "antes" de
+  camada ligando/desligando viram piscas; mídia mais curta que o plano congela. Gere cada material a 24 q/s, sem os
+  piscas, no tamanho exato do plano. _black-v8, revisão geral · 2026-10-22_
+- **[técnica] Conferência quadro a quadro antes de entregar:** piscas, travas, olho fechado no fim do corte, repetição
+  de fala (cada bloco de fala transcrito separado) e legenda junto com texto em destaque (todos os quadros, 24/s). _toda a Black · 2026-10-22_
+
 - **[técnica] Defeito de render não chega ao criador.** Toda versão passa pelos detectores antes da entrega: quadro
   solto do ator e quadro repetido nas emendas. Se algum acusar, corrija antes de entregar. _mvi-0717 · 2026-10-12_
 - **[técnica] Conferir a correção no vídeo inteiro.** Ao corrigir um defeito de render, confira o vídeo todo, não só
@@ -30,6 +39,9 @@ _Nenhum ainda._
   sombra): confira na folha de contato antes de mexer. _1º teste · 2026-10-10_
 - Nunca rode o render (ou algo que use multiprocessing) por `python -` (stdin): os processos-filho entram em laço e a
   máquina trava. Use um arquivo com `if __name__ == '__main__'`. _1º teste_
+- **[defeito] Dois renders ao mesmo tempo com as mesmas mídias.** Cada render grava `exportacao.tmp.mp4` na pasta do
+  item do banco: dois projetos que usam o mesmo item, renderizados juntos, apagam o arquivo um do outro e o render
+  falha no fim ("Error writing trailer"). Renderize em fila. _3-niveis-7-dias · 2026-10-22_
 - **[defeito] Zoom seco cortava sempre pela esquerda.** Com o tamanho mudando no meio do vídeo, o crop perdia a posição — corrigido com o zoompan em `montagem/exportacao.py`. _gpt-image-glow · 2026-10-18_
 
 ## Anúncios (CTAs) — só para anúncio; Reels têm outra lógica

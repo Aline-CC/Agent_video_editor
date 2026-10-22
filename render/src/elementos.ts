@@ -100,7 +100,9 @@ function medidasCaixinha(e: Elemento) {
   const linhas = quebrar(e.texto ?? '', CAIXINHA.pergunta, CAIXINHA.w - 0.1, 600)
   const h = (2 * CAIXINHA.padCab + CAIXINHA.cabecalho * 1.2 + 2 * CAIXINHA.pad + linhas.length * CAIXINHA.pergunta * 1.25) / 100
   const l = e.lugar
-  const y = l.modo === 'metade' ? Math.max(l.f / 2, h / 2 + 0.03) : l.modo === 'ator' ? Math.min(CAIXINHA.y, Math.max(olhos(l) - 0.03 - h / 2, h / 2 + 0.05)) : CAIXINHA.y
+  // `estilo: 'caixinha@0.73'` no item da direção: o centro numa altura fixa (fração do quadro), onde o criador marcou
+  const fixo = parseFloat((e.estilo ?? '').split('@')[1] ?? '')
+  const y = fixo > 0 ? fixo : l.modo === 'metade' ? Math.max(l.f / 2, h / 2 + 0.03) : l.modo === 'ator' ? Math.min(CAIXINHA.y, Math.max(olhos(l) - 0.03 - h / 2, h / 2 + 0.05)) : CAIXINHA.y
   return { linhas, h, y }
 }
 
@@ -143,6 +145,7 @@ const centrado = (y: number, rel: number) => {
 
 /** O texto grande do Full ator com lettering (e um lettering sobre o ator): branco, centrado logo abaixo do rosto. */
 function letteringNoAtor(e: Elemento, rel: number): V {
+  if (e.estilo?.startsWith('sticker')) return sticker(e)
   const serif = e.estilo?.startsWith('serif')
   const { tam, texto } = lettering(e.texto ?? '', TAM.grande * (serif ? 1.25 : 1))
   const y = Math.min(Math.max(queixo(e.lugar) + 0.08, 0.5), 0.6)
@@ -188,6 +191,27 @@ function lente(e: Elemento, rel: number, y: number): V {
       border: `0.12cqw solid ${LENTE.borda}`, boxShadow: LENTE.sombra, textShadow: '0 0.02em 0.12em rgba(0,0,0,0.35)',
     },
     texto,
+  }
+}
+
+/** O lettering como o texto nativo do Instagram (`estilo: 'sticker'` no item da direção; `'sticker@0.625'` numa altura fixa): caixa branca de cantos
+ *  arredondados com o texto preto em negrito, parada acima da cabeça (no máximo a ~25%) desde o começo, sem animação (medido no
+ *  reel de referência DXeXsRXDDuX: caixa a ~74% da largura, letras a ~3% da altura). */
+function sticker(e: Elemento): V {
+  // acima da cabeça (o alto do cabelo fica ~0,4 rosto acima da testa), nunca acima de 9% (a barra do Instagram)
+  // `sticker@0.625`: numa altura fixa (fração do quadro); sem ela, acima da cabeça
+  const fixo = parseFloat((e.estilo ?? '').split('@')[1] ?? '')
+  const r = e.lugar.rosto
+  const y = fixo > 0 ? fixo : r ? Math.min(Math.max(r.cy - r.h / 2 - 0.4 * r.h - 0.035, 0.09), 0.247) : 0.247
+  return {
+    chave: e.id,
+    classe: 'absolute',
+    estilo: {
+      left: '50%', top: `${(y * 100).toFixed(2)}%`, transform: 'translate(-50%, -50%)',
+      fontFamily: FONTE, fontWeight: 700, color: '#000', fontSize: '3.3cqh', lineHeight: 1.15, whiteSpace: 'pre', textAlign: 'center',
+      background: '#fff', padding: '0.32em 0.5em', borderRadius: '0.35em',
+    },
+    texto: e.texto ?? '',
   }
 }
 

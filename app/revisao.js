@@ -373,7 +373,7 @@ class Revisao {
   htmlNota(n, resp) {
     const ed = this.editor
     let pe
-    if (ed?.responde === n.id) pe = this.htmlEditor()
+    if (ed?.responde != null && ed.responde === n.id) pe = this.htmlEditor()
     else if (resp)
       pe = `<div class="replica"><header class="item-cabeca"><span class="eyebrow">↳ Sua resposta</span>
           <span class="item-acoes"><button class="botao-icone pequeno" data-editar="${resp.id}" title="Editar">${ICONE.lapis}</button>

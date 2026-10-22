@@ -19,6 +19,10 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto] Mesmo cenário e mesma modelo numa sequência.** As imagens de uma mesma sequência vêm do mesmo ensaio. _3-coisas-fai · 2026-10-14_
 - **[gosto] Banco sem repetição.** No banco fica só a mídia inteira (a imagem ou o vídeo original); recorte, enquadramento e trecho são feitos na edição. _chat · 2026-10-18_
 - **[gosto] Nome e tag.** O nome da mídia não leva o nome do projeto nem o número do plano; as criações levam a tag `criações/<produto>`. _chat · 2026-10-18_
+- **[gosto] Gravação de edição (Photoshop e afins) preenche a área inteira, só com a imagem**, sem a interface cinza
+  em volta, e acelerada para a edição aparecer até o fim. _black-v5 a v8 · 2026-10-22_
+- **[gosto] O mesmo curso mostra o mesmo material em todos os vídeos da campanha** (ex.: o Color Grading sempre com o
+  trecho das paletas). _revisão geral Black · 2026-10-22_
 
 ## Técnicos (do editor)
 

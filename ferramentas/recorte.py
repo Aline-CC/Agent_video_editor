@@ -8,7 +8,7 @@ mesmo tempo do bruto. É o que o render usa no "ator embaixo" em janela: a cabe�
 
     uv run ferramentas/recorte.py <slug>
 
-O segmentador de selfie do MediaPipe (local, ~250 KB, baixado para a biblioteca na 1ª vez) roda em cada quadro do bruto
+O segmentador multiclasse do MediaPipe (local, ~16 MB, baixado para a biblioteca na 1ª vez) roda em cada quadro do bruto
 reduzido; a máscara é suavizada no tempo (contra tremor na borda do cabelo) e gravada a 30 quadros/s.
 """
 import subprocess
@@ -21,9 +21,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 from base import BIBLIOTECA, PROJETOS  # noqa: E402
 
-MODELO = BIBLIOTECA / 'modelos' / 'selfie_segmenter.tflite'
-URL_MODELO = ('https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/'
-              'selfie_segmenter.tflite')
+# o multiclasse (fundo, cabelo, pele, roupa…): recorta o cabelo junto e não pega a parede ao lado dele, como o simples
+MODELO = BIBLIOTECA / 'modelos' / 'selfie_multiclass_256x256.tflite'
+URL_MODELO = ('https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/'
+              'selfie_multiclass_256x256.tflite')
 W, H, FPS = 540, 960, 30
 SUAVE = 0.6  # o peso do quadro novo na média móvel (1 = sem suavizar)
 
@@ -57,9 +58,9 @@ def main(slug: str) -> None:
         if len(bruto_q) < W * H * 3:
             break
         img = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.frombuffer(bruto_q, np.uint8).reshape(H, W, 3))
-        conf = seg.segment_for_video(img, int(n * 1000 / FPS)).confidence_masks[0].numpy_view()
+        conf = 1 - seg.segment_for_video(img, int(n * 1000 / FPS)).confidence_masks[0].numpy_view()  # a classe 0 é o fundo
         media = conf if media is None else SUAVE * conf + (1 - SUAVE) * media
-        gravar.stdin.write((np.clip((media - 0.35) / 0.3, 0, 1) * 255).astype(np.uint8).tobytes())
+        gravar.stdin.write((np.clip((media - 0.5) / 0.25, 0, 1) * 255).astype(np.uint8).tobytes())
         n += 1
     gravar.stdin.close()
     gravar.wait()

@@ -54,13 +54,18 @@ def palavras_na_saida(palavras: list[dict], clipes: list[dict]) -> list[dict]:
         acc += dur_saida(c)
     out = []
     for w in palavras:
-        for c, base in posicoes:
-            if w['inicio'] < c['fim'] and w['fim'] > c['inicio']:
-                v = c.get('vel', 1)
-                out.append({**w, 'clipe': (c.get('id'), c['inicio']), 'clipe_saida': round(base, 3), 'saida_ini': round(base + (max(w['inicio'], c['inicio']) - c['inicio']) / v, 3),
-                            'saida_fim': round(base + (min(w['fim'], c['fim']) - c['inicio']) / v, 3)})
-                break
-    return out
+        # o trecho em que a palavra mais toca (com trechos fora da ordem do bruto, uma palavra na emenda pode encostar em dois)
+        toques = [(min(w['fim'], c['fim']) - max(w['inicio'], c['inicio']), k, c, base) for k, (c, base) in enumerate(posicoes) if w['inicio'] < c['fim'] and w['fim'] > c['inicio']]
+        if not toques:
+            continue
+        _, k, c, base = max(toques, key=lambda t: t[0])
+        v = c.get('vel', 1)
+        out.append({**w, '_k': k, '_i': id(w), 'clipe': (c.get('id'), c['inicio']), 'clipe_saida': round(base, 3), 'saida_ini': round(base + (max(w['inicio'], c['inicio']) - c['inicio']) / v, 3),
+                    'saida_fim': round(base + (min(w['fim'], c['fim']) - c['inicio']) / v, 3)})
+    # na ordem dos trechos e, dentro de cada um, na ordem da fala (tempos que se sobrepõem não trocam palavras de lugar)
+    ordem = {id(w): i for i, w in enumerate(palavras)}
+    out.sort(key=lambda w: (w['_k'], ordem.get(w['_i'], 0)))
+    return [{k: v for k, v in w.items() if k not in ('_k', '_i')} for w in out]
 
 
 def saida_do(slug: str, edicao: dict) -> list[dict]:

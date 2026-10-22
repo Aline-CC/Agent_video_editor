@@ -8,6 +8,7 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto] Trilha só instrumental.** Qualquer voz na música (fala, sussurro, vocal sampleado) compete com a fala do
   ator. Antes de usar uma trilha, confirme que ela não tem voz em nenhum trecho (ouça, ou pergunte ao `gemini.py`). _mvi-0717 · 2026-10-12_
 
+
 ## Técnicos (do editor)
 
 - **[técnica] Som junto da ação.** Som de apoio (tecla, clique) começa quando a ação aparece na tela, nunca antes: a
@@ -18,3 +19,5 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 
 - **[gosto]** O áudio de outra gravação (o CTA) soa igual ao da gravação principal: equalize uma pela outra (espectro médio da voz). _ficha-personagem-ia·v6.2 · 2026-10-15_
 - **[defeito]** Com a fala acelerada, o áudio dessincronizava — corrigido em `ferramentas/montagem/audio.py` e `exportacao.py` (cada trecho com a duração exata). _ficha-personagem-ia·v4 · 2026-10-15_
+- **[defeito] Voz adiantada ~50 ms nos brutos do iPhone**: o áudio do arquivo começa depois da imagem e a limpeza
+  perdia esse atraso — corrigido em `ferramentas/voz.py` (`aresample=first_pts=0`). _black-v4·v12 c1, c2 · 2026-10-22_

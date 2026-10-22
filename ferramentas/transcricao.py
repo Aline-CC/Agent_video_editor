@@ -54,3 +54,64 @@ def transcrever(audio: Path) -> list[dict]:
     palavras = [w for w in r.json().get('words', []) if w.get('type') == 'word']
     return [{'id': f'w{i:05d}', 'texto': w['text'].strip(), 'inicio': round(float(w['start']), 3), 'fim': round(float(w['end']), 3)}
             for i, w in enumerate(palavras)]
+
+
+def transcrever_local(audio: Path) -> list[dict]:
+    """A transcrição no próprio Mac, de graça: whisper.cpp (`whisper-cli`, Homebrew) com o modelo small, em português,
+    uma palavra por segmento. Os tempos são mais soltos que os do Scribe (os cortes se prendem às pausas medidas)."""
+    import json
+    import tempfile
+    modelo = Path(__file__).parent.parent / 'biblioteca' / 'modelos' / 'ggml-small.bin'
+    with tempfile.TemporaryDirectory() as d:
+        wav, saida = Path(d) / 'a.wav', Path(d) / 'a'
+        r = subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(audio), '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', str(wav)], capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(r.stderr.strip()[-300:])
+        # `-dtw`: o tempo de cada palavra pelo alinhamento fino (os do segmento escorregam perto de silêncios longos); `-mc 0`: sem o
+        # texto anterior como contexto (com ele, o whisper repete frases que não foram ditas)
+        r = subprocess.run(['whisper-cli', '-m', str(modelo), '-l', 'pt', '-ml', '1', '-sow', '-ojf', '-np', '-nfa', '-dtw', 'small', '-mc', '0',
+                            '-of', str(saida), '-f', str(wav)], capture_output=True, text=True)
+        if r.returncode or not saida.with_suffix('.json').exists():
+            raise RuntimeError(f'whisper-cli falhou: {r.stderr.strip()[-300:]}')
+        segs = json.loads(saida.with_suffix('.json').read_text(encoding='utf-8'))['transcription']
+    palavras = []
+    for s in segs:
+        toks = [t for t in s.get('tokens', []) if not t['text'].startswith('[_') and t.get('t_dtw', -1) >= 0]
+        # o 1º token marca o começo da palavra; o último com letra, quase o fim (a pontuação vem marcada depois da pausa)
+        letras = [t for t in toks if t['text'].strip(' .,!?;:…')]
+        if s['text'].strip() and letras:
+            palavras.append([s['text'].strip(), max(toks[0]['t_dtw'] / 100 - 0.04, 0), letras[-1]['t_dtw'] / 100 + 0.12])
+    for k in range(len(palavras) - 1):  # nunca invade a próxima
+        palavras[k][2] = max(min(palavras[k][2], palavras[k + 1][1]), palavras[k][1] + 0.02)
+    _nos_vales(palavras, audio)
+    return [{'id': f'w{i:05d}', 'texto': t, 'inicio': round(a, 3), 'fim': round(b, 3)} for i, (t, a, b) in enumerate(palavras)]
+
+
+def _nos_vales(palavras: list[list], audio: Path) -> None:
+    """O alinhamento do whisper marca o começo da palavra um pouco tarde (no meio da 1ª sílaba): cada começo recua até o
+    ponto mais baixo do volume logo antes dele (até 0,35 s, sem passar do começo da anterior) e cada fim avança até o
+    mais baixo logo depois (até 0,3 s, sem passar do começo da próxima). Assim os cortes caem no vão entre as palavras."""
+    import numpy as np
+    sr, passo = 16000, 160  # envelope de 10 ms
+    r = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(audio), '-ac', '1', '-ar', str(sr), '-f', 'f32le', '-'], capture_output=True)
+    x = np.frombuffer(r.stdout, np.float32)
+    n = len(x) // passo
+    env = np.convolve(np.sqrt((x[: n * passo].reshape(n, passo) ** 2).mean(1)), np.ones(3) / 3, 'same')
+    q = lambda t: min(max(int(round(t * 100)), 0), n - 1)  # noqa: E731
+    for k, w in enumerate(palavras):
+        lo = q(max(w[1] - 0.35, palavras[k - 1][1] + 0.05 if k else 0))
+        hi = q(w[1])
+        if hi > lo:
+            w[1] = (lo + int(np.argmin(env[lo:hi + 1]))) / 100
+    for k, w in enumerate(palavras):
+        lo = q(w[2])
+        hi = q(min(w[2] + 0.3, palavras[k + 1][1] if k + 1 < len(palavras) else w[2] + 0.3))
+        if hi > lo:
+            w[2] = (lo + int(np.argmin(env[lo:hi + 1]))) / 100
+        quieto = env[q(w[1]):q(w[2]) + 1] < 0.01  # −40 dB: um silêncio de 0,3 s dentro da palavra é o fim dela
+        for i in range(len(quieto) - 30):
+            if quieto[i:i + 30].all():
+                w[2] = (q(w[1]) + i) / 100 + 0.05
+                break
+        w[2] = max(w[2], w[1] + 0.02)
+

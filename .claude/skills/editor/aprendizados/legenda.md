@@ -17,6 +17,14 @@ e não repita estes erros. **[gosto]** = preferência confirmada pelo criador ·
 - **[gosto]** Nunca sobre olhos, nariz ou boca, nem nos inserts e motions com rosto. Vale para todo vídeo (Reels e anúncios). Rode `legenda_rostos.py` em toda versão antes de entregar (pulado no CTA LP ext, a legenda caiu no rosto). _ficha-personagem-ia·v6.7; cta-lp-ext·v4 c6 · 2026-10-15_
 - **[gosto]** Nunca abaixo da área visível do Instagram (80% da altura). Vale para todo vídeo. Limite em `render/src/legenda.ts` e `ferramentas/legenda_rostos.py`. _cta-lp-ext·v8 c2, c3 · 2026-10-15_
 
+- **[gosto] Onde tem texto em destaque, não tem legenda.** Enquanto um texto grande está na tela (texto atrás dela,
+  "10/11 · às 19h", "bônus · exclusivos"…), a legenda some no plano inteiro, não só nas palavras do texto. Vale para todo
+  vídeo. _black-v8·v5 c1 · 2026-10-22_
+  **Nem por um quadro** (regra para sempre, pedida pela criadora): o texto em destaque sai antes do 1º bloco de legenda
+  que aparece depois dele, pelo tempo real do `legenda.json` da versão (`texto_atras.py` já faz). Confira **todos os
+  quadros** (24/s, não amostrado) em cada saída de texto antes de entregar. _black-ultimas-horas·v2–v4 · 2026-10-22_
+- **[gosto] A última palavra do vídeo tem legenda; a assinatura entra depois dela e fica sem legenda.** _black-v2·v14 c1, black-v5·v3 c3 · 2026-10-22_
+
 ## Técnicos (do editor)
 
 - **[defeito] A legenda nunca cobre o conteúdo.** Num insert de tela cheia com mídia horizontal, ela vai abaixo da

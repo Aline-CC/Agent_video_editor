@@ -57,7 +57,9 @@ def limpar(bruto: Path, destino: Path, limpeza: str = 'leve') -> Path:
     entrada = destino.with_name(f'{destino.stem}_original.wav')
     parcial = destino.with_suffix('.parte.wav')
     try:
-        ffmpeg('-i', str(bruto), '-vn', '-af', para_mono(bruto), '-ar', '48000', str(entrada))
+        # `first_pts=0`: o áudio do bruto do celular começa depois do vídeo (ex.: 0,047 s); sem preencher esse início com
+        # silêncio, a voz limpa sai adiantada em relação à boca no vídeo todo (black-v4 v12)
+        ffmpeg('-i', str(bruto), '-vn', '-af', f'aresample=first_pts=0,{para_mono(bruto)}', '-ar', '48000', str(entrada))
         # sem o VIRTUAL_ENV de quem chamou: o uv monta o ambiente do DeepFilterNet sozinho
         env = {k: v for k, v in os.environ.items() if k != 'VIRTUAL_ENV'}
         r = subprocess.run([*DEEPFILTER, str(AUXILIAR), str(entrada), str(parcial), str(LIMPEZAS[limpeza])],
